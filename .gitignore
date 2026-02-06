@@ -7,6 +7,11 @@ dist/
 dist-ssr/
 backend/tmp/
 backend/build/
+backend/bin/
+*.exe
+*-apple-*
+*-linux-*
+*-windows-*
 
 # Environment variables
 .env
