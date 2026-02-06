@@ -1,0 +1,103 @@
+package main
+
+import (
+	"log"
+	"net/http"
+	"os"
+
+	"github.com/cryptomines-online/backend/internal/database"
+	"github.com/cryptomines-online/backend/internal/handlers"
+	"github.com/cryptomines-online/backend/internal/middleware"
+	"github.com/joho/godotenv"
+)
+
+func main() {
+	if err := godotenv.Load(); err != nil {
+		log.Println("No .env file found, using environment variables")
+	}
+
+	if err := database.InitSupabase(); err != nil {
+		log.Fatalf("Failed to initialize database: %v", err)
+	}
+
+	mux := http.NewServeMux()
+
+	// Public routes
+	mux.HandleFunc("GET /api/health", handlers.Health)
+	mux.HandleFunc("POST /api/auth/guest", handlers.GuestAuth)
+	mux.HandleFunc("GET /api/building-types", handlers.ListBuildingTypes)
+
+	// Public reference data (Phase 2)
+	mux.HandleFunc("GET /api/hull-types", handlers.ListHullTypes)
+	mux.HandleFunc("GET /api/module-types", handlers.ListModuleTypes)
+	mux.HandleFunc("GET /api/blueprints", handlers.ListBlueprints)
+
+	// Protected routes (require JWT)
+	protected := http.NewServeMux()
+
+	// Phase 1 - Planet Management
+	protected.HandleFunc("GET /api/player/me", handlers.PlayerMe)
+	protected.HandleFunc("GET /api/planets", handlers.ListPlanets)
+	protected.HandleFunc("GET /api/planets/{id}", handlers.GetPlanet)
+	protected.HandleFunc("GET /api/planets/{id}/buildings", handlers.ListBuildings)
+	protected.HandleFunc("POST /api/planets/{id}/buildings", handlers.ConstructBuilding)
+	protected.HandleFunc("POST /api/planets/{id}/buildings/{buildingId}/upgrade", handlers.UpgradeBuilding)
+	protected.HandleFunc("POST /api/planets/{id}/buildings/{buildingId}/cancel", handlers.CancelUpgrade)
+	protected.HandleFunc("GET /api/planets/{id}/resources", handlers.GetResources)
+	protected.HandleFunc("POST /api/planets/{id}/resources/collect", handlers.CollectResources)
+
+	// Phase 2 - Ship Factory
+	protected.HandleFunc("GET /api/ship-factory", handlers.GetShipFactory)
+	protected.HandleFunc("GET /api/ship-factory/slots", handlers.GetShipFactorySlots)
+	protected.HandleFunc("POST /api/ship-factory/build", handlers.BuildShips)
+	protected.HandleFunc("POST /api/ship-factory/cancel/{slot}", handlers.CancelShipBuild)
+
+	// Phase 2 - Ship Designs
+	protected.HandleFunc("GET /api/ship-designs", handlers.ListShipDesigns)
+	protected.HandleFunc("POST /api/ship-designs", handlers.CreateShipDesign)
+	protected.HandleFunc("PUT /api/ship-designs/{id}", handlers.UpdateShipDesign)
+	protected.HandleFunc("DELETE /api/ship-designs/{id}", handlers.DeleteShipDesign)
+	protected.HandleFunc("GET /api/ship-designs/{id}/stats", handlers.GetDesignStats)
+
+	// Phase 2 - Blueprints (player-specific)
+	protected.HandleFunc("GET /api/blueprints/mine", handlers.ListMyBlueprints)
+	protected.HandleFunc("POST /api/blueprints/{id}/activate", handlers.ActivateBlueprint)
+	protected.HandleFunc("POST /api/blueprints/{id}/research", handlers.ResearchBlueprint)
+
+	// Phase 2 - Fleets
+	protected.HandleFunc("GET /api/fleets", handlers.ListFleets)
+	protected.HandleFunc("POST /api/fleets", handlers.CreateFleet)
+	protected.HandleFunc("PUT /api/fleets/{id}", handlers.UpdateFleet)
+	protected.HandleFunc("DELETE /api/fleets/{id}", handlers.DeleteFleet)
+	protected.HandleFunc("POST /api/fleets/{id}/assign-stack", handlers.AssignStack)
+	protected.HandleFunc("POST /api/fleets/{id}/remove-stack", handlers.RemoveStack)
+	protected.HandleFunc("POST /api/fleets/{id}/move", handlers.MoveFleet)
+	protected.HandleFunc("POST /api/fleets/{id}/recall", handlers.RecallFleet)
+	protected.HandleFunc("POST /api/fleets/{id}/dismiss", handlers.DismissFleet)
+
+	// Phase 2 - Instances
+	protected.HandleFunc("GET /api/instances", handlers.ListInstances)
+	protected.HandleFunc("GET /api/instances/progress", handlers.GetInstanceProgress)
+	protected.HandleFunc("GET /api/instances/{id}", handlers.GetInstance)
+	protected.HandleFunc("POST /api/instances/{id}/attempt", handlers.AttemptInstance)
+
+	// Phase 2 - Spacedock
+	protected.HandleFunc("GET /api/spacedock", handlers.GetSpacedock)
+	protected.HandleFunc("GET /api/spacedock/repairs", handlers.ListRepairs)
+	protected.HandleFunc("POST /api/spacedock/repair", handlers.StartRepair)
+	protected.HandleFunc("POST /api/spacedock/accelerate", handlers.AccelerateRepair)
+
+	mux.Handle("/api/", middleware.Auth(protected))
+
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+
+	handler := middleware.CORS(mux)
+
+	log.Printf("Server starting on :%s", port)
+	if err := http.ListenAndServe(":"+port, handler); err != nil {
+		log.Fatalf("Server failed: %v", err)
+	}
+}

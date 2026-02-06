@@ -1,0 +1,1490 @@
+/* ========================================= */
+/* Phase 2 - Military / Ships / Fleet Styles */
+/* ========================================= */
+
+/* ============ Military Layout ============ */
+
+.military-layout {
+  position: fixed;
+  top: 56px;
+  left: 60px;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  z-index: 50;
+}
+
+.military-canvas {
+  opacity: 0.3;
+}
+
+/* ============ Military Tabs ============ */
+
+.mil-tabs {
+  display: flex;
+  gap: 2px;
+  padding: var(--space-sm) var(--space-lg);
+  background: var(--bg-header);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--border-frame);
+  flex-shrink: 0;
+}
+
+.mil-tab {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: 8px 16px;
+  background: transparent;
+  border: 1px solid var(--border-frame);
+  border-radius: 4px;
+  color: var(--text-dim);
+  font-size: var(--font-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-family: 'Rajdhani', sans-serif;
+}
+
+.mil-tab:hover {
+  background: var(--bg-panel-light);
+  color: var(--text-normal);
+}
+
+.mil-tab.active {
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+  background: rgba(68, 136, 255, 0.1);
+}
+
+.mil-tab-icon {
+  font-size: var(--font-xs);
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--border-frame);
+  border-radius: 3px;
+  font-weight: 700;
+}
+
+.mil-tab.active .mil-tab-icon {
+  background: var(--accent-primary);
+  color: #fff;
+}
+
+.mil-tab-label {
+  display: inline;
+}
+
+.mil-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-lg);
+}
+
+/* ============ Phase 2 Panel Base ============ */
+
+.p2-panel {
+  background: var(--bg-panel);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border-frame);
+  border-radius: 8px;
+  font-family: 'Rajdhani', 'Segoe UI', system-ui, sans-serif;
+  max-width: 900px;
+}
+
+.p2-panel-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-md) var(--space-lg);
+  border-bottom: 1px solid var(--border-frame);
+}
+
+.p2-panel-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.sf-icon { background: #ff4444; color: #fff; }
+.design-icon { background: #44aaff; color: #fff; }
+.bp-icon { background: #cc88ff; color: #fff; }
+.fleet-icon { background: #ffaa22; color: #000; }
+.inst-icon { background: #ff6644; color: #fff; }
+.dock-icon { background: #44ccff; color: #000; }
+
+.p2-panel-title {
+  font-size: var(--font-lg);
+  font-weight: 700;
+  color: var(--text-bright);
+}
+
+.p2-panel-subtitle {
+  font-size: var(--font-sm);
+  color: var(--text-dim);
+}
+
+.p2-panel-loading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-xxl);
+  justify-content: center;
+  color: var(--text-dim);
+  font-family: 'Rajdhani', sans-serif;
+}
+
+.p2-panel-error {
+  padding: var(--space-xxl);
+  text-align: center;
+  color: var(--accent-danger);
+  font-family: 'Rajdhani', sans-serif;
+}
+
+/* ============ Phase 2 Section ============ */
+
+.p2-section {
+  padding: var(--space-md) var(--space-lg);
+  border-bottom: 1px solid var(--border-frame);
+}
+
+.p2-section:last-child {
+  border-bottom: none;
+}
+
+.p2-section-title {
+  font-size: var(--font-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--text-label);
+  margin-bottom: var(--space-sm);
+  font-weight: 600;
+}
+
+.p2-empty-state {
+  padding: var(--space-lg);
+  text-align: center;
+  color: var(--text-dim);
+  font-size: var(--font-sm);
+}
+
+.p2-error-msg {
+  padding: var(--space-sm) var(--space-lg);
+  color: var(--accent-danger);
+  font-size: var(--font-sm);
+  border-bottom: 1px solid var(--border-frame);
+}
+
+/* ============ Phase 2 Buttons ============ */
+
+.p2-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  font-size: var(--font-sm);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: box-shadow 0.2s, transform 0.1s, opacity 0.15s;
+  font-family: 'Rajdhani', sans-serif;
+  white-space: nowrap;
+}
+
+.p2-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.p2-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.p2-btn-primary {
+  background: linear-gradient(135deg, #2255bb, var(--accent-primary));
+  color: #fff;
+}
+
+.p2-btn-primary:hover:not(:disabled) {
+  box-shadow: var(--glow-blue);
+}
+
+.p2-btn-success {
+  background: linear-gradient(135deg, #1a6633, var(--accent-success));
+  color: #fff;
+}
+
+.p2-btn-success:hover:not(:disabled) {
+  box-shadow: var(--glow-green);
+}
+
+.p2-btn-danger {
+  background: linear-gradient(135deg, #882222, var(--accent-danger));
+  color: #fff;
+}
+
+.p2-btn-danger:hover:not(:disabled) {
+  box-shadow: 0 0 12px rgba(255, 68, 68, 0.4);
+}
+
+.p2-btn-secondary {
+  background: var(--border-frame);
+  color: var(--text-normal);
+}
+
+.p2-btn-sm {
+  padding: 4px 10px;
+  font-size: var(--font-xs);
+}
+
+.p2-btn-xs {
+  padding: 2px 8px;
+  font-size: var(--font-xs);
+}
+
+.p2-btn-full {
+  width: 100%;
+  display: block;
+  margin-top: var(--space-md);
+}
+
+/* ============ Phase 2 Forms ============ */
+
+.p2-form-group {
+  margin-bottom: var(--space-md);
+}
+
+.p2-label {
+  display: block;
+  font-size: var(--font-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-label);
+  margin-bottom: var(--space-xs);
+  font-weight: 600;
+}
+
+.p2-input, .p2-select {
+  width: 100%;
+  padding: 8px 10px;
+  background: var(--bg-deep);
+  border: 1px solid var(--border-frame);
+  border-radius: 4px;
+  color: var(--text-bright);
+  font-size: var(--font-base);
+  font-family: 'Rajdhani', sans-serif;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.p2-input:focus, .p2-select:focus {
+  border-color: var(--accent-primary);
+}
+
+.p2-input-sm {
+  width: 100px;
+}
+
+.p2-select option {
+  background: var(--bg-panel-solid);
+  color: var(--text-bright);
+}
+
+/* ============ Phase 2 Tabs ============ */
+
+.p2-tabs {
+  display: flex;
+  gap: 2px;
+  padding: var(--space-sm) var(--space-lg);
+  border-bottom: 1px solid var(--border-frame);
+}
+
+.p2-tab {
+  padding: 6px 12px;
+  background: transparent;
+  border: 1px solid var(--border-frame);
+  border-radius: 4px;
+  color: var(--text-dim);
+  font-size: var(--font-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: 'Rajdhani', sans-serif;
+}
+
+.p2-tab:hover {
+  background: var(--bg-panel-light);
+  color: var(--text-normal);
+}
+
+.p2-tab.active {
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+  background: rgba(68, 136, 255, 0.1);
+}
+
+/* ============ Phase 2 Modal ============ */
+
+.p2-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  z-index: 400;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 0.2s ease-out;
+  font-family: 'Rajdhani', 'Segoe UI', system-ui, sans-serif;
+}
+
+.p2-modal {
+  background: var(--bg-panel-solid);
+  border: 1px solid var(--border-glow);
+  border-radius: 8px;
+  max-height: 85vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 0 40px rgba(51, 102, 204, 0.2);
+  animation: modalIn 0.2s ease-out;
+}
+
+.p2-modal-sm { width: 480px; max-width: 95vw; }
+.p2-modal-md { width: 600px; max-width: 95vw; }
+.p2-modal-lg { width: 860px; max-width: 95vw; }
+
+.p2-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-md) var(--space-lg);
+  border-bottom: 1px solid var(--border-frame);
+}
+
+.p2-modal-title {
+  font-size: var(--font-lg);
+  font-weight: 700;
+  color: var(--text-bright);
+}
+
+.p2-modal-close {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid var(--border-frame);
+  border-radius: 4px;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 14px;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.p2-modal-close:hover {
+  border-color: var(--accent-danger);
+  color: var(--accent-danger);
+}
+
+.p2-modal-body {
+  padding: var(--space-lg);
+  overflow-y: auto;
+  flex: 1;
+}
+
+/* ============ Ship Factory Slots ============ */
+
+.sf-slots {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.sf-slot {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-md);
+  background: var(--bg-panel-light);
+  border: 1px solid var(--border-frame);
+  border-radius: 6px;
+  transition: border-color 0.15s;
+}
+
+.sf-slot-locked {
+  opacity: 0.35;
+}
+
+.sf-slot-building {
+  border-color: var(--accent-warning);
+}
+
+.sf-slot-empty:hover {
+  border-color: var(--border-active);
+}
+
+.sf-slot-number {
+  font-size: var(--font-sm);
+  font-weight: 700;
+  color: var(--text-label);
+  min-width: 50px;
+}
+
+.sf-slot-design {
+  font-size: var(--font-base);
+  font-weight: 600;
+  color: var(--text-bright);
+  flex: 1;
+}
+
+.sf-slot-qty {
+  font-size: var(--font-sm);
+  color: var(--text-normal);
+  font-variant-numeric: tabular-nums;
+}
+
+.sf-slot-lock-icon {
+  font-size: var(--font-sm);
+  color: var(--text-dim);
+}
+
+.slot-timer {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: var(--font-timer);
+  color: var(--accent-warning);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.slot-status-text.done {
+  color: var(--accent-success);
+  font-weight: 600;
+}
+
+/* Build Summary */
+.p2-build-summary {
+  background: var(--bg-panel-light);
+  border: 1px solid var(--border-frame);
+  border-radius: 6px;
+  padding: var(--space-md);
+  margin-bottom: var(--space-md);
+}
+
+.p2-summary-title {
+  font-size: var(--font-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-label);
+  margin-bottom: var(--space-sm);
+  font-weight: 600;
+}
+
+.p2-summary-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 2px 0;
+  font-size: var(--font-sm);
+  color: var(--text-normal);
+}
+
+.p2-summary-value {
+  color: var(--text-bright);
+  font-weight: 600;
+}
+
+.p2-bonus {
+  color: var(--accent-success);
+}
+
+/* ============ Ship Designs ============ */
+
+.sd-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.sd-card {
+  background: var(--bg-panel-light);
+  border: 1px solid var(--border-frame);
+  border-radius: 6px;
+  padding: var(--space-md);
+  transition: border-color 0.15s;
+}
+
+.sd-card:hover {
+  border-color: var(--border-active);
+}
+
+.sd-card-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-sm);
+}
+
+.sd-card-class {
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  border: 1px solid;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.sd-card-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.sd-card-name {
+  font-size: var(--font-base);
+  font-weight: 600;
+  color: var(--text-bright);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sd-card-hull {
+  font-size: var(--font-xs);
+  color: var(--text-dim);
+}
+
+.sd-card-stats {
+  display: flex;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+}
+
+.sd-stat {
+  font-size: var(--font-sm);
+  color: var(--text-normal);
+}
+
+.sd-stat-label {
+  color: var(--text-dim);
+  font-size: var(--font-xs);
+  text-transform: uppercase;
+  margin-right: 3px;
+}
+
+/* ============ Design Editor ============ */
+
+.design-editor {
+  display: flex;
+  gap: var(--space-lg);
+  min-height: 500px;
+}
+
+.de-left {
+  width: 260px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.de-right {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  min-width: 0;
+}
+
+.de-class-tabs {
+  display: flex;
+  gap: 2px;
+}
+
+.de-hull-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.de-hull-card {
+  display: block;
+  width: 100%;
+  padding: var(--space-sm);
+  background: var(--bg-panel-light);
+  border: 1px solid var(--border-frame);
+  border-radius: 4px;
+  color: var(--text-normal);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s;
+  font-family: 'Rajdhani', sans-serif;
+}
+
+.de-hull-card:hover {
+  border-color: var(--border-active);
+}
+
+.de-hull-card.selected {
+  border-color: var(--accent-primary);
+  background: rgba(68, 136, 255, 0.1);
+}
+
+.de-hull-name {
+  font-size: var(--font-base);
+  font-weight: 600;
+  color: var(--text-bright);
+}
+
+.de-hull-stats {
+  font-size: var(--font-xs);
+  color: var(--text-dim);
+  display: flex;
+  gap: var(--space-sm);
+}
+
+/* Stats bar */
+.de-stats-bar {
+  display: flex;
+  gap: var(--space-md);
+  padding: var(--space-sm);
+  background: var(--bg-panel-light);
+  border: 1px solid var(--border-frame);
+  border-radius: 4px;
+  flex-wrap: wrap;
+}
+
+.de-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.de-stat-label {
+  font-size: var(--font-xs);
+  color: var(--text-dim);
+  text-transform: uppercase;
+}
+
+.de-stat-value {
+  font-size: var(--font-md);
+  font-weight: 700;
+  color: var(--text-bright);
+  font-variant-numeric: tabular-nums;
+}
+
+.de-stat-value.over {
+  color: var(--accent-danger);
+}
+
+/* Installed modules */
+.de-installed {
+  border: 1px solid var(--border-frame);
+  border-radius: 4px;
+  padding: var(--space-sm);
+  min-height: 80px;
+}
+
+.de-empty {
+  color: var(--text-dim);
+  font-size: var(--font-sm);
+  text-align: center;
+  padding: var(--space-md);
+}
+
+.de-module-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.de-module-installed {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 4px var(--space-sm);
+  background: rgba(68, 136, 255, 0.08);
+  border-radius: 3px;
+  font-size: var(--font-sm);
+}
+
+.de-mi-name {
+  flex: 1;
+  color: var(--text-bright);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.de-mi-qty {
+  color: var(--accent-primary);
+  font-weight: 700;
+  min-width: 24px;
+  text-align: center;
+}
+
+.de-mi-vol {
+  color: var(--text-dim);
+  font-size: var(--font-xs);
+}
+
+.de-mi-remove, .de-mi-add {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--border-frame);
+  border: none;
+  border-radius: 3px;
+  color: var(--text-bright);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.de-mi-remove:hover { background: var(--accent-danger); }
+.de-mi-add:hover { background: var(--accent-success); }
+
+/* Available modules */
+.de-available {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.de-avail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 4px;
+}
+
+.de-avail-module {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px;
+  background: var(--bg-panel-light);
+  border: 1px solid var(--border-frame);
+  border-radius: 3px;
+  cursor: pointer;
+  transition: border-color 0.15s;
+  font-family: 'Rajdhani', sans-serif;
+  color: var(--text-normal);
+  text-align: left;
+  font-size: var(--font-xs);
+}
+
+.de-avail-module:hover {
+  border-color: var(--border-active);
+}
+
+.de-mod-cat {
+  padding: 1px 4px;
+  border-radius: 2px;
+  font-size: 9px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.de-mod-cat.ballistic { background: #aa6622; }
+.de-mod-cat.missile { background: #882244; }
+.de-mod-cat.beam { background: #6644aa; }
+.de-mod-cat.shield { background: #2266aa; }
+.de-mod-cat.electronic { background: #446644; }
+.de-mod-cat.engine { background: #886622; }
+
+.de-mod-name {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.de-mod-vol {
+  color: var(--text-dim);
+  font-weight: 600;
+}
+
+.de-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  color: var(--text-dim);
+  font-size: var(--font-base);
+}
+
+/* ============ Blueprints ============ */
+
+.bp-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--space-sm);
+  padding: var(--space-md) var(--space-lg);
+}
+
+.bp-card {
+  background: var(--bg-panel-light);
+  border: 1px solid var(--border-frame);
+  border-radius: 6px;
+  padding: var(--space-md);
+  transition: border-color 0.15s;
+}
+
+.bp-card.activated {
+  border-color: var(--accent-success);
+}
+
+.bp-card.owned {
+  border-color: var(--accent-warning);
+}
+
+.bp-card.locked {
+  opacity: 0.5;
+}
+
+.bp-card-type {
+  display: flex;
+  gap: 4px;
+  margin-bottom: var(--space-xs);
+}
+
+.bp-type-badge {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 1px 5px;
+  border-radius: 2px;
+}
+
+.bp-type-badge.hull {
+  background: rgba(68, 136, 255, 0.2);
+  color: var(--accent-primary);
+}
+
+.bp-type-badge.module {
+  background: rgba(204, 136, 255, 0.2);
+  color: #cc88ff;
+}
+
+.bp-class-badge {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 1px 5px;
+  border-radius: 2px;
+}
+
+.bp-class-badge.frigate { background: rgba(68, 170, 255, 0.2); color: #44aaff; }
+.bp-class-badge.cruiser { background: rgba(204, 136, 68, 0.2); color: #cc8844; }
+.bp-class-badge.battleship { background: rgba(170, 68, 68, 0.2); color: #aa4444; }
+
+.bp-cat-badge {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 1px 5px;
+  border-radius: 2px;
+  background: rgba(136, 136, 170, 0.2);
+  color: var(--text-label);
+}
+
+.bp-card-name {
+  font-size: var(--font-base);
+  font-weight: 600;
+  color: var(--text-bright);
+  margin-bottom: var(--space-xs);
+}
+
+.bp-card-status {
+  margin-top: var(--space-xs);
+}
+
+.bp-status-active {
+  font-size: var(--font-xs);
+  color: var(--accent-success);
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.bp-status-locked {
+  font-size: var(--font-xs);
+  color: var(--text-dim);
+}
+
+/* ============ Fleet Management ============ */
+
+.fleet-create-row {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.fleet-create-row .p2-input {
+  flex: 1;
+}
+
+.fleet-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.fleet-card {
+  background: var(--bg-panel-light);
+  border: 1px solid var(--border-frame);
+  border-radius: 6px;
+  padding: var(--space-md);
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.fleet-card:hover {
+  border-color: var(--border-active);
+}
+
+.fleet-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-xs);
+}
+
+.fleet-card-name {
+  font-size: var(--font-base);
+  font-weight: 700;
+  color: var(--text-bright);
+}
+
+.fleet-card-status {
+  font-size: var(--font-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 1px 6px;
+  border-radius: 3px;
+}
+
+.fleet-card-status.stationed {
+  color: var(--accent-success);
+  border: 1px solid var(--accent-success);
+}
+
+.fleet-card-status.traveling {
+  color: var(--accent-warning);
+  border: 1px solid var(--accent-warning);
+}
+
+.fleet-card-status.combat {
+  color: var(--accent-danger);
+  border: 1px solid var(--accent-danger);
+}
+
+.fleet-card-info {
+  display: flex;
+  gap: var(--space-md);
+  font-size: var(--font-sm);
+  color: var(--text-dim);
+  margin-bottom: var(--space-sm);
+}
+
+.fleet-card-actions {
+  display: flex;
+  gap: var(--space-xs);
+}
+
+/* Fleet Editor - 3x3 Grid */
+.fleet-config {
+  display: flex;
+  gap: var(--space-md);
+  margin-bottom: var(--space-md);
+}
+
+.fleet-config .p2-form-group {
+  flex: 1;
+}
+
+.fleet-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: var(--space-md);
+}
+
+.fleet-grid-row {
+  display: flex;
+  gap: 4px;
+}
+
+.fleet-cell {
+  flex: 1;
+  aspect-ratio: 1.2;
+  min-height: 80px;
+  background: var(--bg-panel-light);
+  border: 1px solid var(--border-frame);
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  position: relative;
+  padding: var(--space-xs);
+}
+
+.fleet-cell.empty:hover {
+  border-color: var(--accent-primary);
+  background: rgba(68, 136, 255, 0.05);
+}
+
+.fleet-cell.occupied {
+  border-color: var(--border-active);
+  background: rgba(68, 136, 255, 0.08);
+}
+
+.fleet-cell.target {
+  border-color: var(--accent-success);
+  background: rgba(34, 204, 102, 0.1);
+}
+
+.fleet-cell-label {
+  font-size: 9px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.fleet-cell-design {
+  font-size: var(--font-sm);
+  font-weight: 600;
+  color: var(--text-bright);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.fleet-cell-count {
+  font-size: var(--font-sm);
+  color: var(--accent-primary);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.fleet-cell-empty {
+  font-size: var(--font-xs);
+  color: var(--text-dim);
+}
+
+.fleet-cell-remove {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent-danger);
+  border: none;
+  border-radius: 2px;
+  color: #fff;
+  cursor: pointer;
+  font-size: 9px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.fleet-cell.occupied:hover .fleet-cell-remove {
+  opacity: 1;
+}
+
+.fleet-assign-form {
+  padding: var(--space-md);
+  border: 1px solid var(--accent-success);
+  border-radius: 6px;
+  background: rgba(34, 204, 102, 0.05);
+}
+
+.fleet-assign-row {
+  display: flex;
+  gap: var(--space-sm);
+  align-items: center;
+  margin-top: var(--space-sm);
+}
+
+.fleet-assign-row .p2-select {
+  flex: 1;
+}
+
+/* ============ Instances ============ */
+
+.inst-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: var(--space-sm) var(--space-lg);
+  max-height: calc(100vh - 200px);
+  overflow-y: auto;
+}
+
+.inst-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  background: var(--bg-panel-light);
+  border: 1px solid var(--border-frame);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.inst-card:hover {
+  border-color: var(--border-active);
+}
+
+.inst-card.completed {
+  border-color: var(--accent-success);
+  opacity: 0.7;
+}
+
+.inst-card-number {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--border-frame);
+  border-radius: 4px;
+  font-size: var(--font-md);
+  font-weight: 700;
+  color: var(--text-bright);
+  flex-shrink: 0;
+}
+
+.inst-card-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.inst-card-name {
+  font-size: var(--font-base);
+  font-weight: 600;
+  color: var(--text-bright);
+}
+
+.inst-card-req {
+  font-size: var(--font-xs);
+  color: var(--text-dim);
+}
+
+.inst-card-reward {
+  text-align: right;
+}
+
+.inst-exp {
+  color: var(--accent-gold);
+  font-weight: 700;
+  font-size: var(--font-sm);
+}
+
+.inst-card-check {
+  font-size: var(--font-xs);
+  color: var(--accent-success);
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+/* Instance Detail */
+.inst-info {
+  margin-bottom: var(--space-md);
+}
+
+.inst-info-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 0;
+  font-size: var(--font-sm);
+  color: var(--text-normal);
+}
+
+.inst-enemies {
+  margin-bottom: var(--space-md);
+}
+
+.inst-enemy-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 4px 0;
+  font-size: var(--font-sm);
+}
+
+.inst-enemy-class {
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.inst-enemy-class.frigate { color: #44aaff; }
+.inst-enemy-class.cruiser { color: #cc8844; }
+.inst-enemy-class.battleship { color: #aa4444; }
+
+.inst-enemy-power {
+  color: var(--text-dim);
+}
+
+.inst-fleet-select {
+  margin-bottom: var(--space-md);
+}
+
+.inst-fleet-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.inst-fleet-btn {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-sm) var(--space-md);
+  background: var(--bg-panel-light);
+  border: 1px solid var(--border-frame);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: 'Rajdhani', sans-serif;
+  color: var(--text-normal);
+  text-align: left;
+}
+
+.inst-fleet-btn:hover {
+  border-color: var(--border-active);
+}
+
+.inst-fleet-btn.selected {
+  border-color: var(--accent-primary);
+  background: rgba(68, 136, 255, 0.15);
+}
+
+.inst-fleet-name {
+  font-weight: 600;
+  color: var(--text-bright);
+}
+
+.inst-fleet-ships {
+  font-size: var(--font-sm);
+  color: var(--text-dim);
+}
+
+/* Battle Result */
+.inst-result {
+  text-align: center;
+}
+
+.inst-result-banner {
+  font-size: var(--font-xl);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  padding: var(--space-lg);
+  border-radius: 6px;
+  margin-bottom: var(--space-lg);
+}
+
+.inst-result-banner.victory {
+  color: var(--accent-gold);
+  border: 2px solid var(--accent-gold);
+  background: rgba(255, 215, 0, 0.05);
+  box-shadow: var(--glow-gold);
+}
+
+.inst-result-banner.defeat {
+  color: var(--accent-danger);
+  border: 2px solid var(--accent-danger);
+  background: rgba(255, 68, 68, 0.05);
+}
+
+.inst-result-stats {
+  text-align: left;
+  margin-bottom: var(--space-lg);
+}
+
+.inst-result-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 3px 0;
+  font-size: var(--font-sm);
+  color: var(--text-normal);
+}
+
+.inst-result-row .res-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  margin-right: 4px;
+}
+
+.inst-result-row .res-dot.metal { background: var(--color-metal); }
+.inst-result-row .res-dot.he3 { background: var(--color-he3); }
+.inst-result-row .res-dot.gold { background: var(--color-gold); }
+
+.inst-bp-drop {
+  color: var(--accent-gold);
+  font-weight: 700;
+}
+
+.inst-loss {
+  color: var(--accent-danger);
+}
+
+/* ============ Spacedock ============ */
+
+.dock-repair-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.dock-repair-card {
+  background: var(--bg-panel-light);
+  border: 1px solid var(--border-frame);
+  border-radius: 6px;
+  padding: var(--space-md);
+}
+
+.dock-repair-done-card {
+  border-color: var(--accent-success);
+  opacity: 0.7;
+}
+
+.dock-repair-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-xs);
+}
+
+.dock-repair-name {
+  font-size: var(--font-base);
+  font-weight: 600;
+  color: var(--text-bright);
+}
+
+.dock-repair-timer {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: var(--font-timer);
+  color: var(--accent-warning);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.dock-repair-done {
+  color: var(--accent-success);
+  font-weight: 700;
+  font-size: var(--font-sm);
+}
+
+.dock-repair-stats {
+  display: flex;
+  gap: var(--space-md);
+  font-size: var(--font-sm);
+  color: var(--text-dim);
+}
+
+.dock-recovered {
+  color: var(--accent-success);
+}
+
+.dock-lost {
+  color: var(--accent-danger);
+}
+
+.dock-repair-bar {
+  height: 3px;
+  background: var(--border-frame);
+  border-radius: 2px;
+  margin-top: var(--space-sm);
+  overflow: hidden;
+}
+
+.dock-repair-bar-fill {
+  height: 100%;
+  background: var(--accent-warning);
+  border-radius: 2px;
+  animation: repairPulse 2s ease-in-out infinite;
+  width: 60%;
+}
+
+@keyframes repairPulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+.dock-info-text {
+  font-size: var(--font-xs);
+  color: var(--text-dim);
+  margin-top: var(--space-sm);
+  line-height: 1.4;
+}
+
+/* ============ Responsive ============ */
+
+@media (max-width: 1199px) {
+  .military-layout {
+    left: 48px;
+  }
+
+  .design-editor {
+    flex-direction: column;
+  }
+
+  .de-left {
+    width: 100%;
+  }
+
+  .fleet-cell {
+    min-height: 60px;
+  }
+}
+
+@media (max-width: 767px) {
+  .military-layout {
+    left: 0;
+    top: 48px;
+  }
+
+  .mil-tabs {
+    overflow-x: auto;
+  }
+
+  .mil-tab-label {
+    display: none;
+  }
+
+  .bp-grid {
+    grid-template-columns: 1fr;
+  }
+}
