@@ -45,3 +45,4 @@ lerna-debug.log*
 
 # Supabase
 supabase/.temp/
+backend/server
