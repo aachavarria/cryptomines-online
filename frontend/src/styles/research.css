@@ -1,0 +1,678 @@
+/* ========================================= */
+/* Research Panel Styles                     */
+/* ========================================= */
+
+/* ============ Backdrop & Panel ============ */
+
+.research-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  z-index: 400;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 0.2s ease-out;
+  font-family: 'Rajdhani', 'Segoe UI', system-ui, sans-serif;
+}
+
+.research-panel {
+  width: 840px;
+  max-width: 95vw;
+  height: 85vh;
+  background: #1a1a2e;
+  border: 1px solid var(--border-glow);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 0 40px rgba(0, 200, 255, 0.15);
+  animation: modalIn 0.2s ease-out;
+}
+
+/* ============ Header ============ */
+
+.research-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-md) var(--space-lg);
+  border-bottom: 1px solid var(--border-frame);
+}
+
+.research-title {
+  font-size: var(--font-lg);
+  font-weight: 700;
+  color: var(--text-bright);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.research-tc-level {
+  font-size: var(--font-sm);
+  color: var(--text-dim);
+  font-weight: 500;
+  margin-left: var(--space-sm);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+/* ============ Tree Tabs ============ */
+
+.research-tabs {
+  display: flex;
+  gap: 2px;
+  padding: var(--space-sm) var(--space-lg);
+  border-bottom: 1px solid var(--border-frame);
+  overflow-x: auto;
+  flex-shrink: 0;
+}
+
+.research-tab {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: 6px 12px;
+  background: transparent;
+  border: 1px solid var(--border-frame);
+  border-radius: 4px;
+  color: var(--text-dim);
+  font-size: var(--font-xs);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: 'Rajdhani', sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.research-tab:hover {
+  background: var(--bg-panel-light);
+  color: var(--text-normal);
+}
+
+.research-tab.active {
+  border-color: #44ccff;
+  color: #44ccff;
+  background: rgba(68, 204, 255, 0.08);
+}
+
+.research-tab-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #44ccff;
+  animation: researchDotPulse 2s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+@keyframes researchDotPulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; box-shadow: 0 0 6px rgba(68, 204, 255, 0.6); }
+}
+
+/* ============ Tree Body ============ */
+
+.research-body {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: auto;
+  padding: var(--space-lg);
+  min-height: 0;
+}
+
+.research-tree-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+  align-items: center;
+  min-width: fit-content;
+}
+
+.research-tree-tier {
+  display: flex;
+  gap: 30px;
+  justify-content: center;
+  position: relative;
+}
+
+/* ============ Tech Card ============ */
+
+.tech-card {
+  width: 220px;
+  background: #0d1117;
+  border: 1px solid var(--border-frame);
+  border-radius: 6px;
+  padding: 12px;
+  cursor: default;
+  transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s;
+  flex-shrink: 0;
+}
+
+.tech-card:hover {
+  border-color: var(--border-active);
+  box-shadow: 0 0 8px rgba(68, 136, 255, 0.1);
+  transform: translateY(-1px);
+}
+
+.tech-card--locked {
+  opacity: 0.5;
+  filter: grayscale(50%);
+}
+
+.tech-card--locked:hover {
+  transform: none;
+}
+
+.tech-card--available {
+  border-color: var(--border-active);
+}
+
+.tech-card--researching {
+  border-color: #44ccff;
+  animation: techPulseBorder 2s ease-in-out infinite;
+}
+
+.tech-card--completed {
+  border-color: var(--accent-success);
+}
+
+.tech-card--maxed {
+  border-color: var(--accent-gold);
+  box-shadow: 0 0 8px rgba(255, 200, 0, 0.3);
+}
+
+@keyframes techPulseBorder {
+  0%, 100% { box-shadow: 0 0 4px rgba(68, 204, 255, 0.2); }
+  50% { box-shadow: 0 0 16px rgba(68, 204, 255, 0.5); }
+}
+
+.tech-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-sm);
+}
+
+.tech-card-name {
+  font-size: var(--font-base);
+  font-weight: 700;
+  color: var(--text-bright);
+  flex: 1;
+  line-height: 1.2;
+}
+
+.tech-card-level {
+  font-size: var(--font-xs);
+  font-weight: 700;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+  margin-left: var(--space-sm);
+}
+
+.tech-card--completed .tech-card-level {
+  color: var(--accent-success);
+}
+
+.tech-card--maxed .tech-card-level {
+  color: var(--accent-gold);
+}
+
+.tech-card-badge {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 1px 6px;
+  border-radius: 3px;
+  letter-spacing: 0.05em;
+}
+
+.tech-card-badge.max-badge {
+  color: var(--accent-gold);
+  border: 1px solid var(--accent-gold);
+}
+
+.tech-card-badge.researching-badge {
+  color: #44ccff;
+  border: 1px solid #44ccff;
+}
+
+/* Tech card details */
+
+.tech-card-effect {
+  font-size: var(--font-xs);
+  color: var(--text-normal);
+  margin-bottom: var(--space-xs);
+  line-height: 1.3;
+}
+
+.tech-card-next {
+  font-size: var(--font-xs);
+  color: #44ccff;
+  margin-bottom: var(--space-sm);
+  line-height: 1.3;
+}
+
+.tech-card-cost {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font-size: var(--font-xs);
+  color: var(--text-dim);
+  margin-bottom: 2px;
+}
+
+.tech-card-cost .gold-icon {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--color-gold);
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.tech-card-cost-value {
+  font-weight: 700;
+  color: var(--text-bright);
+  font-variant-numeric: tabular-nums;
+}
+
+.tech-card-cost-value.insufficient {
+  color: var(--accent-danger);
+}
+
+.tech-card-time {
+  font-size: var(--font-xs);
+  color: var(--text-dim);
+  margin-bottom: var(--space-sm);
+}
+
+.tech-card-prereq {
+  font-size: var(--font-xs);
+  color: var(--accent-warning);
+  font-style: italic;
+  margin-bottom: var(--space-sm);
+}
+
+/* Research button on cards */
+
+.tech-card-btn {
+  width: 100%;
+  padding: 5px 0;
+  background: linear-gradient(135deg, #1a3a5c, #2244aa);
+  color: var(--text-bright);
+  border: 1px solid var(--border-active);
+  border-radius: 4px;
+  font-size: var(--font-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: box-shadow 0.2s, background 0.15s;
+  font-family: 'Rajdhani', sans-serif;
+}
+
+.tech-card-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #2244aa, #3366cc);
+  box-shadow: var(--glow-blue);
+}
+
+.tech-card-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Tech card progress (for researching) */
+
+.tech-card-progress {
+  margin-bottom: var(--space-sm);
+}
+
+.tech-card-progress-bar {
+  height: 4px;
+  background: #21262d;
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: 2px;
+}
+
+.tech-card-progress-fill {
+  height: 100%;
+  background: #44ccff;
+  border-radius: 2px;
+  transition: width 1s linear;
+}
+
+.tech-card-progress-text {
+  font-size: 10px;
+  color: #44ccff;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ============ Connector Lines (SVG/CSS) ============ */
+
+.research-connector {
+  position: absolute;
+  width: 2px;
+  background: var(--border-frame);
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+/* ============ Active Research Bar (bottom) ============ */
+
+.research-active-bar {
+  flex-shrink: 0;
+  padding: var(--space-md) var(--space-lg);
+  background: #0d1117;
+  border-top: 1px solid var(--border-frame);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.research-active-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+
+.research-active-name {
+  font-size: var(--font-base);
+  font-weight: 700;
+  color: var(--text-bright);
+}
+
+.research-active-level {
+  font-size: var(--font-sm);
+  color: #44ccff;
+  font-weight: 600;
+}
+
+.research-active-timer {
+  font-size: var(--font-timer);
+  color: #44ccff;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.research-active-progress {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.research-progress-bar {
+  flex: 1;
+  height: 6px;
+  background: #21262d;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.research-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #2288cc, #44ccff);
+  border-radius: 3px;
+  transition: width 1s linear;
+}
+
+.research-progress-pct {
+  font-size: var(--font-xs);
+  color: var(--text-dim);
+  min-width: 36px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.research-active-actions {
+  display: flex;
+  gap: var(--space-sm);
+  align-items: center;
+}
+
+.research-speedup-btn {
+  padding: 4px 14px;
+  background: linear-gradient(135deg, #b8860b, #d4a017);
+  color: #000;
+  border: none;
+  border-radius: 4px;
+  font-size: var(--font-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: box-shadow 0.2s;
+  font-family: 'Rajdhani', sans-serif;
+}
+
+.research-speedup-btn:hover:not(:disabled) {
+  box-shadow: var(--glow-gold);
+}
+
+.research-speedup-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.research-cancel-btn {
+  padding: 4px 14px;
+  background: transparent;
+  color: var(--accent-danger);
+  border: 1px solid var(--accent-danger);
+  border-radius: 4px;
+  font-size: var(--font-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.15s;
+  font-family: 'Rajdhani', sans-serif;
+}
+
+.research-cancel-btn:hover:not(:disabled) {
+  background: rgba(255, 68, 68, 0.1);
+}
+
+.research-cancel-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ============ Confirmation Modal ============ */
+
+.research-confirm-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 0.15s ease-out;
+}
+
+.research-confirm-modal {
+  width: 380px;
+  max-width: 90vw;
+  background: #1a1a2e;
+  border: 1px solid var(--border-glow);
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 0 30px rgba(68, 204, 255, 0.15);
+  animation: modalIn 0.15s ease-out;
+}
+
+.research-confirm-header {
+  padding: var(--space-md) var(--space-lg);
+  border-bottom: 1px solid var(--border-frame);
+  font-size: var(--font-base);
+  font-weight: 700;
+  color: var(--text-bright);
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.research-confirm-body {
+  padding: var(--space-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.research-confirm-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--font-sm);
+}
+
+.research-confirm-label {
+  color: var(--text-dim);
+}
+
+.research-confirm-value {
+  color: var(--text-bright);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.research-confirm-value.insufficient {
+  color: var(--accent-danger);
+}
+
+.research-confirm-value.gold {
+  color: var(--color-gold);
+}
+
+.research-confirm-sep {
+  height: 1px;
+  background: var(--border-frame);
+  margin: var(--space-xs) 0;
+}
+
+.research-confirm-actions {
+  display: flex;
+  gap: var(--space-md);
+  padding: var(--space-md) var(--space-lg) var(--space-lg);
+  justify-content: center;
+}
+
+.research-confirm-cancel {
+  flex: 1;
+  padding: 8px 0;
+  background: transparent;
+  color: var(--text-normal);
+  border: 1px solid var(--border-frame);
+  border-radius: 4px;
+  font-size: var(--font-sm);
+  font-weight: 700;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: border-color 0.15s;
+  font-family: 'Rajdhani', sans-serif;
+}
+
+.research-confirm-cancel:hover {
+  border-color: var(--border-active);
+}
+
+.research-confirm-ok {
+  flex: 1;
+  padding: 8px 0;
+  background: linear-gradient(135deg, #1a3a5c, #2244aa);
+  color: var(--text-bright);
+  border: 1px solid var(--border-active);
+  border-radius: 4px;
+  font-size: var(--font-sm);
+  font-weight: 700;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: box-shadow 0.2s, background 0.15s;
+  font-family: 'Rajdhani', sans-serif;
+}
+
+.research-confirm-ok:hover:not(:disabled) {
+  background: linear-gradient(135deg, #2244aa, #3366cc);
+  box-shadow: var(--glow-blue);
+}
+
+.research-confirm-ok:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ============ No Active Bar ============ */
+
+.research-no-active {
+  flex-shrink: 0;
+  padding: var(--space-sm) var(--space-lg);
+  background: #0d1117;
+  border-top: 1px solid var(--border-frame);
+  text-align: center;
+  font-size: var(--font-xs);
+  color: var(--text-dim);
+  font-style: italic;
+}
+
+/* ============ Empty State ============ */
+
+.research-empty {
+  text-align: center;
+  padding: var(--space-xxl);
+  color: var(--text-dim);
+  font-size: var(--font-sm);
+}
+
+/* ============ Research Nav Badge ============ */
+
+.nav-research-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 10px;
+  height: 10px;
+  background: #44ccff;
+  border-radius: 50%;
+  border: 2px solid var(--bg-panel-solid);
+  animation: researchNavPulse 2s ease-in-out infinite;
+}
+
+@keyframes researchNavPulse {
+  0%, 100% { opacity: 0.6; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.2); }
+}
+
+/* ============ Responsive ============ */
+
+@media (max-width: 767px) {
+  .research-panel {
+    width: 100vw;
+    max-width: 100vw;
+    height: 100vh;
+    max-height: 100vh;
+    border-radius: 0;
+  }
+
+  .research-tabs {
+    overflow-x: auto;
+  }
+
+  .tech-card {
+    width: 100%;
+    max-width: 320px;
+  }
+
+  .research-tree-tier {
+    flex-direction: column;
+    align-items: center;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1199px) {
+  .tech-card {
+    width: 180px;
+  }
+}
