@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useInstances } from '../../hooks/useInstances.ts'
 import { useFleets } from '../../hooks/useFleets.ts'
 import { formatNumber } from '../../hooks/useCountdown.ts'
@@ -43,7 +44,7 @@ function InstanceDetailModal({
 
   const stationedFleets = fleets.filter(f => f.status === 'stationed' && (f.stacks?.length || 0) > 0)
 
-  return (
+  return createPortal(
     <div className="p2-modal-backdrop" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
       <div className="p2-modal p2-modal-md">
         <div className="p2-modal-header">
@@ -171,7 +172,8 @@ function InstanceDetailModal({
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
 

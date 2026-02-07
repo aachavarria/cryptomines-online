@@ -44,7 +44,7 @@ export default function GameShell() {
           shadows
           orthographic
           camera={{
-            zoom: 2.5,
+            zoom: 10,
             near: -500,
             far: 1000,
             position: [100, 100, 100],

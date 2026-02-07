@@ -6,6 +6,8 @@
 @import './styles/components.css';
 @import './styles/animations.css';
 @import './styles/phase2.css';
+@import './styles/quest.css';
+@import './styles/research.css';
 
 *,
 *::before,

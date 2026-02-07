@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useFleets } from '../../hooks/useFleets.ts'
 import { useShipDesigns } from '../../hooks/useShipDesigns.ts'
 import type { Fleet, FleetStack, ShipDesign } from '../../types'
@@ -38,7 +39,7 @@ function FleetEditor({ fleet, designs, onAssign, onRemove, onUpdate, onClose }: 
     setShipCount(100)
   }
 
-  return (
+  return createPortal(
     <div className="p2-modal-backdrop" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
       <div className="p2-modal p2-modal-lg">
         <div className="p2-modal-header">
@@ -152,7 +153,8 @@ function FleetEditor({ fleet, designs, onAssign, onRemove, onUpdate, onClose }: 
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
 
