@@ -11,11 +11,12 @@ import (
 
 // SupabaseAuthResponse represents the response from Supabase Auth signup.
 type SupabaseAuthResponse struct {
-	ID          string `json:"id"`
-	AccessToken string `json:"access_token"`
-	TokenType   string `json:"token_type"`
-	ExpiresIn   int    `json:"expires_in"`
-	User        struct {
+	ID           string `json:"id"`
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
+	TokenType    string `json:"token_type"`
+	ExpiresIn    int    `json:"expires_in"`
+	User         struct {
 		ID          string `json:"id"`
 		IsAnonymous bool   `json:"is_anonymous"`
 		CreatedAt   string `json:"created_at"`

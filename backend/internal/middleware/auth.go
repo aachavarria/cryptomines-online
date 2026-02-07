@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 )
@@ -14,27 +13,8 @@ type contextKey string
 
 const PlayerIDKey contextKey = "player_id"
 
-func getJWTSecret() []byte {
-	secret := os.Getenv("JWT_SECRET")
-	if secret == "" {
-		// Default Supabase local dev JWT secret
-		secret = "super-secret-jwt-token-with-at-least-32-characters-long"
-	}
-	return []byte(secret)
-}
-
-// GenerateToken creates a JWT for the given player ID.
-func GenerateToken(playerID string) (string, error) {
-	claims := jwt.MapClaims{
-		"sub": playerID,
-		"iat": time.Now().Unix(),
-		"exp": time.Now().Add(24 * 7 * time.Hour).Unix(),
-	}
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString(getJWTSecret())
-}
-
 // Auth is a middleware that validates JWT tokens from the Authorization header.
+// Uses Supabase JWT secret for token validation.
 func Auth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		authHeader := r.Header.Get("Authorization")
@@ -49,12 +29,20 @@ func Auth(next http.Handler) http.Handler {
 			return
 		}
 
+		// Get Supabase JWT secret
+		supabaseSecret := os.Getenv("SUPABASE_JWT_SECRET")
+		if supabaseSecret == "" {
+			// Default Supabase local dev JWT secret
+			supabaseSecret = "super-secret-jwt-token-with-at-least-32-characters-long"
+		}
+		
 		token, err := jwt.Parse(tokenStr, func(t *jwt.Token) (interface{}, error) {
 			if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
 				return nil, jwt.ErrSignatureInvalid
 			}
-			return getJWTSecret(), nil
+			return []byte(supabaseSecret), nil
 		})
+		
 		if err != nil || !token.Valid {
 			http.Error(w, `{"error":"invalid or expired token"}`, http.StatusUnauthorized)
 			return

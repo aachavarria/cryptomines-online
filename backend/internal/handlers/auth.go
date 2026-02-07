@@ -11,12 +11,13 @@ import (
 	"time"
 
 	"github.com/cryptomines-online/backend/internal/database"
-	"github.com/cryptomines-online/backend/internal/middleware"
 )
 
 type guestResponse struct {
-	Token  string      `json:"token"`
-	Player guestPlayer `json:"player"`
+	Token        string      `json:"token"`
+	RefreshToken string      `json:"refresh_token"`
+	ExpiresIn    int         `json:"expires_in"`
+	Player       guestPlayer `json:"player"`
 }
 
 type guestPlayer struct {
@@ -76,19 +77,18 @@ func GuestAuth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Use the Supabase access_token if available, otherwise generate our own
+	// Use the Supabase access_token
 	token := accessToken
 	if token == "" {
-		token, err = middleware.GenerateToken(playerID)
-		if err != nil {
-			log.Printf("Failed to generate token: %v", err)
-			http.Error(w, `{"error":"failed to generate token"}`, http.StatusInternalServerError)
-			return
-		}
+		log.Printf("Supabase Auth did not return access token")
+		http.Error(w, `{"error":"authentication failed"}`, http.StatusInternalServerError)
+		return
 	}
 
 	resp := guestResponse{
-		Token: token,
+		Token:        token,
+		RefreshToken: authResp.RefreshToken,
+		ExpiresIn:    authResp.ExpiresIn,
 		Player: guestPlayer{
 			ID:          playerID,
 			AnonymousID: anonID,
@@ -138,15 +138,27 @@ func handleFallbackGuestAuth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := middleware.GenerateToken(playerID)
+	// Try to create Supabase Auth user for this player
+	authResp, err := database.SignUpAnonymous()
+	var token string
 	if err != nil {
-		log.Printf("Failed to generate token: %v", err)
-		http.Error(w, `{"error":"failed to generate token"}`, http.StatusInternalServerError)
+		log.Printf("Warning: Could not create Supabase Auth user in fallback: %v", err)
+		http.Error(w, `{"error":"authentication service unavailable"}`, http.StatusServiceUnavailable)
 		return
+	} else {
+		token = authResp.AccessToken
+		// Update player ID to match Supabase user ID
+		_, err = database.DB.Exec(`UPDATE players SET id = $1 WHERE id = $2`, authResp.User.ID, playerID)
+		if err != nil {
+			log.Printf("Failed to update player ID: %v", err)
+		}
+		playerID = authResp.User.ID
 	}
 
 	resp := guestResponse{
-		Token: token,
+		Token:        token,
+		RefreshToken: authResp.RefreshToken,
+		ExpiresIn:    authResp.ExpiresIn,
 		Player: guestPlayer{
 			ID:          playerID,
 			AnonymousID: anonID,
@@ -180,19 +192,31 @@ func createHomeworld(tx *sql.Tx, playerID string) error {
 	}
 
 	// Create initial buildings (all at Lv1, not upgrading)
-	initialBuildings := []string{
-		"civic_center", "metal_collector", "he3_extractor",
-		"residential_area", "resource_warehouse", "space_station",
+	// Grid positions chosen so buildings don't overlap on the 16x16 grid.
+	// Sizes from buildingConfig.ts: civic_center 3x3, metal_collector 2x2,
+	// he3_extractor 2x2, residential_area 2x2, resource_warehouse 3x2, space_station 3x3.
+	type initBuilding struct {
+		name    string
+		gridCol int
+		gridRow int
 	}
-	for _, bName := range initialBuildings {
+	initialBuildings := []initBuilding{
+		{"civic_center", 5, 5},
+		{"metal_collector", 2, 2},
+		{"he3_extractor", 9, 2},
+		{"residential_area", 2, 9},
+		{"resource_warehouse", 9, 9},
+		{"space_station", 5, 1},
+	}
+	for _, b := range initialBuildings {
 		var btID int
-		err = tx.QueryRow(`SELECT id FROM building_types WHERE name = $1`, bName).Scan(&btID)
+		err = tx.QueryRow(`SELECT id FROM building_types WHERE name = $1`, b.name).Scan(&btID)
 		if err != nil {
 			return err
 		}
 		_, err = tx.Exec(
-			`INSERT INTO buildings (planet_id, building_type, level) VALUES ($1, $2, 1)`,
-			planetID, btID,
+			`INSERT INTO buildings (planet_id, building_type, level, grid_col, grid_row) VALUES ($1, $2, 1, $3, $4)`,
+			planetID, btID, b.gridCol, b.gridRow,
 		)
 		if err != nil {
 			return err
