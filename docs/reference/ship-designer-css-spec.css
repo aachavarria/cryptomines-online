@@ -1,0 +1,1226 @@
+/* =================================================================
+   Ship Design Editor - Complete CSS Replacement
+   Replaces phase2.css lines 591-835 (old .de-* classes)
+   New prefix: .sd-editor-* for the modal editor layout
+   Uses existing CSS variables from variables.css
+   ================================================================= */
+
+/* ============ Editor Modal (extends .p2-modal-lg) ============ */
+
+.sd-editor-modal {
+  width: 960px;
+  max-width: 95vw;
+  max-height: 90vh;
+}
+
+.sd-editor-modal .p2-modal-body {
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ============ 3-Column Layout ============ */
+
+.sd-editor {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* -- Left Column: Hull Selection -- */
+
+.sd-col-hull {
+  width: 200px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--border-frame);
+  background: var(--bg-deep);
+}
+
+/* Hull class vertical tabs */
+.sd-class-tabs {
+  display: flex;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border-frame);
+}
+
+.sd-class-tab {
+  flex: 1;
+  padding: 8px 4px;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-dim);
+  font-size: var(--font-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+  font-family: 'Rajdhani', sans-serif;
+  text-align: center;
+}
+
+.sd-class-tab:hover {
+  color: var(--text-normal);
+  background: rgba(68, 136, 255, 0.05);
+}
+
+.sd-class-tab.active {
+  color: var(--accent-primary);
+  border-bottom-color: var(--accent-primary);
+  background: rgba(68, 136, 255, 0.08);
+}
+
+/* Hull class color variants */
+.sd-class-tab.frigate.active {
+  color: #44aaff;
+  border-bottom-color: #44aaff;
+  background: rgba(68, 170, 255, 0.08);
+}
+
+.sd-class-tab.cruiser.active {
+  color: #cc8844;
+  border-bottom-color: #cc8844;
+  background: rgba(204, 136, 68, 0.08);
+}
+
+.sd-class-tab.battleship.active {
+  color: #aa4444;
+  border-bottom-color: #aa4444;
+  background: rgba(170, 68, 68, 0.08);
+}
+
+/* Hull list (scrollable) */
+.sd-hull-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-xs);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* Individual hull card */
+.sd-hull-card {
+  display: block;
+  width: 100%;
+  padding: var(--space-sm) var(--space-md);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: var(--text-normal);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s, background 0.15s;
+  font-family: 'Rajdhani', sans-serif;
+}
+
+.sd-hull-card:hover {
+  border-color: var(--border-active);
+  background: rgba(68, 136, 255, 0.05);
+}
+
+.sd-hull-card.selected {
+  border-color: var(--accent-primary);
+  background: rgba(68, 136, 255, 0.1);
+}
+
+.sd-hull-name {
+  font-size: var(--font-base);
+  font-weight: 600;
+  color: var(--text-bright);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sd-hull-line {
+  font-size: var(--font-xs);
+  color: var(--text-dim);
+  margin-top: 1px;
+}
+
+.sd-hull-stats {
+  display: flex;
+  gap: var(--space-sm);
+  margin-top: 2px;
+  font-size: var(--font-xs);
+  color: var(--text-dim);
+}
+
+.sd-hull-stat {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.sd-hull-stat-label {
+  color: var(--text-label);
+}
+
+.sd-hull-stat-value {
+  color: var(--text-normal);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Blueprint gating: hull locked state */
+.sd-hull-card.locked {
+  opacity: 0.4;
+  cursor: not-allowed;
+  position: relative;
+}
+
+.sd-hull-card.locked:hover {
+  border-color: transparent;
+  background: transparent;
+}
+
+.sd-hull-card.unactivated {
+  opacity: 0.6;
+  border-color: rgba(255, 170, 34, 0.3);
+}
+
+.sd-hull-card.unactivated:hover {
+  border-color: var(--accent-warning);
+}
+
+/* Lock icon overlay (shared for hull + module) */
+.sd-lock-overlay {
+  position: absolute;
+  top: 50%;
+  right: var(--space-sm);
+  transform: translateY(-50%);
+  font-size: 12px;
+  color: var(--text-dim);
+  pointer-events: none;
+}
+
+.sd-hull-card.unactivated .sd-lock-overlay {
+  color: var(--accent-warning);
+}
+
+/* Per-ship limit badge */
+.sd-limit-badge {
+  display: inline-block;
+  font-size: 8px;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 1px 4px;
+  border-radius: 2px;
+  background: rgba(255, 170, 34, 0.2);
+  color: var(--accent-warning);
+  margin-left: var(--space-xs);
+  vertical-align: middle;
+}
+
+/* -- Center Column: Module Selection -- */
+
+.sd-col-modules {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--border-frame);
+}
+
+/* Module type tabs: Attack / Defense / Auxiliary */
+.sd-mod-type-tabs {
+  display: flex;
+  gap: 2px;
+  padding: var(--space-sm) var(--space-md);
+  border-bottom: 1px solid var(--border-frame);
+  flex-shrink: 0;
+}
+
+.sd-mod-type-tab {
+  flex: 1;
+  padding: 6px 8px;
+  background: transparent;
+  border: 1px solid var(--border-frame);
+  border-radius: 4px;
+  color: var(--text-dim);
+  font-size: var(--font-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-family: 'Rajdhani', sans-serif;
+  text-align: center;
+}
+
+.sd-mod-type-tab:hover {
+  background: var(--bg-panel-light);
+  color: var(--text-normal);
+}
+
+.sd-mod-type-tab.active {
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+  background: rgba(68, 136, 255, 0.1);
+}
+
+/* Type tab color variants */
+.sd-mod-type-tab.attack.active {
+  border-color: var(--accent-danger);
+  color: var(--accent-danger);
+  background: rgba(255, 68, 68, 0.1);
+}
+
+.sd-mod-type-tab.defense.active {
+  border-color: var(--color-he3);
+  color: var(--color-he3);
+  background: rgba(68, 204, 255, 0.1);
+}
+
+.sd-mod-type-tab.auxiliary.active {
+  border-color: var(--accent-success);
+  color: var(--accent-success);
+  background: rgba(34, 204, 102, 0.1);
+}
+
+/* Sub-category icon row */
+.sd-mod-subcat {
+  display: flex;
+  gap: 2px;
+  padding: var(--space-xs) var(--space-md);
+  border-bottom: 1px solid var(--border-frame);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.sd-mod-subcat-btn {
+  padding: 4px 8px;
+  background: transparent;
+  border: 1px solid var(--border-frame);
+  border-radius: 3px;
+  color: var(--text-dim);
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: 'Rajdhani', sans-serif;
+  white-space: nowrap;
+}
+
+.sd-mod-subcat-btn:hover {
+  background: var(--bg-panel-light);
+  color: var(--text-normal);
+}
+
+.sd-mod-subcat-btn.active {
+  color: #fff;
+}
+
+/* ============ 11 Module Sub-Category Badge Colors ============ */
+
+/* Attack sub-categories */
+.sd-mod-subcat-btn.ballistic.active,
+.sd-cat-badge.ballistic {
+  background: #aa6622;
+  border-color: #aa6622;
+}
+
+.sd-mod-subcat-btn.directional.active,
+.sd-cat-badge.directional {
+  background: #6644aa;
+  border-color: #6644aa;
+}
+
+.sd-mod-subcat-btn.missile.active,
+.sd-cat-badge.missile {
+  background: #882244;
+  border-color: #882244;
+}
+
+.sd-mod-subcat-btn.ship_based.active,
+.sd-cat-badge.ship_based {
+  background: #884422;
+  border-color: #884422;
+}
+
+.sd-mod-subcat-btn.planetary.active,
+.sd-cat-badge.planetary {
+  background: #557722;
+  border-color: #557722;
+}
+
+/* Defense sub-categories */
+.sd-mod-subcat-btn.structure.active,
+.sd-cat-badge.structure {
+  background: #446688;
+  border-color: #446688;
+}
+
+.sd-mod-subcat-btn.shield.active,
+.sd-cat-badge.shield {
+  background: #2266aa;
+  border-color: #2266aa;
+}
+
+.sd-mod-subcat-btn.air_defense.active,
+.sd-cat-badge.air_defense {
+  background: #886633;
+  border-color: #886633;
+}
+
+/* Auxiliary sub-categories */
+.sd-mod-subcat-btn.electronic.active,
+.sd-cat-badge.electronic {
+  background: #446644;
+  border-color: #446644;
+}
+
+.sd-mod-subcat-btn.storage.active,
+.sd-cat-badge.storage {
+  background: #666644;
+  border-color: #666644;
+}
+
+.sd-mod-subcat-btn.transmission.active,
+.sd-cat-badge.transmission {
+  background: #886622;
+  border-color: #886622;
+}
+
+/* Category badge (inline, used in module list items) */
+.sd-cat-badge {
+  display: inline-block;
+  padding: 1px 5px;
+  border-radius: 2px;
+  font-size: 9px;
+  font-weight: 700;
+  color: #fff;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+/* Module list (scrollable) */
+.sd-mod-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-xs) var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* Individual module item */
+.sd-mod-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  background: var(--bg-panel-light);
+  border: 1px solid var(--border-frame);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  font-family: 'Rajdhani', sans-serif;
+  color: var(--text-normal);
+  text-align: left;
+  min-height: 42px;
+  position: relative;
+}
+
+.sd-mod-item:hover {
+  border-color: var(--border-active);
+  background: rgba(68, 136, 255, 0.06);
+}
+
+.sd-mod-item-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.sd-mod-item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.sd-mod-item-name {
+  font-size: var(--font-sm);
+  font-weight: 600;
+  color: var(--text-bright);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sd-mod-item-stats {
+  font-size: var(--font-xs);
+  color: var(--text-dim);
+  display: flex;
+  gap: var(--space-sm);
+  margin-top: 1px;
+}
+
+.sd-mod-item-tier {
+  font-size: var(--font-xs);
+  font-weight: 700;
+  color: var(--text-label);
+}
+
+.sd-mod-item-vol {
+  font-size: var(--font-sm);
+  color: var(--text-dim);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+  min-width: 36px;
+  text-align: right;
+}
+
+/* Add button on hover */
+.sd-mod-item-add {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--border-frame);
+  border: none;
+  border-radius: 3px;
+  color: var(--text-bright);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 700;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.15s, background 0.15s;
+}
+
+.sd-mod-item:hover .sd-mod-item-add {
+  opacity: 1;
+}
+
+.sd-mod-item-add:hover {
+  background: var(--accent-success);
+}
+
+/* Blueprint gating: module locked state */
+.sd-mod-item.locked {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.sd-mod-item.locked:hover {
+  border-color: var(--border-frame);
+  background: var(--bg-panel-light);
+}
+
+.sd-mod-item.locked .sd-mod-item-add {
+  display: none;
+}
+
+.sd-mod-item.locked .sd-mod-item-stats {
+  visibility: hidden;
+}
+
+/* -- Right Column: Preview + Installed -- */
+
+.sd-col-preview {
+  width: 280px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-deep);
+}
+
+/* Design name input area */
+.sd-design-header {
+  padding: var(--space-sm) var(--space-md);
+  border-bottom: 1px solid var(--border-frame);
+  flex-shrink: 0;
+}
+
+.sd-design-hull-label {
+  font-size: var(--font-xs);
+  color: var(--text-label);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 600;
+}
+
+.sd-design-name-input {
+  width: 100%;
+  padding: 4px 8px;
+  margin-top: var(--space-xs);
+  background: var(--bg-panel-solid);
+  border: 1px solid var(--border-frame);
+  border-radius: 3px;
+  color: var(--text-bright);
+  font-size: var(--font-base);
+  font-weight: 600;
+  font-family: 'Rajdhani', sans-serif;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.sd-design-name-input:focus {
+  border-color: var(--accent-primary);
+}
+
+.sd-design-name-input.invalid {
+  border-color: var(--accent-danger);
+}
+
+/* ============ 3D Preview Canvas ============ */
+
+.sd-preview-canvas {
+  width: 100%;
+  height: 200px;
+  flex-shrink: 0;
+  position: relative;
+  border-bottom: 1px solid var(--border-frame);
+  overflow: hidden;
+  background: radial-gradient(ellipse at center, rgba(34, 68, 170, 0.08) 0%, transparent 70%);
+}
+
+/* Glowing border effect */
+.sd-preview-canvas::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 1px solid rgba(68, 136, 255, 0.25);
+  pointer-events: none;
+  box-shadow: inset 0 0 20px rgba(68, 136, 255, 0.08);
+}
+
+.sd-preview-canvas canvas {
+  width: 100% !important;
+  height: 100% !important;
+  display: block;
+}
+
+/* Hull class tint on preview border */
+.sd-preview-canvas.frigate::after {
+  border-color: rgba(68, 170, 255, 0.3);
+  box-shadow: inset 0 0 20px rgba(68, 170, 255, 0.1);
+}
+
+.sd-preview-canvas.cruiser::after {
+  border-color: rgba(204, 136, 68, 0.3);
+  box-shadow: inset 0 0 20px rgba(204, 136, 68, 0.1);
+}
+
+.sd-preview-canvas.battleship::after {
+  border-color: rgba(170, 68, 68, 0.3);
+  box-shadow: inset 0 0 20px rgba(170, 68, 68, 0.1);
+}
+
+/* Empty state (no hull selected) */
+.sd-preview-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  color: var(--text-dim);
+  font-size: var(--font-sm);
+  font-style: italic;
+}
+
+/* ============ Volume Progress Bar ============ */
+
+.sd-volume-bar {
+  padding: var(--space-sm) var(--space-md);
+  border-bottom: 1px solid var(--border-frame);
+  flex-shrink: 0;
+}
+
+.sd-volume-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-xs);
+}
+
+.sd-volume-title {
+  font-size: var(--font-xs);
+  color: var(--text-label);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 600;
+}
+
+.sd-volume-count {
+  font-size: var(--font-sm);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-bright);
+}
+
+.sd-volume-count.over {
+  color: var(--accent-danger);
+}
+
+.sd-volume-track {
+  height: 6px;
+  background: var(--border-frame);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.sd-volume-fill {
+  height: 100%;
+  background: var(--accent-primary);
+  border-radius: 3px;
+  transition: width 0.3s ease-out, background-color 0.3s;
+  max-width: 100%;
+}
+
+.sd-volume-fill.warning {
+  background: var(--accent-warning);
+}
+
+.sd-volume-fill.over {
+  background: var(--accent-danger);
+  animation: volumeOverPulse 1s ease-in-out infinite;
+}
+
+@keyframes volumeOverPulse {
+  0%, 100% { opacity: 0.8; }
+  50% { opacity: 1; }
+}
+
+/* ============ Installed Modules List ============ */
+
+.sd-installed {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-xs) var(--space-md);
+  min-height: 0;
+}
+
+.sd-installed-title {
+  font-size: var(--font-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-label);
+  font-weight: 600;
+  margin-bottom: var(--space-xs);
+  padding: 0 var(--space-xs);
+}
+
+.sd-installed-empty {
+  color: var(--text-dim);
+  font-size: var(--font-sm);
+  text-align: center;
+  padding: var(--space-lg);
+  font-style: italic;
+}
+
+.sd-installed-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* Installed module row */
+.sd-installed-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 4px var(--space-sm);
+  background: rgba(68, 136, 255, 0.06);
+  border-radius: 3px;
+  font-size: var(--font-sm);
+  transition: background 0.15s;
+}
+
+.sd-installed-item:hover {
+  background: rgba(68, 136, 255, 0.12);
+}
+
+.sd-installed-item-badge {
+  flex-shrink: 0;
+}
+
+.sd-installed-item-name {
+  flex: 1;
+  color: var(--text-bright);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.sd-installed-item-qty {
+  color: var(--accent-primary);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  min-width: 24px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.sd-installed-item-vol {
+  color: var(--text-dim);
+  font-size: var(--font-xs);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+  min-width: 28px;
+  text-align: right;
+}
+
+/* +/- quantity buttons */
+.sd-installed-btn {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--border-frame);
+  border: none;
+  border-radius: 3px;
+  color: var(--text-bright);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+
+.sd-installed-btn.add:hover {
+  background: var(--accent-success);
+}
+
+.sd-installed-btn.remove:hover {
+  background: var(--accent-danger);
+}
+
+/* ============ Bottom Stats Bar ============ */
+
+.sd-bottom-bar {
+  border-top: 1px solid var(--border-frame);
+  background: var(--bg-panel-solid);
+  flex-shrink: 0;
+}
+
+/* Stats grid: 2 rows of stat pairs + cost column */
+.sd-stats-row {
+  display: flex;
+  border-bottom: 1px solid var(--border-frame);
+}
+
+.sd-stats-grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+  padding: var(--space-sm) var(--space-md);
+}
+
+.sd-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 2px var(--space-xs);
+}
+
+.sd-stat-label {
+  font-size: 9px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
+.sd-stat-value {
+  font-size: var(--font-base);
+  font-weight: 700;
+  color: var(--text-bright);
+  font-variant-numeric: tabular-nums;
+}
+
+.sd-stat-value.over {
+  color: var(--accent-danger);
+}
+
+.sd-stat-value.bonus {
+  color: var(--accent-success);
+}
+
+/* Cost column (right side of stats) */
+.sd-cost-display {
+  width: 140px;
+  flex-shrink: 0;
+  border-left: 1px solid var(--border-frame);
+  padding: var(--space-sm) var(--space-md);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+}
+
+.sd-cost-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font-size: var(--font-sm);
+}
+
+.sd-cost-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.sd-cost-dot.metal { background: var(--color-metal); }
+.sd-cost-dot.he3 { background: var(--color-he3); }
+.sd-cost-dot.gold { background: var(--color-gold); }
+
+.sd-cost-label {
+  color: var(--text-dim);
+  min-width: 28px;
+}
+
+.sd-cost-value {
+  color: var(--text-bright);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  flex: 1;
+  text-align: right;
+}
+
+/* Save button row */
+.sd-save-row {
+  display: flex;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  justify-content: flex-end;
+}
+
+.sd-save-btn {
+  padding: 8px 24px;
+  background: linear-gradient(135deg, #2255bb, var(--accent-primary));
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  font-size: var(--font-sm);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  transition: box-shadow 0.2s, transform 0.1s;
+  font-family: 'Rajdhani', sans-serif;
+}
+
+.sd-save-btn:hover:not(:disabled) {
+  box-shadow: var(--glow-blue);
+  transform: translateY(-1px);
+}
+
+.sd-save-btn:disabled {
+  background: var(--border-frame);
+  color: var(--text-dim);
+  cursor: not-allowed;
+  transform: none;
+}
+
+.sd-delete-btn {
+  padding: 8px 16px;
+  background: transparent;
+  color: var(--text-dim);
+  border: 1px solid var(--border-frame);
+  border-radius: 4px;
+  font-size: var(--font-sm);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+  font-family: 'Rajdhani', sans-serif;
+}
+
+.sd-delete-btn:hover {
+  border-color: var(--accent-danger);
+  color: var(--accent-danger);
+}
+
+/* ============ Tooltip (module hover details) ============ */
+
+.sd-tooltip {
+  position: fixed;
+  z-index: 500;
+  background: var(--bg-panel-solid);
+  border: 1px solid var(--border-active);
+  border-radius: 6px;
+  padding: var(--space-sm) var(--space-md);
+  max-width: 240px;
+  pointer-events: none;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  font-family: 'Rajdhani', sans-serif;
+  animation: tooltipIn 0.1s ease-out;
+}
+
+@keyframes tooltipIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.sd-tooltip-name {
+  font-size: var(--font-base);
+  font-weight: 700;
+  color: var(--text-bright);
+  margin-bottom: var(--space-xs);
+}
+
+.sd-tooltip-stat {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--font-sm);
+  color: var(--text-normal);
+  padding: 1px 0;
+}
+
+.sd-tooltip-stat-value {
+  color: var(--text-bright);
+  font-weight: 600;
+}
+
+.sd-tooltip-desc {
+  font-size: var(--font-xs);
+  color: var(--text-dim);
+  margin-top: var(--space-xs);
+  line-height: 1.3;
+}
+
+/* Blueprint required tooltip hint */
+.sd-tooltip-locked {
+  font-size: var(--font-xs);
+  color: var(--accent-warning);
+  margin-top: var(--space-xs);
+  font-weight: 600;
+}
+
+/* ============ Placement Order Guide ============ */
+
+.sd-placement-guide {
+  padding: var(--space-xs) var(--space-md);
+  border-bottom: 1px solid var(--border-frame);
+  flex-shrink: 0;
+}
+
+.sd-placement-hint {
+  font-size: var(--font-xs);
+  color: var(--text-dim);
+  line-height: 1.4;
+}
+
+.sd-installed-item-order {
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--border-frame);
+  border-radius: 2px;
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--text-label);
+  flex-shrink: 0;
+}
+
+/* ============ Responsive: Tablet (<=1199px) ============ */
+
+@media (max-width: 1199px) {
+  .sd-editor-modal {
+    width: 95vw;
+    max-height: 90vh;
+  }
+
+  .sd-editor {
+    flex-direction: column;
+    overflow-y: auto;
+  }
+
+  .sd-col-hull {
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid var(--border-frame);
+    max-height: none;
+  }
+
+  /* Hull list becomes horizontal scroll on tablet */
+  .sd-hull-list {
+    flex-direction: row;
+    overflow-x: auto;
+    overflow-y: hidden;
+    gap: var(--space-xs);
+    padding: var(--space-xs) var(--space-md);
+  }
+
+  .sd-hull-card {
+    min-width: 140px;
+    flex-shrink: 0;
+  }
+
+  .sd-col-modules {
+    border-right: none;
+    border-bottom: 1px solid var(--border-frame);
+    max-height: 300px;
+  }
+
+  .sd-col-preview {
+    width: 100%;
+  }
+
+  .sd-preview-canvas {
+    height: 160px;
+  }
+
+  .sd-stats-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .sd-cost-display {
+    width: 120px;
+  }
+}
+
+/* ============ Responsive: Mobile (<=767px) ============ */
+
+@media (max-width: 767px) {
+  .sd-editor-modal {
+    width: 100vw;
+    max-width: 100vw;
+    max-height: 100vh;
+    border-radius: 0;
+  }
+
+  .sd-editor {
+    flex-direction: column;
+  }
+
+  .sd-col-hull {
+    width: 100%;
+  }
+
+  .sd-class-tabs {
+    overflow-x: auto;
+  }
+
+  .sd-hull-list {
+    flex-direction: row;
+    max-height: none;
+  }
+
+  .sd-hull-card {
+    min-width: 120px;
+  }
+
+  .sd-col-modules {
+    width: 100%;
+    max-height: 250px;
+  }
+
+  .sd-col-preview {
+    width: 100%;
+  }
+
+  .sd-preview-canvas {
+    height: 140px;
+  }
+
+  .sd-stats-row {
+    flex-direction: column;
+  }
+
+  .sd-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .sd-cost-display {
+    width: 100%;
+    border-left: none;
+    border-top: 1px solid var(--border-frame);
+    flex-direction: row;
+    gap: var(--space-md);
+    justify-content: center;
+  }
+
+  .sd-mod-type-tabs {
+    overflow-x: auto;
+  }
+
+  .sd-mod-subcat {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+  }
+
+  .sd-save-row {
+    flex-direction: column;
+  }
+
+  .sd-save-btn,
+  .sd-delete-btn {
+    width: 100%;
+  }
+}
+
+/* ============ Animations ============ */
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes modalIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* Module add flash */
+.sd-installed-item.just-added {
+  animation: moduleAddFlash 0.4s ease-out;
+}
+
+@keyframes moduleAddFlash {
+  0% {
+    background: rgba(34, 204, 102, 0.3);
+  }
+  100% {
+    background: rgba(68, 136, 255, 0.06);
+  }
+}
+
+/* Module remove flash */
+.sd-installed-item.removing {
+  animation: moduleRemoveFlash 0.3s ease-out;
+}
+
+@keyframes moduleRemoveFlash {
+  0% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(10px);
+  }
+}
