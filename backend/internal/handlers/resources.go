@@ -9,6 +9,7 @@ import (
 	"github.com/cryptomines-online/backend/internal/database"
 	"github.com/cryptomines-online/backend/internal/middleware"
 	"github.com/cryptomines-online/backend/internal/models"
+	"github.com/cryptomines-online/backend/internal/services"
 )
 
 // GetResources handles GET /api/planets/{id}/resources
@@ -154,6 +155,9 @@ func CollectResources(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Update quest progress for harvesting resources
+	services.UpdateQuestProgress(playerID, "harvest_resources", "resource_warehouse", 1)
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(collectResponse{
 		Collected: collectAmounts{Metal: actualMetal, He3: actualHe3, Gold: actualGold},
@@ -167,29 +171,74 @@ func applyCompletedUpgrades(planetID string) {
 	now := time.Now()
 
 	// Find and complete all finished upgrades
-	rows, err := database.DB.Query(
-		`UPDATE buildings
-		 SET level = level + 1, is_upgrading = false, upgrade_finish_at = NULL, updated_at = now()
-		 WHERE planet_id = $1 AND is_upgrading = true AND upgrade_finish_at <= $2
-		 RETURNING id`,
-		planetID, now,
-	)
+	rows, err := database.DB.Query(`
+		SELECT b.id, bt.name, b.level
+		FROM buildings b
+		JOIN building_types bt ON b.building_type = bt.id
+		WHERE b.planet_id = $1 AND b.is_upgrading = true AND b.upgrade_finish_at <= $2
+	`, planetID, now)
+	if err != nil {
+		log.Printf("Failed to query completed upgrades: %v", err)
+		return
+	}
+
+	type completedBuilding struct {
+		id          string
+		buildingType string
+		newLevel     int
+	}
+	var completed []completedBuilding
+
+	for rows.Next() {
+		var id, buildingType string
+		var currentLevel int
+		rows.Scan(&id, &buildingType, &currentLevel)
+		completed = append(completed, completedBuilding{
+			id:          id,
+			buildingType: buildingType,
+			newLevel:     currentLevel + 1,
+		})
+	}
+	rows.Close()
+
+	if len(completed) == 0 {
+		return
+	}
+
+	// Get player ID for quest tracking
+	var playerID string
+	err = database.DB.QueryRow(`
+		SELECT player_id FROM planets WHERE id = $1
+	`, planetID).Scan(&playerID)
+	if err != nil {
+		log.Printf("Failed to get player ID for quest tracking: %v", err)
+		return
+	}
+
+	// Apply the upgrades
+	_, err = database.DB.Exec(`
+		UPDATE buildings
+		SET level = level + 1, is_upgrading = false, upgrade_finish_at = NULL, updated_at = now()
+		WHERE planet_id = $1 AND is_upgrading = true AND upgrade_finish_at <= $2
+	`, planetID, now)
 	if err != nil {
 		log.Printf("Failed to apply completed upgrades: %v", err)
 		return
 	}
-	defer rows.Close()
 
-	upgraded := false
-	for rows.Next() {
-		var id string
-		rows.Scan(&id)
-		upgraded = true
+	// Update quest progress for each completed building
+	for _, building := range completed {
+		// Track quest progress for building construction (level 1)
+		if building.newLevel == 1 {
+			services.UpdateQuestProgress(playerID, "build_building", building.buildingType, 1)
+		}
+		// Track quest progress for building upgrades (level > 1)
+		if building.newLevel > 1 {
+			services.UpdateQuestProgress(playerID, "upgrade_building", building.buildingType, 1)
+		}
 	}
 
-	if upgraded {
-		recalculateProductionRates(planetID)
-	}
+	recalculateProductionRates(planetID)
 }
 
 // recalculateProductionRates recalculates metal_per_hour, he3_per_hour, gold_per_hour,

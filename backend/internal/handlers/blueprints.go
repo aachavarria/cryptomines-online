@@ -9,6 +9,7 @@ import (
 	"github.com/cryptomines-online/backend/internal/database"
 	"github.com/cryptomines-online/backend/internal/middleware"
 	"github.com/cryptomines-online/backend/internal/models"
+	"github.com/cryptomines-online/backend/internal/services"
 )
 
 // ListBlueprints handles GET /api/blueprints
@@ -122,6 +123,14 @@ func ActivateBlueprint(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Failed to activate blueprint: %v", err)
 		http.Error(w, `{"error":"internal server error"}`, http.StatusInternalServerError)
 		return
+	}
+
+	// Get blueprint name for quest tracking
+	var blueprintName string
+	err = database.DB.QueryRow(`SELECT name FROM blueprints WHERE id = $1`, blueprintID).Scan(&blueprintName)
+	if err == nil {
+		// Update quest progress for using/activating a blueprint
+		services.UpdateQuestProgress(playerID, "use_blueprint", blueprintName, 1)
 	}
 
 	w.Header().Set("Content-Type", "application/json")

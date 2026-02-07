@@ -13,7 +13,27 @@ import (
 	"github.com/cryptomines-online/backend/internal/services"
 )
 
-const maxConstructionSlots = 2
+// getConstructionSlots calculates the number of construction slots available to a player.
+// Base: 1 slot, +1 per level of Concurrent Construction tech.
+func getConstructionSlots(playerID string) int {
+	baseSlots := 1
+	
+	// Get Concurrent Construction tech level
+	var techLevel int
+	err := database.DB.QueryRow(`
+		SELECT COALESCE(t.level, 0)
+		FROM tech_types tt
+		LEFT JOIN technologies t ON t.tech_type = tt.id AND t.player_id = $1
+		WHERE tt.name = 'concurrent_construction'
+	`, playerID).Scan(&techLevel)
+	
+	if err != nil {
+		log.Printf("Failed to get construction slots: %v", err)
+		return baseSlots
+	}
+	
+	return baseSlots + techLevel
+}
 
 // ListBuildings handles GET /api/planets/{id}/buildings
 func ListBuildings(w http.ResponseWriter, r *http.Request) {
@@ -29,7 +49,7 @@ func ListBuildings(w http.ResponseWriter, r *http.Request) {
 	applyCompletedUpgrades(planetID)
 
 	rows, err := database.DB.Query(
-		`SELECT b.id, b.planet_id, b.building_type, b.level, b.is_upgrading,
+		`SELECT b.id, b.planet_id, b.building_type, b.grid_col, b.grid_row, b.level, b.is_upgrading,
 		        b.upgrade_finish_at, b.created_at, b.updated_at,
 		        bt.name, bt.display_name, bt.category, bt.base, bt.max_level
 		 FROM buildings b
@@ -48,7 +68,7 @@ func ListBuildings(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var b models.BuildingWithType
 		err := rows.Scan(
-			&b.ID, &b.PlanetID, &b.BuildingType, &b.Level, &b.IsUpgrading,
+			&b.ID, &b.PlanetID, &b.BuildingType, &b.GridCol, &b.GridRow, &b.Level, &b.IsUpgrading,
 			&b.UpgradeFinishAt, &b.CreatedAt, &b.UpdatedAt,
 			&b.TypeName, &b.DisplayName, &b.Category, &b.BaseName, &b.MaxLevel,
 		)
@@ -65,6 +85,8 @@ func ListBuildings(w http.ResponseWriter, r *http.Request) {
 
 type constructRequest struct {
 	BuildingTypeName string `json:"building_type"`
+	GridCol          int    `json:"grid_col"`
+	GridRow          int    `json:"grid_row"`
 }
 
 type buildingResponse struct {
@@ -135,7 +157,8 @@ func ConstructBuilding(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, `{"error":"internal server error"}`, http.StatusInternalServerError)
 		return
 	}
-	if activeBuilds >= maxConstructionSlots {
+	maxSlots := getConstructionSlots(playerID)
+	if activeBuilds >= maxSlots {
 		http.Error(w, `{"error":"all construction slots are in use"}`, http.StatusConflict)
 		return
 	}
@@ -203,18 +226,24 @@ func ConstructBuilding(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Validate grid coordinates
+	if req.GridCol < 0 || req.GridRow < 0 {
+		http.Error(w, `{"error":"invalid grid coordinates"}`, http.StatusBadRequest)
+		return
+	}
+
 	// Create building (starts at level 0, upgrading to level 1)
 	// applyCompletedUpgrades does level+1 when done, so 0->1 for initial construction
 	finishAt := time.Now().Add(time.Duration(levelCost.BuildTimeSeconds) * time.Second)
 	var building models.Building
 	err = tx.QueryRow(
-		`INSERT INTO buildings (planet_id, building_type, level, is_upgrading, upgrade_finish_at)
-		 VALUES ($1, $2, 0, true, $3)
-		 RETURNING id, planet_id, building_type, level, is_upgrading, upgrade_finish_at, created_at, updated_at`,
-		planetID, bt.ID, finishAt,
+		`INSERT INTO buildings (planet_id, building_type, grid_col, grid_row, level, is_upgrading, upgrade_finish_at)
+		 VALUES ($1, $2, $3, $4, 0, true, $5)
+		 RETURNING id, planet_id, building_type, grid_col, grid_row, level, is_upgrading, upgrade_finish_at, created_at, updated_at`,
+		planetID, bt.ID, req.GridCol, req.GridRow, finishAt,
 	).Scan(
-		&building.ID, &building.PlanetID, &building.BuildingType, &building.Level,
-		&building.IsUpgrading, &building.UpgradeFinishAt, &building.CreatedAt, &building.UpdatedAt,
+		&building.ID, &building.PlanetID, &building.BuildingType, &building.GridCol, &building.GridRow,
+		&building.Level, &building.IsUpgrading, &building.UpgradeFinishAt, &building.CreatedAt, &building.UpdatedAt,
 	)
 	if err != nil {
 		log.Printf("Failed to create building: %v", err)
@@ -263,7 +292,8 @@ func UpgradeBuilding(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, `{"error":"internal server error"}`, http.StatusInternalServerError)
 		return
 	}
-	if activeBuilds >= maxConstructionSlots {
+	maxSlots := getConstructionSlots(playerID)
+	if activeBuilds >= maxSlots {
 		http.Error(w, `{"error":"all construction slots are in use"}`, http.StatusConflict)
 		return
 	}
@@ -272,7 +302,7 @@ func UpgradeBuilding(w http.ResponseWriter, r *http.Request) {
 	var b models.Building
 	var bt models.BuildingType
 	err = tx.QueryRow(
-		`SELECT b.id, b.planet_id, b.building_type, b.level, b.is_upgrading,
+		`SELECT b.id, b.planet_id, b.building_type, b.grid_col, b.grid_row, b.level, b.is_upgrading,
 		        b.upgrade_finish_at, b.created_at, b.updated_at,
 		        bt.id, bt.name, bt.base_cost_metal, bt.base_cost_he3, bt.base_cost_gold,
 		        bt.base_time_seconds, bt.cost_multiplier, bt.time_multiplier,
@@ -282,7 +312,7 @@ func UpgradeBuilding(w http.ResponseWriter, r *http.Request) {
 		 WHERE b.id = $1 AND b.planet_id = $2`,
 		buildingID, planetID,
 	).Scan(
-		&b.ID, &b.PlanetID, &b.BuildingType, &b.Level, &b.IsUpgrading,
+		&b.ID, &b.PlanetID, &b.BuildingType, &b.GridCol, &b.GridRow, &b.Level, &b.IsUpgrading,
 		&b.UpgradeFinishAt, &b.CreatedAt, &b.UpdatedAt,
 		&bt.ID, &bt.Name, &bt.BaseCostMetal, &bt.BaseCostHe3, &bt.BaseCostGold,
 		&bt.BaseTimeSeconds, &bt.CostMultiplier, &bt.TimeMultiplier,
@@ -359,10 +389,10 @@ func UpgradeBuilding(w http.ResponseWriter, r *http.Request) {
 		`UPDATE buildings
 		 SET is_upgrading = true, upgrade_finish_at = $1, updated_at = now()
 		 WHERE id = $2
-		 RETURNING id, planet_id, building_type, level, is_upgrading, upgrade_finish_at, created_at, updated_at`,
+		 RETURNING id, planet_id, building_type, grid_col, grid_row, level, is_upgrading, upgrade_finish_at, created_at, updated_at`,
 		finishAt, buildingID,
 	).Scan(
-		&b.ID, &b.PlanetID, &b.BuildingType, &b.Level, &b.IsUpgrading,
+		&b.ID, &b.PlanetID, &b.BuildingType, &b.GridCol, &b.GridRow, &b.Level, &b.IsUpgrading,
 		&b.UpgradeFinishAt, &b.CreatedAt, &b.UpdatedAt,
 	)
 	if err != nil {
@@ -449,13 +479,13 @@ func CancelUpgrade(w http.ResponseWriter, r *http.Request) {
 	// Get the building and verify it's upgrading
 	var b models.Building
 	err := database.DB.QueryRow(
-		`SELECT id, planet_id, building_type, level, is_upgrading,
+		`SELECT id, planet_id, building_type, grid_col, grid_row, level, is_upgrading,
 		        upgrade_finish_at, created_at, updated_at
 		 FROM buildings
 		 WHERE id = $1 AND planet_id = $2`,
 		buildingID, planetID,
 	).Scan(
-		&b.ID, &b.PlanetID, &b.BuildingType, &b.Level, &b.IsUpgrading,
+		&b.ID, &b.PlanetID, &b.BuildingType, &b.GridCol, &b.GridRow, &b.Level, &b.IsUpgrading,
 		&b.UpgradeFinishAt, &b.CreatedAt, &b.UpdatedAt,
 	)
 	if err != nil {
@@ -473,14 +503,68 @@ func CancelUpgrade(w http.ResponseWriter, r *http.Request) {
 		`UPDATE buildings
 		 SET is_upgrading = false, upgrade_finish_at = NULL, updated_at = now()
 		 WHERE id = $1
-		 RETURNING id, planet_id, building_type, level, is_upgrading, upgrade_finish_at, created_at, updated_at`,
+		 RETURNING id, planet_id, building_type, grid_col, grid_row, level, is_upgrading, upgrade_finish_at, created_at, updated_at`,
 		buildingID,
 	).Scan(
-		&b.ID, &b.PlanetID, &b.BuildingType, &b.Level, &b.IsUpgrading,
+		&b.ID, &b.PlanetID, &b.BuildingType, &b.GridCol, &b.GridRow, &b.Level, &b.IsUpgrading,
 		&b.UpgradeFinishAt, &b.CreatedAt, &b.UpdatedAt,
 	)
 	if err != nil {
 		log.Printf("Failed to cancel upgrade: %v", err)
+		http.Error(w, `{"error":"internal server error"}`, http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(struct {
+		Building models.Building `json:"building"`
+	}{Building: b})
+}
+
+type moveRequest struct {
+	GridCol int `json:"grid_col"`
+	GridRow int `json:"grid_row"`
+}
+
+// MoveBuilding handles PUT /api/planets/{id}/buildings/{buildingId}/move
+func MoveBuilding(w http.ResponseWriter, r *http.Request) {
+	playerID := middleware.GetPlayerID(r)
+	planetID := r.PathValue("id")
+	buildingID := r.PathValue("buildingId")
+
+	if !verifyPlanetOwnership(planetID, playerID) {
+		http.Error(w, `{"error":"planet not found"}`, http.StatusNotFound)
+		return
+	}
+
+	var req moveRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, `{"error":"invalid request body"}`, http.StatusBadRequest)
+		return
+	}
+
+	if req.GridCol < 0 || req.GridRow < 0 {
+		http.Error(w, `{"error":"invalid grid coordinates"}`, http.StatusBadRequest)
+		return
+	}
+
+	var b models.Building
+	err := database.DB.QueryRow(
+		`UPDATE buildings
+		 SET grid_col = $1, grid_row = $2, updated_at = now()
+		 WHERE id = $3 AND planet_id = $4
+		 RETURNING id, planet_id, building_type, grid_col, grid_row, level, is_upgrading, upgrade_finish_at, created_at, updated_at`,
+		req.GridCol, req.GridRow, buildingID, planetID,
+	).Scan(
+		&b.ID, &b.PlanetID, &b.BuildingType, &b.GridCol, &b.GridRow, &b.Level, &b.IsUpgrading,
+		&b.UpgradeFinishAt, &b.CreatedAt, &b.UpdatedAt,
+	)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			http.Error(w, `{"error":"building not found"}`, http.StatusNotFound)
+			return
+		}
+		log.Printf("Failed to move building: %v", err)
 		http.Error(w, `{"error":"internal server error"}`, http.StatusInternalServerError)
 		return
 	}
