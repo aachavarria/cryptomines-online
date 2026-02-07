@@ -35,12 +35,20 @@ export function useBlueprints() {
   }, [refresh])
 
   const hasActivated = useCallback((blueprintId: number): boolean => {
-    return myBlueprints.some(bp => bp.blueprint_id === blueprintId && bp.activated)
+    return myBlueprints.some(bp => bp.blueprint_id === blueprintId && bp.is_activated)
   }, [myBlueprints])
 
   const hasOwned = useCallback((blueprintId: number): boolean => {
     return myBlueprints.some(bp => bp.blueprint_id === blueprintId)
   }, [myBlueprints])
 
-  return { allBlueprints, myBlueprints, loading, error, activate, hasActivated, hasOwned, refresh }
+  const hasHullBlueprint = useCallback((hullTypeId: number): boolean => {
+    return myBlueprints.some(bp => bp.blueprint_type === 'hull' && bp.hull_type_id === hullTypeId && bp.is_activated)
+  }, [myBlueprints])
+
+  const hasModuleBlueprint = useCallback((moduleTypeId: number): boolean => {
+    return myBlueprints.some(bp => bp.blueprint_type === 'module' && bp.module_type_id === moduleTypeId && bp.is_activated)
+  }, [myBlueprints])
+
+  return { allBlueprints, myBlueprints, loading, error, activate, hasActivated, hasOwned, hasHullBlueprint, hasModuleBlueprint, refresh }
 }

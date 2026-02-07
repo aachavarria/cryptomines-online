@@ -28,6 +28,8 @@ type Building struct {
 	ID              string     `json:"id"`
 	PlanetID        string     `json:"planet_id"`
 	BuildingType    int        `json:"building_type"`
+	GridCol         int        `json:"grid_col"`
+	GridRow         int        `json:"grid_row"`
 	Level           int        `json:"level"`
 	IsUpgrading     bool       `json:"is_upgrading"`
 	UpgradeFinishAt *time.Time `json:"upgrade_finish_at"`

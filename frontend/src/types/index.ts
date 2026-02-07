@@ -24,6 +24,8 @@ export interface BuildingWithType {
   id: string
   planet_id: string
   building_type: number
+  grid_col: number
+  grid_row: number
   level: number
   is_upgrading: boolean
   upgrade_finish_at: string | null
@@ -70,6 +72,8 @@ export interface BuildingResponse {
     id: string
     planet_id: string
     building_type: number
+    grid_col: number
+    grid_row: number
     level: number
     is_upgrading: boolean
     upgrade_finish_at: string | null
@@ -360,6 +364,167 @@ export interface SpacedockRepair {
   repair_finish_at: string | null
   combat_report_id: string | null
   created_at: string
+}
+
+// ============ Quest Types ============
+
+export interface PlayerQuestWithType {
+  id: string
+  quest_key: string
+  display_name: string
+  description: string
+  category: 'main' | 'side'
+  status: 'locked' | 'available' | 'completed' | 'claimed'
+  progress_value: number
+  requirement_value: number
+  chain_order: number
+  reward_metal: number
+  reward_he3: number
+  reward_gold: number
+  reward_item_json: string | null
+}
+
+export interface QuestsResponse {
+  main_quests: PlayerQuestWithType[]
+  side_quests: PlayerQuestWithType[]
+  current_main_quest: PlayerQuestWithType | null
+}
+
+export interface DailyQuestEntry {
+  quest_key: string
+  display_name: string
+  completed: boolean
+  points: number
+  progress?: number
+  required?: number
+  points_per?: number
+  max_points?: number
+}
+
+export interface DailyTierReward {
+  tier: string
+  points_required: number
+  claimed: boolean
+}
+
+export interface DailyQuestsResponse {
+  date: string
+  daily_points: number
+  quests: DailyQuestEntry[]
+  tier_rewards: DailyTierReward[]
+}
+
+export interface ClaimQuestResponse {
+  quest_key: string
+  rewards: {
+    metal: number
+    he3: number
+    gold: number
+    items: string | null
+  }
+  next_quest_unlocked: string | null
+}
+
+export interface ClaimDailyTierResponse {
+  tier: string
+  reward: {
+    type: string
+    quantity: number
+  }
+}
+
+// ============ Research/Tech Tree Types ============
+
+export type TechTree =
+  | 'logistics_construction'
+  | 'ballistics_science'
+  | 'ship_defense_science'
+  | 'directional_science'
+  | 'missile_science'
+  | 'ship_based_science'
+  | 'planetary_defense'
+
+export interface TechType {
+  id: number
+  name: string
+  display_name: string
+  tree: TechTree
+  max_level: number
+  prerequisites: { tech: string; level: number }[]
+  base_cost_gold: number
+  cost_multiplier: number
+  base_time_seconds: number
+  time_multiplier: number
+  effects: {
+    type: string
+    per_level?: number
+    unit?: string
+    [key: string]: any
+  }
+  description: string
+}
+
+export interface TechWithProgress extends TechType {
+  current_level: number
+  is_researching: boolean
+  research_finish_at: string | null
+  cost_next_level: { gold: number } | null
+  time_next_level_seconds: number | null
+}
+
+export interface ResearchTreeResponse {
+  tree: string
+  techs: TechWithProgress[]
+}
+
+export interface ResearchAllResponse {
+  trees: ResearchTreeResponse[]
+  active: ActiveResearch | null
+}
+
+export interface ActiveResearch {
+  tech_type_id: number
+  tech_name: string
+  display_name: string
+  tree: string
+  level: number
+  is_researching: boolean
+  research_finish_at: string
+}
+
+export interface StartResearchResponse {
+  technology: {
+    id: string
+    tech_type: number
+    level: number
+    is_researching: boolean
+    research_finish_at: string
+  }
+  resources: {
+    metal: number
+    he3: number
+    gold: number
+  }
+}
+
+export interface CancelResearchResponse {
+  tech_type_id: number
+  refunded_gold: number
+  resources: {
+    metal: number
+    he3: number
+    gold: number
+  }
+}
+
+export interface SpeedupResearchResponse {
+  technology: {
+    id: string
+    tech_type: number
+    is_researching: boolean
+    research_finish_at: string
+  }
+  vouchers_spent: number
 }
 
 // Building types that can be constructed (from seed data)

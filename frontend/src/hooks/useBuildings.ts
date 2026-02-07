@@ -3,8 +3,9 @@ import {
   listBuildings,
   upgradeBuilding,
   constructBuilding,
+  moveBuilding,
 } from '../services/api.ts'
-import { useGameContext } from '../contexts/GameContext.tsx'
+import { useGameContext, type GridPosition } from '../contexts/GameContext.tsx'
 
 export function useBuildings() {
   const { state, dispatch } = useGameContext()
@@ -67,13 +68,23 @@ export function useBuildings() {
     }
   }, [planetId, fetchBuildings, dispatch])
 
-  const construct = useCallback(async (buildingType: string) => {
+  const construct = useCallback(async (buildingType: string, gridCol: number, gridRow: number) => {
     if (!planetId) return
     try {
-      await constructBuilding(planetId, buildingType)
+      await constructBuilding(planetId, buildingType, gridCol, gridRow)
       await fetchBuildings()
     } catch {
       dispatch({ type: 'SET_ERROR', payload: 'Failed to construct building' })
+    }
+  }, [planetId, fetchBuildings, dispatch])
+
+  const move = useCallback(async (buildingId: string, gridCol: number, gridRow: number) => {
+    if (!planetId) return
+    try {
+      await moveBuilding(planetId, buildingId, gridCol, gridRow)
+      await fetchBuildings()
+    } catch {
+      dispatch({ type: 'SET_ERROR', payload: 'Failed to move building' })
     }
   }, [planetId, fetchBuildings, dispatch])
 
@@ -81,6 +92,7 @@ export function useBuildings() {
     buildings: state.buildings,
     upgrade,
     construct,
+    move,
     refreshBuildings: fetchBuildings,
   }
 }

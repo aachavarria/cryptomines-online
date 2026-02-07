@@ -43,6 +43,7 @@ func main() {
 	protected.HandleFunc("POST /api/planets/{id}/buildings", handlers.ConstructBuilding)
 	protected.HandleFunc("POST /api/planets/{id}/buildings/{buildingId}/upgrade", handlers.UpgradeBuilding)
 	protected.HandleFunc("POST /api/planets/{id}/buildings/{buildingId}/cancel", handlers.CancelUpgrade)
+	protected.HandleFunc("PUT /api/planets/{id}/buildings/{buildingId}/move", handlers.MoveBuilding)
 	protected.HandleFunc("GET /api/planets/{id}/resources", handlers.GetResources)
 	protected.HandleFunc("POST /api/planets/{id}/resources/collect", handlers.CollectResources)
 
@@ -86,6 +87,20 @@ func main() {
 	protected.HandleFunc("GET /api/spacedock/repairs", handlers.ListRepairs)
 	protected.HandleFunc("POST /api/spacedock/repair", handlers.StartRepair)
 	protected.HandleFunc("POST /api/spacedock/accelerate", handlers.AccelerateRepair)
+
+	// Quests
+	protected.HandleFunc("GET /api/quests", handlers.ListQuests)
+	protected.HandleFunc("GET /api/quests/daily", handlers.GetDailyQuests)
+	protected.HandleFunc("POST /api/quests/{id}/claim", handlers.ClaimQuest)
+	protected.HandleFunc("POST /api/quests/daily/claim-tier", handlers.ClaimDailyTier)
+
+	// Research
+	protected.HandleFunc("GET /api/research", handlers.ListResearch)
+	protected.HandleFunc("GET /api/research/trees/{tree}", handlers.GetResearchTree)
+	protected.HandleFunc("POST /api/research/start", handlers.StartResearch)
+	protected.HandleFunc("POST /api/research/cancel", handlers.CancelResearch)
+	protected.HandleFunc("POST /api/research/speedup", handlers.SpeedupResearch)
+	protected.HandleFunc("GET /api/research/active", handlers.GetActiveResearch)
 
 	mux.Handle("/api/", middleware.Auth(protected))
 

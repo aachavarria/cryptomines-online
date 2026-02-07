@@ -8,7 +8,6 @@ import GhostPreview from './GhostPreview.tsx'
 import CameraController from './CameraController.tsx'
 import {
   useGameContext,
-  autoAssignPositions,
   getBuildingTiles,
   canPlaceBuilding,
   getBuildingWorldCenter,
@@ -17,8 +16,8 @@ import {
 import { useBuildings } from '../../hooks/useBuildings.ts'
 
 export default function PlanetScene() {
-  const { state, selectBuilding, dispatch, placeBuilding, exitPlacementMode } = useGameContext()
-  const { construct } = useBuildings()
+  const { state, selectBuilding, dispatch, exitPlacementMode } = useGameContext()
+  const { construct, move } = useBuildings()
   const [cursorGridPos, setCursorGridPos] = useState<GridPosition | null>(null)
   const {
     buildings,
@@ -28,19 +27,16 @@ export default function PlanetScene() {
     showDetailPanel,
     cameraTarget,
     placementMode,
-    buildingPositions,
   } = state
 
-  // Auto-assign positions for buildings that don't have one
-  useEffect(() => {
-    if (buildings.length === 0) return
-    const newPositions = autoAssignPositions(buildings, buildingPositions)
-    // Only update if there are new assignments
-    const hasNew = buildings.some(b => !buildingPositions[b.id] && newPositions[b.id])
-    if (hasNew) {
-      dispatch({ type: 'SET_BUILDING_POSITIONS', payload: newPositions })
+  // Derive buildingPositions from server-side grid_col/grid_row
+  const buildingPositions = useMemo(() => {
+    const positions: Record<string, GridPosition> = {}
+    for (const b of buildings) {
+      positions[b.id] = { col: b.grid_col, row: b.grid_row }
     }
-  }, [buildings, buildingPositions, dispatch])
+    return positions
+  }, [buildings])
 
   // Compute occupied tile keys (multi-tile aware)
   const occupiedTiles = useMemo(() => {
@@ -59,6 +55,25 @@ export default function PlanetScene() {
     return set
   }, [buildingPositions, buildings])
 
+  // Resolve building type name for both construct and move modes
+  const activeBuildingTypeName = useMemo(() => {
+    if (placementMode.buildingTypeName) return placementMode.buildingTypeName
+    if (placementMode.movingBuildingId) {
+      const b = buildings.find(b => b.id === placementMode.movingBuildingId)
+      return b?.type_name || null
+    }
+    return null
+  }, [placementMode, buildings])
+
+  // Check if cursor position is a valid placement (accounts for move mode exclusion)
+  const isCursorValid = useMemo(() => {
+    if (!cursorGridPos || !activeBuildingTypeName) return false
+    return canPlaceBuilding(
+      activeBuildingTypeName, cursorGridPos.col, cursorGridPos.row, occupiedTiles,
+      placementMode.movingBuildingId, buildingPositions, buildings
+    )
+  }, [cursorGridPos, activeBuildingTypeName, occupiedTiles, placementMode.movingBuildingId, buildingPositions, buildings])
+
   // Handle tile click during placement mode
   function handleTileClick(pos: GridPosition) {
     if (!placementMode.active) return
@@ -70,7 +85,7 @@ export default function PlanetScene() {
       }
       const typeName = placementMode.buildingTypeName
       exitPlacementMode()
-      construct(typeName)
+      construct(typeName, pos.col, pos.row)
     } else if (placementMode.movingBuildingId) {
       // For move: find the building's type_name
       const movingBuilding = buildings.find(b => b.id === placementMode.movingBuildingId)
@@ -82,7 +97,9 @@ export default function PlanetScene() {
           return
         }
       }
-      placeBuilding(placementMode.movingBuildingId, pos)
+      const buildingId = placementMode.movingBuildingId
+      exitPlacementMode()
+      move(buildingId, pos.col, pos.row)
     }
   }
 
@@ -109,7 +126,7 @@ export default function PlanetScene() {
       <IsometricGrid
         visible={placementMode.active}
         occupiedTiles={occupiedTiles}
-        buildingTypeName={placementMode.buildingTypeName || null}
+        buildingTypeName={activeBuildingTypeName}
         cursorGridPos={cursorGridPos}
         onTileClick={handleTileClick}
         onCursorMove={setCursorGridPos}
@@ -117,14 +134,10 @@ export default function PlanetScene() {
 
       {/* Ghost preview during placement */}
       <GhostPreview
-        typeName={placementMode.buildingTypeName || ''}
+        typeName={activeBuildingTypeName || ''}
         gridPosition={cursorGridPos}
-        isValid={
-          cursorGridPos && placementMode.buildingTypeName
-            ? canPlaceBuilding(placementMode.buildingTypeName, cursorGridPos.col, cursorGridPos.row, occupiedTiles)
-            : false
-        }
-        visible={placementMode.active && !!placementMode.buildingTypeName && !!cursorGridPos}
+        isValid={isCursorValid}
+        visible={placementMode.active && !!activeBuildingTypeName && !!cursorGridPos}
       />
 
       {/* Buildings */}
