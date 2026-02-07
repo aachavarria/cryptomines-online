@@ -1,6 +1,6 @@
 # Cryptomines Online - Game Design Document
 
-> **Version**: 3.1
+> **Version**: 3.3
 > **Last Updated**: 2026-02-06
 > **Status**: Draft
 > **Directive**: 1:1 faithful reproduction of Galaxy Online 2 mechanics. Only the game name and visual theme are original. All mechanics, naming, formulas, and systems must match GO2.
@@ -174,11 +174,22 @@ Casino Resort, Beacon, Monument, Fountain, Library, Theater, Park, College, Hosp
 
 | Level | Civic Req | Build Time | Metal | He3 | Gold | Research Time Reduction |
 |-------|-----------|-----------|-------|-----|------|------------------------|
-| 1 | 1 | 0:01:40 | 450 | 420 | 650 | 3% |
-| 5 | 4 | 2:21:24 | 29,068 | 27,130 | 41,987 | 15% |
-| 12 | 11 | 6338:12:12 | 48,935,424 | 45,673,062 | 70,684,501 | 36% |
+| 1 | 1 | 00:01:40 | 450 | 420 | 650 | 3% |
+| 2 | 2 | 00:05:02 | 1,269 | 1,184 | 1,833 | 6% |
+| 3 | 3 | 00:15:15 | 3,591 | 3,352 | 5,187 | 9% |
+| 4 | 4 | 00:46:22 | 10,199 | 9,519 | 14,732 | 12% |
+| 5 | 5 | 02:21:24 | 29,068 | 27,130 | 41,987 | 15% |
+| 6 | 6 | 07:12:42 | 83,134 | 77,591 | 120,082 | 18% |
+| 7 | 7 | 22:08:24 | 238,594 | 222,688 | 344,636 | 21% |
+| 8 | 8 | 68:11:30 | 687,150 | 641,340 | 992,550 | 24% |
+| 9 | 9 | 210:42:44 | 1,985,864 | 1,853,473 | 2,868,470 | 27% |
+| 10 | 10 | 653:12:27 | 5,759,006 | 5,375,072 | 8,318,564 | 30% |
+| 11 | 11 | 2031:28:32 | 16,758,707 | 15,641,460 | 24,207,021 | 33% |
+| 12 | 12 | 6338:12:12 | 48,935,424 | 45,673,062 | 70,684,501 | 36% |
 
-[NEEDS RESEARCH: Technology Center levels 2-4, 6-11 exact costs]
+**Formula:** `EffectiveResearchTime = BaseResearchTime * (1 - TechCenterLevel * 0.03)`
+
+Build times/costs are reduced by Construction Boost and Quality Materials techs from the Logistics Construction tree.
 
 #### 2.2.8 Command Center Building
 
@@ -345,33 +356,368 @@ Ship Defense Tech (Base) [Lv 1-2]
         10-30% absorb double damage, 15-45% lower collateral
 ```
 
-#### 2.3.4 Logistics Construction Science (Priority Techs)
+#### 2.3.4 Logistics Construction Science - Full Tech Tree
 
-| Priority | Tech | Effect |
-|----------|------|--------|
-| 1 | **Construction Boost** | Reduces building construction time |
-| 2 | **Quality Materials** | Reduces building resource costs |
-| 3 | **High Yield Mining** | Increases Metal production |
-| 4 | **High Yield Chemistry** | Increases He3 production |
-| 5 | **High Yield Investing** | Increases Gold production |
-| 6 | **Expanded Capacity** | Increases Resource Warehouse capacity |
-| 7 | **Sync Shipbuilding** | Unlocks 5th Ship Factory production slot |
+The most important tree for new players. Covers economy, construction, shipbuilding, and resource production. **Total techs: 11 | All costs in Gold only.**
 
-[NEEDS RESEARCH: Logistics Construction full tech tree with prerequisites, costs, max levels, and exact effects per level]
+```
+Concurrent Construction [Lv 1] (no prereq)
+  Adds 1 construction slot | 1,000G, 0:00:20
 
-#### 2.3.5 Remaining Tech Trees
+  +-- Construction Boost [Lv 1-10] (req: Concurrent Construction Lv 1)
+  |     +1-15% building construction speed
+  |     Lv1: 2,400G, 0:08:00 | Lv10: 1,463,112G, 56:55:01
+  |
+  |     +-- Quality Materials [Lv 1-10] (req: Construction Boost Lv 3)
+  |           -1-15% building resource costs
+  |           Lv1: 1,200G, 0:04:00 | Lv10: 512,250G, 28:27:30
 
-[NEEDS RESEARCH: Directional Science full tech tree]
-[NEEDS RESEARCH: Missile Science full tech tree]
-[NEEDS RESEARCH: Ship-Based Science full tech tree]
-[NEEDS RESEARCH: Planetary Defense full tech tree]
+Ship Building Boost [Lv 1-10] (no prereq)
+  +1-15% shipbuilding speed
+  Lv1: 990G, 0:03:18 | Lv10: 1,463,112G, 81:17:02
 
-#### 2.3.6 Research Rules
+  +-- Ship Building Logistics [Lv 1-10] (req: Ship Building Boost Lv 2)
+  |     -1-15% ship construction resource costs
+  |     Lv1: 1,386G, 0:04:37 | Lv10: 2,048,358G, 113:47:52
+  |
+  |     +-- Sync Shipbuilding [Lv 1] (req: Ship Building Logistics Lv 4)
+  |           Adds 1 shipbuilding slot (5th production slot)
+  |           174,000G, 9:40:00
+  |
+  |           +-- Repair Technology [Lv 1-10] (req: Sync Shipbuilding Lv 1)
+  |                 +1-10% ship repair percentage
+  |                 Lv1: 5,310G, 0:17:42 | Lv10: 2,266,722G, 125:55:45
 
-- Only one research can be active per tree at a time
-- Technology Center level reduces research time (3% per level, max 36% at Lv 12)
-- Research costs increase exponentially per tech level
+High Yield Mining [Lv 1-10] (no prereq)
+  +1-10% Metal output
+  Lv1: 1,740G, 0:05:48 | Lv10: 742,764G, 41:15:53
+
+  +-- High Yield Chemistry [Lv 1-10] (req: High Yield Mining Lv 2)
+  |     +1-10% He3 output
+  |     Lv1: 2,400G, 0:08:00 | Lv10: 1,024,500G, 56:55:00
+  |
+  |     +-- High Yield Investing [Lv 1-10] (req: High Yield Chemistry Lv 2)
+  |           +1-10% Gold output
+  |           Lv1: 3,570G, 0:11:54 | Lv10: 1,523,952G, 84:39:50
+  |
+  |           +-- Expand Capacity [Lv 1-7+] (req: High Yield Investing Lv 4)
+  |                 +50,000-350,000 warehouse storage per level
+  |                 Lv1: 3,540G, 0:11:48
+```
+
+**Summary Table:**
+
+| Tech | Max Lv | Prerequisites | Effect per Level | Lv1 Cost | Max Lv Cost |
+|------|--------|---------------|-----------------|----------|-------------|
+| Concurrent Construction | 1 | None | +1 construction slot | 1,000G | - |
+| Construction Boost | 10 | Concurrent Lv1 | +1-15% build speed | 2,400G | 1,463,112G |
+| Quality Materials | 10 | Const.Boost Lv3 | -1-15% build costs | 1,200G | 512,250G |
+| Ship Building Boost | 10 | None | +1-15% ship build speed | 990G | 1,463,112G |
+| Ship Building Logistics | 10 | SBB Lv2 | -1-15% ship build costs | 1,386G | 2,048,358G |
+| Sync Shipbuilding | 1 | SBL Lv4 | +1 ship production slot | 174,000G | - |
+| Repair Technology | 10 | Sync Lv1 | +1-10% repair % | 5,310G | 2,266,722G |
+| High Yield Mining | 10 | None | +1-10% Metal output | 1,740G | 742,764G |
+| High Yield Chemistry | 10 | HYM Lv2 | +1-10% He3 output | 2,400G | 1,024,500G |
+| High Yield Investing | 10 | HYC Lv2 | +1-10% Gold output | 3,570G | 1,523,952G |
+| Expand Capacity | 7+ | HYI Lv4 | +50k-350k storage | 3,540G | TBD |
+
+#### 2.3.5 Directional Science - Full Tech Tree
+
+Enhances beam/directional weapons. Range 2-5 (extendable to 2-6). Lowest He3 usage. Piercing damage hits all ships vertically. **Total techs: 15 | All costs in Gold only.**
+
+```
+Optics (Base) [Lv 1-10] (no prereq)
+  +5% directional weapon damage per level (max 50%)
+  Lv1: 541G, 0:01:57 | Lv10: 18,808G, 39:18:21
+
+  +-- Directional Malice [Lv 1-5] (req: Optics Lv 3)
+  |     +1% critical strike rate per level (max 5%)
+  |     Lv1: 7,558G, 0:23:48 | Lv5: 31,327G, 6:48:55
+  |
+  +-- Directional Accuracy [Lv 1-5] (req: Optics Lv 3)
+  |     +1% accuracy per level (max 5%)
+  |     Lv1: 7,558G, 0:23:48 | Lv5: 31,327G, 6:48:55
+  |
+  +-- Eagle Eye [Lv 1-2] (req: Optics Lv 6, Dir.Accuracy Lv 1)
+  |     +10% steering power per level (max 20%)
+  |     Lv1: 22,724G, 0:42:30 | Lv2: 26,309G, 0:56:58
+  |
+  +-- Energy Penetration [Lv 1] (req: Dir.Accuracy Lv 2, Eagle Eye Lv 1)
+  |     +8% hit rate AND 8% shield penetration chance
+  |     62,584G, 1:42:00
+  |
+  +-- Pierce [Lv 1-5] (req: Optics Lv 10, Malice Lv 5, Accuracy Lv 5, E.Pen Lv 1)
+  |     Piercing damage through target rows, +3% per level
+  |     Lv1: 87,919G, 1:22:27 | Lv5: 364,426G, 23:36:36
+  |
+  +-- Radiative Interference [Lv 1-5] (req: Optics Lv 6, Accuracy Lv 2)
+  |     Reduces enemy hit rate by 2% per level (stackable, max 25%)
+  |     Lv1: 43,116G, 2:33:00 | Lv5: 178,716G, 43:48:45
+  |
+  +-- Improved Pierce [Lv 1-2] (req: Pierce Lv 3, Eagle Eye Lv 2)
+  |     +5% additional piercing damage per level
+  |     Lv1: 240,487G, 4:57:30 | Lv2: 278,425G, 6:38:46
+  |
+  +-- Energy Accumulation [Lv 1-3] (req: Eagle Eye Lv 2, E.Pen Lv 1)
+  |     +2-6% critical bonus when fleet moves
+  |     Lv1: 136,845G, 3:19:45 | Lv3: 242,368G, 10:26:35
+  |
+  +-- Electronic Interference [Lv 1-3] (req: Accuracy Lv 2, Rad.Interf. Lv 3)
+  |     5% chance to reduce enemy steering by 10%; -3-9% weapon space
+  |     Lv1: 87,581G, 3:19:45 | Lv3: 155,115G, 10:26:35
+  |
+  +-- Piercing Crit [Lv 1] (req: Pierce Lv 5, Imp.Pierce Lv 1)
+  |     Enables critical piercing vs horizontally-aligned ships
+  |     391,234G, 7:05:00
+  |
+  +-- Weakness Detection [Lv 1-3] (req: E.Accum Lv 3, Elec.Interf. Lv 3)
+  |     +5% base damage per level; 3-10% bonus accuracy
+  |     Lv1: 349,054G, 5:38:18 | Lv3: 618,216G, 17:41:12
+  |
+  +-- Particle Impact Tech [Lv 1-3] (req: Imp.Pierce Lv 2, Piercing Crit Lv 1)
+  |     Reduces enemy attack power by 10-30% based on piercing damage, lasts 2 rounds
+  |     Lv1: 646,368G, 11:20:00 | Lv3: 1,144,795G, 35:33:04
+  |
+  +-- Magnetic Impact [Lv 1-3] (req: Accuracy Lv 5, Rad.Interf. Lv 5, Weakness Lv 2)
+  |     Ignores 8-25% enemy agility with 10-30% chance
+  |     Lv1: 996,120G, 26:55:00 | Lv3: 1,764,254G, 84:26:04
+  |
+  +-- Dynamic Impairment [Lv 1-3] (req: Particle Lv 3, Weakness Lv 3, Magnetic Lv 3)
+        Ignores 8-25% defense; reduces movement 1-3 with 6-20% chance
+        Lv1: 1,431,605G, 34:42:30 | Lv3: 2,535,549G, 108:52:33
+```
+
+#### 2.3.6 Missile Science - Full Tech Tree
+
+Enhances missile/guided weapons. Scatters damage across ALL enemy ships. Range 3-6. **Total techs: 16 | All costs in Gold only.**
+
+```
+Missile Theory (Base) [Lv 1-10] (no prereq)
+  +4% missile damage per level (max 40%)
+  Lv1: 541G, 0:01:57 | Lv10: 18,808G, 39:18:21
+
+  +-- Missile Accuracy [Lv 1-5] (req: Missile Theory Lv 3)
+  |     +2% hit rate per level (max 10%)
+  |     Lv1: 7,558G, 0:23:48 | Lv5: 31,327G, 6:48:55
+  |
+  +-- Cruise Dynamics [Lv 1-2] (req: Missile Theory Lv 3)
+  |     +10% steering power per level (max 20%)
+  |     Lv1: 11,603G, 0:56:06 | Lv2: 13,434G, 1:15:12
+  |
+  +-- Missile Research [Lv 1-3] (req: Theory Lv 6, Cruise Lv 1)
+  |     +3-10% base damage, +1-5% shield pen chance
+  |     Lv1: 38,831G, 2:04:06 | Lv3: 68,773G, 6:29:17
+  |
+  +-- Missile Elusion [Lv 1-3] (req: Cruise Lv 2, Missile Research Lv 1)
+  |     -3-10% interception rate, +3-9% hit rate
+  |     Lv1: 78,750G, 2:41:30 | Lv3: 139,478G, 8:26:37
+  |
+  +-- Missile Space Optimization [Lv 1-4] (req: Research Lv 2, Elusion Lv 2)
+  |     -5-20% weapon space per level
+  |     Lv1: 233,515G, 4:40:30 | Lv4: 632,710G, 34:19:16
+  |
+  +-- Multidirectional Assault [Lv 1-5] (req: Theory Lv 10, Accuracy Lv 3, Cruise Lv 2, Research Lv 3)
+  |     Scatters 6-30% damage across ALL enemy ships
+  |     Lv1: 80,796G, 2:50:00 | Lv5: 334,903G, 48:40:50
+  |
+  +-- Nuclear Radiation Research [Lv 1-5] (req: Accuracy Lv 4, Multidirect. Lv 1)
+  |     2-10% increase to target fleet's damage taken, 4-20% chance
+  |     Lv1: 112,916G, 2:16:00 | Lv5: 468,041G, 38:56:40
+  |
+  +-- Break Armor [Lv 1] (req: Multidirect. Lv 2, Nuc.Rad. Lv 3)
+  |     +5% damage to all armor types
+  |     287,437G, 7:05:00
+  |
+  +-- Energy Conservation [Lv 1-4] (req: Multidirect. Lv 3, Nuc.Rad. Lv 5, Break Armor Lv 1)
+  |     4-18% chance to reduce He3 cost by 50%
+  |     Lv1: 428,575G, 8:30:00 | Lv4: 1,161,222G, 62:24:06
+  |
+  +-- Shrapnel Research [Lv 1-2] (req: Accuracy Lv 5, Multidirect. Lv 3)
+  |     +2-4% more scattering damage
+  |     Lv1: 157,172G, 4:23:30 | Lv2: 181,964G, 5:53:11
+  |
+  +-- Exaltation [Lv 1-4] (req: Multidirect. Lv 5, Shrapnel Lv 1)
+  |     +20-80% scatter vs lower-structure fleets, 2-8% He3 reduction chance
+  |     Lv1: 224,495G, 4:19:15 | Lv4: 608,270G, 31:43:15
+  |
+  +-- Suppression [Lv 1-4] (req: Shrapnel Lv 2, Exaltation Lv 4)
+  |     +3-12% scatter rate vs higher-structure fleets, +3-12% crit chance
+  |     Lv1: 484,776G, 6:22:30 | Lv4: 1,313,502G, 46:48:05
+  |
+  +-- Missile Concussion [Lv 1] (req: E.Conservation Lv 2, Research Lv 3, Elusion Lv 3, Space Opt. Lv 4)
+  |     25% chance to push target fleet back 2 spaces (once/round)
+  |     1,351,976G, 49:35:00
+  |
+  +-- Rapid Loading [Lv ?] (wiki details truncated)
+  |     Reduces reload time by one round
+  |
+  +-- Perfect Storm [Lv ?] (wiki details truncated)
+        Capstone tech
+```
+
+#### 2.3.7 Ship-Based Science - Full Tech Tree
+
+Enhances fighter-based weapons. Fighters have unique interception mechanics. **Total techs: 16 | All costs in Gold only.**
+
+```
+Fighter Weapons Theory (Base) [Lv 1-10] (no prereq)
+  +3% fighter weapon damage per level (max 30%)
+  Lv1: 541G, 0:01:57 | Lv10: 18,808G, 39:18:21
+
+  +-- Reconnaissance [Lv 1-2] (req: FWT Lv 3)
+  |     +10% steering power per level (max 20%)
+  |
+  +-- Thruster Optimization [Lv 1-5] (req: FWT Lv 3)
+  |     -1% intercept rate per level (max -5%)
+  |
+  +-- Navigation [Lv 1-5] (req: FWT Lv 3)
+  |     +1% hit rate per level (max 5%)
+  |
+  +-- Fuel Optimization [Lv 1-5] (req: FWT Lv 6, Reconnaissance Lv 1)
+  |     -1-5% He3 costs
+  |
+  +-- Fighter Tech Upgrades [Lv 1-3] (req: Reconnaissance Lv 2, Fuel Opt. Lv 5)
+  |     -2-6% He3 costs; +3-10% damage vs shielded enemies
+  |
+  +-- Fighter Mastery [Lv 1] (req: FWT Lv 6, Navigation Lv 3)
+  |     +5% base attack power
+  |
+  +-- Armor Structural Analysis [Lv 1] (req: Fighter Tech Upgrades Lv 3)
+  |     +10% damage vs ships and shields
+  |
+  +-- Fighter-based Weapons Efficiency [Lv 1-3] (req: FWT Lv 10, Armor Analysis Lv 1)
+  |     +10% chance per level to finish reloading after attacks (max 30%)
+  |
+  +-- Long-ranged Strike [Lv 1] (req: Fuel Opt. Lv 3, Thruster Lv 3, Mastery Lv 1)
+  |     +3-15% attack at distances 6-10 slots
+  |
+  +-- Fighter Interception Countermeasures [Lv 1-5] (req: Thruster Lv 3, Nav Lv 5, Mastery Lv 1)
+  |     -1-5% intercept rate
+  |
+  +-- Formation Optimization [Lv 1-2] (req: FIC Lv 5)
+  |     +5-10% critical damage; -5-10% occupied space
+  |
+  +-- Swarm [Lv 1-3] (req: FWT Lv 10, Formation Opt. Lv 2)
+  |     10-30% chance: +8-25% attack with 15-35% He3 surcharge
+  |
+  +-- Fortune [Lv 1-3] (req: Thruster Lv 5, Long-ranged Lv 1, Swarm Lv 3)
+  |     10-30% double-damage in long-range; 10-30% crit boost
+  |
+  +-- Ingenuity [Lv 1] (req: Weapons Efficiency Lv 3, Fortune Lv 3)
+  |     +5% swarm trigger, +5% attack, -5% He3, +20% intercept rate, +10% unshielded damage
+  |     2,045,150G, 70:50:00
+  |
+  +-- Heavy Gear Research [Lv 1-2] (req: Ingenuity Lv 1)
+        Enhanced reloading, shield damage, attack range, interception
+        Lv1: 10,000,000G
+```
+
+#### 2.3.8 Planetary Defense Science - Full Tech Tree
+
+Enhances space station defense structures. **Total techs: 8 | All costs in Gold only.**
+
+```
+Energy Control (Base) [Lv 1-10] (no prereq)
+  -1-10% resource costs for defensive structures
+  Lv1: 2,500G, 0:08:20 | Lv10: 1,280,000G, 71:06:40
+
+  +-- Rapid Defense Buildup [Lv 1-10] (req: Energy Control Lv 1)
+  |     +1-10% defense construction speed
+  |     Lv1: 3,000G, 0:10:00 | Lv10: 1,536,000G, 85:20:00
+  |
+  +-- Defense Enhancement [Lv 1-10] (req: Energy Control Lv 3, Rapid Lv 3)
+  |     +1-10% defensive value of all structures
+  |     Lv1: 1,500G, 0:05:00 | Lv10: 768,000G, 42:40:00
+  |
+  +-- Emplacement Mastery [Lv 1-10] (req: Rapid Lv 5)
+  |     +1-10% emplacement attack power
+  |     Lv1: 2,250G, 0:07:30 | Lv10: 1,152,000G, 64:00:00
+  |
+  +-- Utmost Defense Buildup [Lv 1-10] (req: Energy Control Lv 5, Defense Enh. Lv 5, Emplacement Lv 3)
+  |     +1-10% max number of defensive structures
+  |     Lv1: 1,750G, 0:05:50 | Lv10: 896,000G, 49:46:40
+  |
+  +-- Range Extension [Lv 1-2] (req: Rapid Lv 8, Emplacement Lv 5)
+  |     Increases attack range of Particle Cannons and Anti-Aircraft Guns
+  |     Lv1: 300,000G, 16:40:00 | Lv2: 600,000G, 33:20:00
+  |
+  +-- Thor Buildup [Lv 1] (req: Energy Control Lv 8, Utmost Lv 5, Range Ext. Lv 1)
+  |     +1 max Thor's Cannon allowed
+  |     800,000G, 44:26:40
+  |
+  +-- Augment Propulsion [Lv 1-2] (req: Emplacement Lv 8, Thor Buildup Lv 1)
+        +1-2 ship movement speed when defending own planet only
+        Lv1: 400,000G, 22:13:20 | Lv2: 900,000G, 50:00:00
+```
+
+**Planetary Defense Cost Reference (Energy Control & Rapid Defense per level):**
+
+| Tech | Lv | Gold Cost | Research Time |
+|------|----|-----------|---------------|
+| Energy Control | 1 | 2,500 | 00:08:20 |
+| Energy Control | 2 | 5,000 | 00:16:40 |
+| Energy Control | 3 | 10,000 | 00:33:20 |
+| Energy Control | 4 | 20,000 | 01:06:40 |
+| Energy Control | 5 | 40,000 | 02:13:20 |
+| Energy Control | 6 | 80,000 | 04:26:40 |
+| Energy Control | 7 | 160,000 | 08:53:20 |
+| Energy Control | 8 | 320,000 | 17:46:40 |
+| Energy Control | 9 | 640,000 | 35:33:20 |
+| Energy Control | 10 | 1,280,000 | 71:06:40 |
+| Rapid Defense | 1 | 3,000 | 00:10:00 |
+| Rapid Defense | 2 | 6,000 | 00:20:00 |
+| Rapid Defense | 3 | 12,000 | 00:40:00 |
+| Rapid Defense | 4 | 24,000 | 01:20:00 |
+| Rapid Defense | 5 | 48,000 | 02:40:00 |
+| Rapid Defense | 6 | 96,000 | 05:20:00 |
+| Rapid Defense | 7 | 192,000 | 10:40:00 |
+| Rapid Defense | 8 | 384,000 | 21:20:00 |
+| Rapid Defense | 9 | 768,000 | 42:40:00 |
+| Rapid Defense | 10 | 1,536,000 | 85:20:00 |
+| Range Extension | 1 | 300,000 | 16:40:00 |
+| Range Extension | 2 | 600,000 | 33:20:00 |
+| Thor Buildup | 1 | 800,000 | 44:26:40 |
+| Augment Propulsion | 1 | 400,000 | 22:13:20 |
+| Augment Propulsion | 2 | 900,000 | 50:00:00 |
+
+#### 2.3.9 Research Rules
+
+- Only one research can be active per tree at a time (7 trees = up to 7 concurrent researches)
+- **All tech research costs Gold only** -- no Metal or He3
+- Technology Center level reduces research time by 3% per level (max 36% at Lv 12)
+- Research costs increase exponentially per tech level (~1.53x cost per level, ~2.34x time per level)
 - Technologies have prerequisite chains within their tree
+
+#### 2.3.10 Weapon Research Center
+
+Separate building from the Technology Center. Handles **blueprint research** for ship hulls and modules.
+
+**Grid Size:** 2x2
+
+| Level | Civic Req | Build Time | Metal | He3 | Gold | Research Time Reduction |
+|-------|-----------|-----------|-------|------|------|------------------------|
+| 1 | 1 | 0:00:40 | 500 | 300 | 450 | 3% |
+| 6 | 6 | 2:53:05 | 92,371 | 55,422 | 83,134 | 18% |
+| 12 | 12 | 2535:16:53 | 54,372,693 | 32,623,616 | 48,935,424 | 36% |
+
+Time reduction formula: identical to Technology Center (3% per level).
+
+**Blueprint Research Levels:**
+
+| Research Level | Requirement | Effect | Cost Multiplier |
+|----------------|-------------|--------|-----------------|
+| 1 (Base) | Blueprint acquired | Base stats | 1.0x |
+| 2 | WRC Level 6 | +10% stats | 2.0x |
+| 3 | WRC Level 10 | +25% stats | 5.0x |
+
+#### 2.3.11 Research Acceleration (Speedups)
+
+| Research Type | Cost per 30 min Speedup | Notes |
+|---------------|------------------------|-------|
+| Technology Research | 3 vouchers/MP | Standard rate |
+| Blueprint Research | 8 vouchers/MP | Most expensive; highest priority for speedups |
+| Building Construction | 3 vouchers/MP | Friends provide 2% free acceleration per building |
+| Instant Completion | 1 voucher per 10 min remaining | Alternative to incremental speedup |
 
 ### 2.4 Ship & Fleet System
 
@@ -382,8 +728,6 @@ Ship Defense Tech (Base) [Lv 1-2]
 | **Frigate (F)** | 1,100 | Battleship (+5%) | Cruiser (-5%) | Nano, Chrome, Regen, Neutralizing |
 | **Cruiser (C)** | 1,000 | Frigate (+5%) | Battleship (-5%) | Nano, Chrome, Regen, Neutralizing |
 | **Battleship (B)** | 900 | Cruiser (+5%) | Frigate (-5%) | Nano, Chrome, Regen, Neutralizing |
-| **Flagship** | Special | Fleet-wide bonuses | - | Special |
-| **Humaroid-Flagship** | Special | Advanced bonuses | - | Special |
 
 #### 2.4.2 Ship Modules
 
@@ -780,7 +1124,6 @@ Higher Corp level = more RBPs controllable (1 per level), better Mall inventory,
 | **Restricted** | Limited access, commander rewards | Ships + He3 |
 | **Scenario (Trial)** | Trial-based combat scenarios | He3 only |
 | **Constellation** | Advanced endgame content | He3 only |
-| **Humaroid-Battles** | Special Collision Chaos content | Varies |
 
 #### 2.9.2 Rewards
 
@@ -795,27 +1138,193 @@ Higher Corp level = more RBPs controllable (1 per level), better Mall inventory,
 
 ### 2.10 Progression & Quest System
 
-#### 2.10.1 Development Quests (Tutorial Chain)
+GO2 has two main quest categories: **Development Quests** (one-time completion) and **Daily Quests** (repeatable). The quest system serves as the primary tutorial and progression guide. Quest rewards sustain players for approximately one week before natural resource production takes over.
 
-| Quest | Requirement | Reward Highlights |
-|-------|------------|-------------------|
-| Collecting Resources | Harvest Warehouse | 450M, 950H, 500G, Loudspeaker |
-| Lv1 Technology Center | Build Tech Center | 2,250M, 2,100H, 3,250G |
-| Metal Production | Build Metal Collector Lv1 | Super Transmission Engine Blueprint |
-| He3 Production | Build He3 Extractor Lv1 | Estrella Blueprint |
-| Lv1 Ship Factory | Build Ship Factory | Typhoon Blueprint |
-| Lv1 Command Center | Build Command Center | Energy Shield Booster Blueprint |
-| Design a Ship | Complete ship design | Resources |
-| Build a Fleet | Create 1 fleet | Resources |
-| Lv2 Space Station | Upgrade SS to Lv2 | 10,465M, 9,660H, 13,685G |
+**Key mechanic**: Players claim main quest rewards immediately but can SAVE side quest rewards until needed (they act as resource banks).
 
-[NEEDS RESEARCH: complete quest chain list beyond initial quests]
+#### 2.10.1 Development Quests - Main Quest Chain
 
-#### 2.10.2 Daily Activities
+Main quests must be completed in sequential order. Each quest unlocks the next.
+
+| # | Quest Name | Requirement | Metal | He3 | Gold | Special Reward |
+|---|-----------|------------|-------|-----|------|---------------|
+| 1 | Collecting Resources | Harvest Resource Warehouse | 450 | 950 | 500 | Loudspeaker |
+| 2 | Loud and Clear | Say something in World Channel | 460 | 980 | 520 | - |
+| 3 | Level 1 Technology Center | Build Technology Center Lv1 | 2,250 | 2,100 | 3,250 | Loudspeaker |
+| 4 | Level 1 Technological Research | Research Concurrent Construction Lv1 | 500 | 480 | 600 | Construction Card |
+| 5 | Metal Production | Build Metal Collector Lv1 | 425 | 530 | 425 | **Super Transmission Engine BP** |
+| 6 | Blueprints 1 | Use Super Transmission Engine blueprint | 515 | 1,190 | 575 | Truce Card |
+| 7 | He3 Production | Build He3 Extractor Lv1 | 475 | 400 | 475 | **Estrella BP** |
+| 8 | Blueprints 2 | Use Estrella blueprint | 520 | 1,150 | 585 | Ship Reinforcement Facility BP |
+| 9 | Creating Residential Area | Build Residential Area Lv1 | 390 | 360 | 325 | Loudspeaker |
+| 10 | Level 1 Ship Factory | Build Ship Factory Lv1 | 600 | 475 | 550 | **Typhoon BP** |
+| 11 | Level 1 Command Center | Build Command Center Lv1 | 3,000 | 2,250 | 2,500 | **Energy Shield Booster BP** |
+| 12 | Recruit Commanders | Recruit 1 Commander | 605 | 1,250 | 685 | Revival Card |
+| 13 | Design a Ship | Complete a ship design | 585 | 1,235 | 650 | Loudspeaker |
+| 14 | Ship Building | Build Lv1 ships | 600 | 1,200 | 680 | **Anti-Aircraft Cannon BP** |
+| 15 | Build a Fleet | Create 1 Fleet | 610 | 1,300 | 690 | Loudspeaker |
+| 16 | Wartime Logistics | Replenish Ammunition | 2,000 | 3,000 | 2,000 | Truce Card |
+| 17 | Level 1 Weapon Research Center | Build Weapon Research Center Lv1 | 2,500 | 1,500 | 2,250 | **Starlight Missile Pod BP** |
+| 18 | Bigger Bags | Increase bag slot by 1 | 620 | 1,310 | 700 | Primary Metal Pack |
+| 19 | Resource Pack | Use a Resource Pack | 680 | 1,450 | 750 | Galaxy Transfer |
+| 20 | Growing Resources | Grow resources on Comsats | 700 | 1,480 | 780 | Healing Card |
+| 21 | Adding Friends | Add 1 Friend | 710 | 1,500 | 800 | - |
+| 22 | The Mail System | Send an email | 720 | 1,520 | 820 | Loudspeaker |
+| 23 | Level 2 Space Station | Upgrade Space Station to Lv2 | 10,465 | 9,660 | 13,685 | - |
+| 24 | Space Defense 1 | Build 1 defensive structure | 750 | 1,600 | 880 | - |
+| 25 | Level 2 Metal Collector | Upgrade Metal Collector to Lv2 | 815 | 690 | 815 | Metal Mining Boost |
+| 26 | Level 2 He3 Extractor | Upgrade He3 Extractor to Lv2 | 730 | 910 | 730 | He3 Mining Boost |
+| 27 | Level 2 Residential Area | Upgrade Residential Area to Lv2 | 670 | 620 | 560 | Extra Tax |
+| 28 | Level 2 Ship Factory | Build additional Ship Factories | - | - | - | - |
+
+**Quest phase mapping:**
+- Quests 1-9: Phase 1 building fundamentals (resource production, tech, residential)
+- Quests 10-17: Phase 2 military systems (ships, fleets, combat, weapons)
+- Quests 18-22: Social/utility features (inventory, friends, mail)
+- Quests 23-28: Upgrade/expansion cycle
+
+**Blueprint rewards in main quest chain** (critical starter blueprints):
+1. **Super Transmission Engine** (Quest 5) - Transmission module
+2. **Estrella** (Quest 7) - Ship hull
+3. **Ship Reinforcement Facility** (Quest 8) - Structure module
+4. **Typhoon** (Quest 10) - Ship hull
+5. **Energy Shield Booster** (Quest 11) - Shield module
+6. **Anti-Aircraft Cannon** (Quest 14) - Air Defense module
+7. **Starlight Missile Pod** (Quest 17) - Missile weapon
+
+#### 2.10.2 Development Quests - Side Quests
+
+Side quests run in parallel with main quests. Completing one tier unlocks the next harder tier. There are approximately 24 side quest categories organized into groups:
+
+**Resource Production Side Quests:**
+
+| Category | Requirement Pattern | Example Tiers |
+|----------|-------------------|---------------|
+| Harvest Time | Increase Metal productivity to X | Lv1: 2,180/hr ... Lv9+: 12,970+/hr |
+| Gathering He3 | Increase He3 productivity to X | Up to Lv20: 131,120 He3/hr |
+| Raising Morale | Increase Gold productivity to X | Lv1: 500 reward ... Lv9: 40,000 reward |
+| Plentiful Resources | Store X amount of Metal, He3, Gold | Escalating thresholds |
+
+**Military Side Quests:**
+
+| Category | Requirement Pattern |
+|----------|-------------------|
+| Building Ships | Own a set number of ships |
+| Ship Research | Upgrade ship blueprints N times |
+| Parts Research | Upgrade module parts N times |
+| Recruitment | Recruit N commanders |
+| Beefing Up Defenses | Build N defensive structures |
+| Military Ranks | Own a commander card with star level X |
+
+**Social/Economic Side Quests:**
+
+| Category | Requirement Pattern |
+|----------|-------------------|
+| Friendly Faces | Add N friends |
+| Free Trade | Reach trading volume X in auction house |
+| Contribution | Reach N contribution points with corps |
+| Staying Green | Recycle N ships |
+| Joining Forces | Join/participate in corps activities |
+
+**Speedup Side Quests:**
+
+| Category | Requirement | Reward Example |
+|----------|------------|---------------|
+| Speed up Tech Advancement | Use speedups on tech research | 2,000M, 3,000H, 2,200G + 5 Vouchers |
+| Speed up Module Blueprint Research | Use speedups on module research | 2,600M, 4,200H, 3,000G + 5 Vouchers |
+| Speed up Shipbuilding | Use speedups on ship construction | 2,200M, 3,500H, 2,500G + 5 Vouchers |
+| Speed up Construction | Use speedups on buildings | 2,500M, 4,000H, 2,800G + 5 Vouchers |
+
+**Instance/Combat Side Quests:**
+
+| Category | Requirement Pattern |
+|----------|-------------------|
+| Instances | Complete N instances |
+| Peace Agreement | Use N truce cards |
+
+**Side quest reward scaling**: Rewards increase significantly with tiers. Example: Ship Blueprint Research Tier 1 (upgrade 1 BP) = ~5,000 resources; Tier max (upgrade 90 BPs) = ~3,000,000 resources. Special items (Galaxy Transfer, Construction Card, Sealing Card, Advanced Galaxy Transfer) appear at higher tiers.
+
+#### 2.10.3 Daily Quests
+
+Daily quests reset at 1:00 PM server time. Completing them earns points toward accumulated tier rewards.
+
+| Quest | Requirement | Points |
+|-------|------------|--------|
+| Daily Log In | Log in to the game | 10 |
+| Collect Your Dues | Harvest your own asteroids once | 4 |
+| Finders Keepers | Harvest matured asteroids of 5 friends | 2 per friend (max 10) |
+| Helping Hand | Speed up construction/upgrade for 5 friends | 2 per building (max 10) |
+| Need for Speed | Speed up your own construction/upgrade | 3 |
+| Stockpiling | Harvest from Resource Warehouse 3 times | 1 per harvest (max 3) |
+| Base Construction | Give wrenches to 5 friends' bases | 2 per building (max 10) |
+| Voucher Rush | Harvest matured vouchers from Celestial Industrial Base | 4 |
+| Donations | Donate 200,000 resources to Corps | 6 |
+| Restricted Instances | Attempt 2 Restricted Instances (win not required) | 5 per attempt (max 10) |
+
+**Maximum daily points**: ~70 (if all quests completed fully)
+
+**Accumulated Point Reward Tiers:**
+
+| Points | Tier | Reward |
+|--------|------|--------|
+| 10 | Bronze | Random: Loudspeaker (50%), Resource Box (20%), SP Card (30%) |
+| 30 | Silver | Random: Loudspeaker (40%), Resource Box (30%), SP Card (10%), Resource Packs (10%), He3/Metal Packs (10%) |
+| 50 | Gold | Random: Resource Box (30%), SP Card (30%), Resource Packs (10%), Mining Boosts (5% ea), Cards/Items (2-5%) |
+| 70 | Diamond | **Raw Gemstone (100%)** - guaranteed |
+
+**Key mechanics:**
+- Points reset daily but earned rewards persist
+- Reaching a threshold doesn't consume points (reaching 70 gets ALL four tiers)
+- The 70-point Diamond tier always gives a Raw Gemstone (valuable crafting material)
+
+#### 2.10.4 Quest State Machine
+
+```
+MAIN QUEST STATES:
+  locked -> available -> in_progress -> completed -> claimed
+  - locked: prerequisite quest not yet completed
+  - available: prerequisite met, player can start tracking
+  - in_progress: player is working on requirement
+  - completed: requirement met, reward not yet claimed
+  - claimed: reward collected (terminal state)
+
+SIDE QUEST STATES:
+  locked -> available -> completed -> claimed -> (next tier unlocked)
+  - locked: category not yet accessible
+  - available: current tier requirement visible
+  - completed: tier requirement met
+  - claimed: tier reward collected, next tier becomes available
+
+DAILY QUEST STATES (per day):
+  available -> completed -> claimed
+  - Resets to available at 1:00 PM server time daily
+  - Points accumulate toward tier thresholds
+  - Tier rewards are claimable once threshold is reached
+```
+
+#### 2.10.5 Quest Phasing for Cryptomines Online
+
+**Phase 1 Quests** (building/resource focus):
+- Main quest chain: Quests 1, 3, 5, 7, 9, 23, 25-27 (building progression only)
+- Resource side quests: Harvest Time, Gathering He3, Raising Morale, Plentiful Resources
+- Daily quests: Daily Login, Collect Your Dues, Stockpiling (simplified set)
+
+**Phase 2 Quests** (military focus):
+- Main quest chain extension: Quests 10-17, 24 (military systems)
+- Military side quests: Building Ships, Ship Research, Parts Research, Recruitment, Beefing Up Defenses
+- Instance side quests: Complete N instances
+- Daily quests extension: Restricted Instances, Donations
+
+**Deferred quests** (require social/chat systems):
+- Quests 2, 21, 22 (Loud and Clear, Adding Friends, The Mail System)
+- Side quests: Friendly Faces, Free Trade, Contribution, Joining Forces
+- Daily quests: Finders Keepers, Helping Hand, Base Construction
+
+#### 2.10.6 Daily Activities Summary
 
 | Activity | Reward |
 |----------|--------|
-| Daily Quests | 5,000 Gold + accumulated point rewards |
+| Daily Quests | Points toward tier rewards (Bronze/Silver/Gold/Diamond) |
 | Friend Visits | Up to 8 vouchers per 24 hours (from repairs) |
 | Resource Collection | Manual harvest from warehouses |
 | Instance Farming | Blueprints, resources, commanders |
@@ -998,12 +1507,14 @@ CREATE TABLE tech_types (
         'directional_science', 'missile_science', 'ship_based_science', 'ship_defense_science'
     )),
     prerequisites_json JSONB NOT NULL DEFAULT '[]',
+    -- Note: In GO2 all tech research costs Gold only (metal=0, he3=0).
+    -- Schema retains metal/he3 columns for flexibility.
     base_cost_metal BIGINT NOT NULL DEFAULT 0,
     base_cost_he3 BIGINT NOT NULL DEFAULT 0,
     base_cost_gold BIGINT NOT NULL DEFAULT 0,
-    cost_multiplier NUMERIC(6,4) NOT NULL DEFAULT 1.5000,
-    base_time_seconds INTEGER NOT NULL DEFAULT 120,
-    time_multiplier NUMERIC(6,4) NOT NULL DEFAULT 1.5000,
+    cost_multiplier NUMERIC(6,4) NOT NULL DEFAULT 1.5300,
+    base_time_seconds INTEGER NOT NULL DEFAULT 117,
+    time_multiplier NUMERIC(6,4) NOT NULL DEFAULT 2.3400,
     max_level INTEGER NOT NULL DEFAULT 10,
     effects_json JSONB NOT NULL DEFAULT '{}',
     description TEXT NOT NULL DEFAULT ''
@@ -1011,6 +1522,10 @@ CREATE TABLE tech_types (
 
 CREATE INDEX idx_tech_types_tree ON tech_types (tree);
 ```
+
+**prerequisites_json format:** `[{"tech": "ballistics_base", "level": 3}, ...]`
+
+**effects_json format:** `{"type": "ballistic_damage", "per_level": 5, "unit": "percent"}`
 
 ### 3.7 Technologies
 
@@ -1044,7 +1559,7 @@ CREATE TABLE ship_designs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     player_id UUID NOT NULL REFERENCES players(id) ON DELETE CASCADE,
     name TEXT NOT NULL DEFAULT 'New Design',
-    hull_type TEXT NOT NULL CHECK (hull_type IN ('frigate', 'cruiser', 'battleship', 'flagship', 'humaroid_flagship')),
+    hull_type TEXT NOT NULL CHECK (hull_type IN ('frigate', 'cruiser', 'battleship')),
     armor_type TEXT NOT NULL DEFAULT 'nano' CHECK (armor_type IN ('nano', 'chrome', 'regen', 'neutralizing')),
     modules_json JSONB NOT NULL DEFAULT '[]',
     stats_json JSONB NOT NULL DEFAULT '{}',
@@ -1163,7 +1678,7 @@ CREATE TABLE combat_reports (
     attacker_fleet_id UUID REFERENCES fleets(id) ON DELETE SET NULL,
     defender_fleet_id UUID REFERENCES fleets(id) ON DELETE SET NULL,
     combat_type TEXT NOT NULL DEFAULT 'pvp'
-        CHECK (combat_type IN ('pvp', 'instance_normal', 'instance_restricted', 'instance_trial', 'instance_constellation', 'instance_humaroid', 'league', 'championship', 'rbp_attack')),
+        CHECK (combat_type IN ('pvp', 'instance_normal', 'instance_restricted', 'instance_trial', 'instance_constellation', 'league', 'championship', 'rbp_attack')),
     result TEXT NOT NULL CHECK (result IN ('attacker_win', 'defender_win', 'draw')),
     total_rounds INTEGER NOT NULL DEFAULT 0,
     rounds_json JSONB NOT NULL DEFAULT '[]',
@@ -1186,7 +1701,7 @@ CREATE INDEX idx_combat_reports_type ON combat_reports (combat_type);
 CREATE TABLE instances (
     id SERIAL PRIMARY KEY,
     name TEXT UNIQUE NOT NULL,
-    type TEXT NOT NULL CHECK (type IN ('normal', 'restricted', 'trial', 'constellation', 'humaroid')),
+    type TEXT NOT NULL CHECK (type IN ('normal', 'restricted', 'trial', 'constellation')),
     difficulty INTEGER NOT NULL DEFAULT 1,
     required_level INTEGER NOT NULL DEFAULT 1,
     ships_lost_on_defeat BOOLEAN NOT NULL DEFAULT true,
@@ -1278,7 +1793,7 @@ CREATE INDEX idx_corp_members_player ON corp_members (player_id);
 CREATE TABLE blueprints (
     id SERIAL PRIMARY KEY,
     name TEXT UNIQUE NOT NULL,
-    hull_type TEXT NOT NULL CHECK (hull_type IN ('frigate', 'cruiser', 'battleship', 'flagship', 'humaroid_flagship')),
+    hull_type TEXT NOT NULL CHECK (hull_type IN ('frigate', 'cruiser', 'battleship')),
     base_shield INTEGER NOT NULL DEFAULT 0,
     base_structure INTEGER NOT NULL DEFAULT 0,
     base_stability NUMERIC(5,2) NOT NULL DEFAULT 100.00,
@@ -1406,6 +1921,334 @@ INSERT INTO metal_collector_levels VALUES
 [NEEDS RESEARCH: Resource Warehouse per-level storage capacity table]
 [NEEDS RESEARCH: Metal Collector per-level cost and build time table]
 
+### 3.22 Quest Types (Reference Data)
+
+```sql
+CREATE TABLE quest_types (
+    id SERIAL PRIMARY KEY,
+    quest_key TEXT UNIQUE NOT NULL,
+    category TEXT NOT NULL CHECK (category IN ('main', 'side', 'daily')),
+    display_name TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    requirement_type TEXT NOT NULL CHECK (requirement_type IN (
+        'build_building', 'upgrade_building', 'harvest_resources', 'research_tech',
+        'use_blueprint', 'recruit_commander', 'create_ship_design', 'build_ships',
+        'create_fleet', 'replenish_ammo', 'build_defense', 'complete_instance',
+        'reach_production', 'reach_storage', 'own_ships', 'upgrade_blueprints',
+        'upgrade_modules', 'reach_star_rank', 'recycle_ships', 'use_speedup',
+        'login', 'use_truce_card', 'donate_resources', 'send_message',
+        'add_friend', 'increase_bag_slot', 'use_resource_pack', 'grow_comsats'
+    )),
+    requirement_target TEXT NOT NULL DEFAULT '',
+    -- e.g., 'metal_collector', 'technology_center', or '' for generic
+    requirement_value INTEGER NOT NULL DEFAULT 1,
+    -- e.g., build level, quantity threshold, production rate target
+    chain_order INTEGER,
+    -- for main quests: sequential position (1-28+); for side quests: tier level; NULL for daily
+    prerequisite_quest_id INTEGER REFERENCES quest_types(id) ON DELETE SET NULL,
+    -- main quests: previous quest in chain; side quests: previous tier; daily: NULL
+    reward_metal BIGINT NOT NULL DEFAULT 0,
+    reward_he3 BIGINT NOT NULL DEFAULT 0,
+    reward_gold BIGINT NOT NULL DEFAULT 0,
+    reward_item_json JSONB NOT NULL DEFAULT '[]',
+    -- e.g., [{"type": "blueprint", "blueprint_id": 5}, {"type": "item", "item_key": "loudspeaker", "quantity": 1}]
+    phase INTEGER NOT NULL DEFAULT 1 CHECK (phase IN (1, 2, 3)),
+    -- which implementation phase this quest belongs to
+    is_active BOOLEAN NOT NULL DEFAULT true,
+    -- false for deferred quests (social/chat-dependent)
+
+    CONSTRAINT chk_chain_order_positive CHECK (chain_order IS NULL OR chain_order >= 1),
+    CONSTRAINT chk_rewards_non_negative CHECK (reward_metal >= 0 AND reward_he3 >= 0 AND reward_gold >= 0)
+);
+
+CREATE INDEX idx_quest_types_category ON quest_types (category);
+CREATE INDEX idx_quest_types_phase ON quest_types (phase);
+CREATE INDEX idx_quest_types_chain ON quest_types (category, chain_order);
+```
+
+### 3.23 Player Quests (Progress Tracking)
+
+```sql
+CREATE TABLE player_quests (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    player_id UUID NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+    quest_type_id INTEGER NOT NULL REFERENCES quest_types(id) ON DELETE CASCADE,
+    status TEXT NOT NULL DEFAULT 'locked'
+        CHECK (status IN ('locked', 'available', 'in_progress', 'completed', 'claimed')),
+    progress_value INTEGER NOT NULL DEFAULT 0,
+    -- current progress toward requirement_value (e.g., ships built, production reached)
+    started_at TIMESTAMPTZ,
+    completed_at TIMESTAMPTZ,
+    claimed_at TIMESTAMPTZ,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+
+    CONSTRAINT uq_player_quest UNIQUE (player_id, quest_type_id),
+    CONSTRAINT chk_progress_non_negative CHECK (progress_value >= 0),
+    CONSTRAINT chk_status_consistency CHECK (
+        (status = 'locked' AND completed_at IS NULL AND claimed_at IS NULL) OR
+        (status = 'available' AND completed_at IS NULL AND claimed_at IS NULL) OR
+        (status = 'in_progress' AND completed_at IS NULL AND claimed_at IS NULL) OR
+        (status = 'completed' AND completed_at IS NOT NULL AND claimed_at IS NULL) OR
+        (status = 'claimed' AND completed_at IS NOT NULL AND claimed_at IS NOT NULL)
+    )
+);
+
+CREATE INDEX idx_player_quests_player ON player_quests (player_id);
+CREATE INDEX idx_player_quests_status ON player_quests (player_id, status);
+CREATE INDEX idx_player_quests_quest_type ON player_quests (quest_type_id);
+```
+
+### 3.24 Daily Quest Progress
+
+```sql
+CREATE TABLE daily_quest_progress (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    player_id UUID NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+    quest_date DATE NOT NULL DEFAULT CURRENT_DATE,
+    daily_points INTEGER NOT NULL DEFAULT 0,
+    quests_completed_json JSONB NOT NULL DEFAULT '{}',
+    -- e.g., {"daily_login": true, "collect_dues": true, "stockpiling": 2}
+    tier_rewards_claimed_json JSONB NOT NULL DEFAULT '[]',
+    -- e.g., ["bronze", "silver"]
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+
+    CONSTRAINT uq_player_daily UNIQUE (player_id, quest_date),
+    CONSTRAINT chk_points_non_negative CHECK (daily_points >= 0 AND daily_points <= 100)
+);
+
+CREATE INDEX idx_daily_quest_player ON daily_quest_progress (player_id);
+CREATE INDEX idx_daily_quest_date ON daily_quest_progress (quest_date DESC);
+```
+
+### 3.25 Seed Data: Main Quest Chain (Phase 1)
+
+```sql
+INSERT INTO quest_types (quest_key, category, display_name, requirement_type, requirement_target, requirement_value, chain_order, reward_metal, reward_he3, reward_gold, reward_item_json, phase, is_active) VALUES
+-- Phase 1 Main Quests (building/resource focus)
+('main_01_collecting_resources', 'main', 'Collecting Resources', 'harvest_resources', 'resource_warehouse', 1, 1, 450, 950, 500, '[{"type":"item","item_key":"loudspeaker","quantity":1}]', 1, true),
+('main_03_tech_center', 'main', 'Level 1 Technology Center', 'build_building', 'technology_center', 1, 3, 2250, 2100, 3250, '[{"type":"item","item_key":"loudspeaker","quantity":1}]', 1, true),
+('main_04_research', 'main', 'Level 1 Technological Research', 'research_tech', 'concurrent_construction', 1, 4, 500, 480, 600, '[{"type":"item","item_key":"construction_card","quantity":1}]', 1, true),
+('main_05_metal_production', 'main', 'Metal Production', 'build_building', 'metal_collector', 1, 5, 425, 530, 425, '[{"type":"blueprint","blueprint_key":"super_transmission_engine"}]', 1, true),
+('main_06_blueprints_1', 'main', 'Blueprints 1', 'use_blueprint', 'super_transmission_engine', 1, 6, 515, 1190, 575, '[{"type":"item","item_key":"truce_card","quantity":1}]', 1, true),
+('main_07_he3_production', 'main', 'He3 Production', 'build_building', 'he3_extractor', 1, 7, 475, 400, 475, '[{"type":"blueprint","blueprint_key":"estrella"}]', 1, true),
+('main_08_blueprints_2', 'main', 'Blueprints 2', 'use_blueprint', 'estrella', 1, 8, 520, 1150, 585, '[{"type":"blueprint","blueprint_key":"ship_reinforcement_facility"}]', 1, true),
+('main_09_residential', 'main', 'Creating Residential Area', 'build_building', 'residential_area', 1, 9, 390, 360, 325, '[{"type":"item","item_key":"loudspeaker","quantity":1}]', 1, true),
+('main_23_space_station', 'main', 'Level 2 Space Station', 'upgrade_building', 'space_station', 2, 23, 10465, 9660, 13685, '[]', 1, true),
+('main_24_space_defense', 'main', 'Space Defense 1', 'build_defense', '', 1, 24, 750, 1600, 880, '[]', 1, true),
+('main_25_metal_lv2', 'main', 'Level 2 Metal Collector', 'upgrade_building', 'metal_collector', 2, 25, 815, 690, 815, '[{"type":"item","item_key":"metal_mining_boost","quantity":1}]', 1, true),
+('main_26_he3_lv2', 'main', 'Level 2 He3 Extractor', 'upgrade_building', 'he3_extractor', 2, 26, 730, 910, 730, '[{"type":"item","item_key":"he3_mining_boost","quantity":1}]', 1, true),
+('main_27_residential_lv2', 'main', 'Level 2 Residential Area', 'upgrade_building', 'residential_area', 2, 27, 670, 620, 560, '[{"type":"item","item_key":"extra_tax","quantity":1}]', 1, true),
+-- Phase 2 Main Quests (military focus)
+('main_10_ship_factory', 'main', 'Level 1 Ship Factory', 'build_building', 'ship_factory', 1, 10, 600, 475, 550, '[{"type":"blueprint","blueprint_key":"typhoon"}]', 2, true),
+('main_11_command_center', 'main', 'Level 1 Command Center', 'build_building', 'command_center', 1, 11, 3000, 2250, 2500, '[{"type":"blueprint","blueprint_key":"energy_shield_booster"}]', 2, true),
+('main_12_recruit', 'main', 'Recruit Commanders', 'recruit_commander', '', 1, 12, 605, 1250, 685, '[{"type":"item","item_key":"revival_card","quantity":1}]', 2, true),
+('main_13_design_ship', 'main', 'Design a Ship', 'create_ship_design', '', 1, 13, 585, 1235, 650, '[{"type":"item","item_key":"loudspeaker","quantity":1}]', 2, true),
+('main_14_build_ships', 'main', 'Ship Building', 'build_ships', '', 1, 14, 600, 1200, 680, '[{"type":"blueprint","blueprint_key":"anti_aircraft_cannon"}]', 2, true),
+('main_15_fleet', 'main', 'Build a Fleet', 'create_fleet', '', 1, 15, 610, 1300, 690, '[{"type":"item","item_key":"loudspeaker","quantity":1}]', 2, true),
+('main_16_logistics', 'main', 'Wartime Logistics', 'replenish_ammo', '', 1, 16, 2000, 3000, 2000, '[{"type":"item","item_key":"truce_card","quantity":1}]', 2, true),
+('main_17_weapon_research', 'main', 'Level 1 Weapon Research Center', 'build_building', 'weapon_research_center', 1, 17, 2500, 1500, 2250, '[{"type":"blueprint","blueprint_key":"starlight_missile_pod"}]', 2, true),
+-- Deferred Main Quests (social/chat-dependent)
+('main_02_loud_and_clear', 'main', 'Loud and Clear', 'send_message', 'world_channel', 1, 2, 460, 980, 520, '[]', 3, false),
+('main_18_bigger_bags', 'main', 'Bigger Bags', 'increase_bag_slot', '', 1, 18, 620, 1310, 700, '[{"type":"item","item_key":"primary_metal_pack","quantity":1}]', 3, false),
+('main_19_resource_pack', 'main', 'Resource Pack', 'use_resource_pack', '', 1, 19, 680, 1450, 750, '[{"type":"item","item_key":"galaxy_transfer","quantity":1}]', 3, false),
+('main_20_growing_resources', 'main', 'Growing Resources', 'grow_comsats', '', 1, 20, 700, 1480, 780, '[{"type":"item","item_key":"healing_card","quantity":1}]', 3, false),
+('main_21_adding_friends', 'main', 'Adding Friends', 'add_friend', '', 1, 21, 710, 1500, 800, '[]', 3, false),
+('main_22_mail_system', 'main', 'The Mail System', 'send_message', 'mail', 1, 22, 720, 1520, 820, '[{"type":"item","item_key":"loudspeaker","quantity":1}]', 3, false),
+('main_28_ship_factory_lv2', 'main', 'Level 2 Ship Factory', 'upgrade_building', 'ship_factory', 2, 28, 0, 0, 0, '[]', 2, true);
+
+-- Set prerequisite chain (main_01 -> main_03 -> main_04 -> ... sequential)
+-- Note: Skip deferred quests in Phase 1/2 chain by linking past them
+-- This is done via UPDATE after INSERT to resolve forward references
+UPDATE quest_types SET prerequisite_quest_id = (SELECT id FROM quest_types WHERE quest_key = 'main_01_collecting_resources') WHERE quest_key = 'main_03_tech_center';
+UPDATE quest_types SET prerequisite_quest_id = (SELECT id FROM quest_types WHERE quest_key = 'main_03_tech_center') WHERE quest_key = 'main_04_research';
+UPDATE quest_types SET prerequisite_quest_id = (SELECT id FROM quest_types WHERE quest_key = 'main_04_research') WHERE quest_key = 'main_05_metal_production';
+UPDATE quest_types SET prerequisite_quest_id = (SELECT id FROM quest_types WHERE quest_key = 'main_05_metal_production') WHERE quest_key = 'main_06_blueprints_1';
+UPDATE quest_types SET prerequisite_quest_id = (SELECT id FROM quest_types WHERE quest_key = 'main_06_blueprints_1') WHERE quest_key = 'main_07_he3_production';
+UPDATE quest_types SET prerequisite_quest_id = (SELECT id FROM quest_types WHERE quest_key = 'main_07_he3_production') WHERE quest_key = 'main_08_blueprints_2';
+UPDATE quest_types SET prerequisite_quest_id = (SELECT id FROM quest_types WHERE quest_key = 'main_08_blueprints_2') WHERE quest_key = 'main_09_residential';
+UPDATE quest_types SET prerequisite_quest_id = (SELECT id FROM quest_types WHERE quest_key = 'main_09_residential') WHERE quest_key = 'main_10_ship_factory';
+UPDATE quest_types SET prerequisite_quest_id = (SELECT id FROM quest_types WHERE quest_key = 'main_10_ship_factory') WHERE quest_key = 'main_11_command_center';
+UPDATE quest_types SET prerequisite_quest_id = (SELECT id FROM quest_types WHERE quest_key = 'main_11_command_center') WHERE quest_key = 'main_12_recruit';
+UPDATE quest_types SET prerequisite_quest_id = (SELECT id FROM quest_types WHERE quest_key = 'main_12_recruit') WHERE quest_key = 'main_13_design_ship';
+UPDATE quest_types SET prerequisite_quest_id = (SELECT id FROM quest_types WHERE quest_key = 'main_13_design_ship') WHERE quest_key = 'main_14_build_ships';
+UPDATE quest_types SET prerequisite_quest_id = (SELECT id FROM quest_types WHERE quest_key = 'main_14_build_ships') WHERE quest_key = 'main_15_fleet';
+UPDATE quest_types SET prerequisite_quest_id = (SELECT id FROM quest_types WHERE quest_key = 'main_15_fleet') WHERE quest_key = 'main_16_logistics';
+UPDATE quest_types SET prerequisite_quest_id = (SELECT id FROM quest_types WHERE quest_key = 'main_16_logistics') WHERE quest_key = 'main_17_weapon_research';
+UPDATE quest_types SET prerequisite_quest_id = (SELECT id FROM quest_types WHERE quest_key = 'main_17_weapon_research') WHERE quest_key = 'main_23_space_station';
+UPDATE quest_types SET prerequisite_quest_id = (SELECT id FROM quest_types WHERE quest_key = 'main_23_space_station') WHERE quest_key = 'main_24_space_defense';
+UPDATE quest_types SET prerequisite_quest_id = (SELECT id FROM quest_types WHERE quest_key = 'main_24_space_defense') WHERE quest_key = 'main_25_metal_lv2';
+UPDATE quest_types SET prerequisite_quest_id = (SELECT id FROM quest_types WHERE quest_key = 'main_25_metal_lv2') WHERE quest_key = 'main_26_he3_lv2';
+UPDATE quest_types SET prerequisite_quest_id = (SELECT id FROM quest_types WHERE quest_key = 'main_26_he3_lv2') WHERE quest_key = 'main_27_residential_lv2';
+UPDATE quest_types SET prerequisite_quest_id = (SELECT id FROM quest_types WHERE quest_key = 'main_27_residential_lv2') WHERE quest_key = 'main_28_ship_factory_lv2';
+```
+
+### 3.26 Seed Data: Side Quests (Phase 1)
+
+```sql
+-- Resource production side quests (Phase 1, tier 1 only - additional tiers seeded incrementally)
+INSERT INTO quest_types (quest_key, category, display_name, requirement_type, requirement_target, requirement_value, chain_order, reward_metal, reward_he3, reward_gold, reward_item_json, phase, is_active) VALUES
+('side_harvest_time_1', 'side', 'Harvest Time I', 'reach_production', 'metal', 2180, 1, 500, 400, 500, '[]', 1, true),
+('side_harvest_time_2', 'side', 'Harvest Time II', 'reach_production', 'metal', 4360, 2, 1500, 1200, 1500, '[]', 1, true),
+('side_harvest_time_3', 'side', 'Harvest Time III', 'reach_production', 'metal', 8720, 3, 4500, 3600, 4500, '[]', 1, true),
+('side_gathering_he3_1', 'side', 'Gathering He3 I', 'reach_production', 'he3', 2360, 1, 400, 500, 400, '[]', 1, true),
+('side_gathering_he3_2', 'side', 'Gathering He3 II', 'reach_production', 'he3', 4720, 2, 1200, 1500, 1200, '[]', 1, true),
+('side_gathering_he3_3', 'side', 'Gathering He3 III', 'reach_production', 'he3', 9440, 3, 3600, 4500, 3600, '[]', 1, true),
+('side_raising_morale_1', 'side', 'Raising Morale I', 'reach_production', 'gold', 2800, 1, 400, 400, 500, '[]', 1, true),
+('side_raising_morale_2', 'side', 'Raising Morale II', 'reach_production', 'gold', 5600, 2, 1200, 1200, 1500, '[]', 1, true),
+('side_raising_morale_3', 'side', 'Raising Morale III', 'reach_production', 'gold', 11200, 3, 3600, 3600, 4500, '[]', 1, true),
+('side_plentiful_resources_1', 'side', 'Plentiful Resources I', 'reach_storage', '', 50000, 1, 1000, 1000, 1000, '[]', 1, true),
+('side_plentiful_resources_2', 'side', 'Plentiful Resources II', 'reach_storage', '', 200000, 2, 3000, 3000, 3000, '[]', 1, true),
+('side_plentiful_resources_3', 'side', 'Plentiful Resources III', 'reach_storage', '', 1000000, 3, 10000, 10000, 10000, '[]', 1, true);
+
+-- Set side quest tier chains
+UPDATE quest_types SET prerequisite_quest_id = (SELECT id FROM quest_types WHERE quest_key = 'side_harvest_time_1') WHERE quest_key = 'side_harvest_time_2';
+UPDATE quest_types SET prerequisite_quest_id = (SELECT id FROM quest_types WHERE quest_key = 'side_harvest_time_2') WHERE quest_key = 'side_harvest_time_3';
+UPDATE quest_types SET prerequisite_quest_id = (SELECT id FROM quest_types WHERE quest_key = 'side_gathering_he3_1') WHERE quest_key = 'side_gathering_he3_2';
+UPDATE quest_types SET prerequisite_quest_id = (SELECT id FROM quest_types WHERE quest_key = 'side_gathering_he3_2') WHERE quest_key = 'side_gathering_he3_3';
+UPDATE quest_types SET prerequisite_quest_id = (SELECT id FROM quest_types WHERE quest_key = 'side_raising_morale_1') WHERE quest_key = 'side_raising_morale_2';
+UPDATE quest_types SET prerequisite_quest_id = (SELECT id FROM quest_types WHERE quest_key = 'side_raising_morale_2') WHERE quest_key = 'side_raising_morale_3';
+UPDATE quest_types SET prerequisite_quest_id = (SELECT id FROM quest_types WHERE quest_key = 'side_plentiful_resources_1') WHERE quest_key = 'side_plentiful_resources_2';
+UPDATE quest_types SET prerequisite_quest_id = (SELECT id FROM quest_types WHERE quest_key = 'side_plentiful_resources_2') WHERE quest_key = 'side_plentiful_resources_3';
+```
+
+### 3.27 Seed Data: Daily Quests
+
+```sql
+INSERT INTO quest_types (quest_key, category, display_name, requirement_type, requirement_target, requirement_value, chain_order, reward_metal, reward_he3, reward_gold, reward_item_json, phase, is_active) VALUES
+('daily_login', 'daily', 'Daily Log In', 'login', '', 1, NULL, 0, 0, 0, '[]', 1, true),
+('daily_collect_dues', 'daily', 'Collect Your Dues', 'harvest_resources', '', 1, NULL, 0, 0, 0, '[]', 1, true),
+('daily_need_for_speed', 'daily', 'Need for Speed', 'use_speedup', 'construction', 1, NULL, 0, 0, 0, '[]', 1, true),
+('daily_stockpiling', 'daily', 'Stockpiling', 'harvest_resources', 'resource_warehouse', 3, NULL, 0, 0, 0, '[]', 1, true),
+('daily_donations', 'daily', 'Donations', 'donate_resources', '', 200000, NULL, 0, 0, 0, '[]', 2, true),
+('daily_restricted_instances', 'daily', 'Restricted Instances', 'complete_instance', 'restricted', 2, NULL, 0, 0, 5000, '[]', 2, true);
+```
+
+### 3.28 Seed Data: Tech Types (Logistics Construction)
+
+```sql
+INSERT INTO tech_types (name, display_name, tree, max_level, prerequisites_json, base_cost_metal, base_cost_he3, base_cost_gold, cost_multiplier, base_time_seconds, time_multiplier, effects_json, description) VALUES
+('concurrent_construction', 'Concurrent Construction', 'logistics_construction', 1, '[]', 0, 0, 1000, 1.0000, 20, 1.0000, '{"type":"construction_slots","per_level":1}', 'Adds 1 construction slot'),
+('construction_boost', 'Construction Boost', 'logistics_construction', 10, '[{"tech":"concurrent_construction","level":1}]', 0, 0, 2400, 1.5300, 480, 2.3400, '{"type":"build_speed","per_level":1.5,"unit":"percent"}', '+1-15% building construction speed'),
+('quality_materials', 'Quality Materials', 'logistics_construction', 10, '[{"tech":"construction_boost","level":3}]', 0, 0, 1200, 1.5300, 240, 2.3400, '{"type":"build_cost_reduction","per_level":1.5,"unit":"percent"}', '-1-15% building resource costs'),
+('ship_building_boost', 'Ship Building Boost', 'logistics_construction', 10, '[]', 0, 0, 990, 1.5300, 198, 2.3400, '{"type":"ship_build_speed","per_level":1.5,"unit":"percent"}', '+1-15% shipbuilding speed'),
+('ship_building_logistics', 'Ship Building Logistics', 'logistics_construction', 10, '[{"tech":"ship_building_boost","level":2}]', 0, 0, 1386, 1.5300, 277, 2.3400, '{"type":"ship_build_cost_reduction","per_level":1.5,"unit":"percent"}', '-1-15% ship construction resource costs'),
+('sync_shipbuilding', 'Sync Shipbuilding', 'logistics_construction', 1, '[{"tech":"ship_building_logistics","level":4}]', 0, 0, 174000, 1.0000, 34800, 1.0000, '{"type":"ship_production_slots","per_level":1}', 'Adds 1 shipbuilding slot (5th production slot)'),
+('repair_technology', 'Repair Technology', 'logistics_construction', 10, '[{"tech":"sync_shipbuilding","level":1}]', 0, 0, 5310, 1.5300, 1062, 2.3400, '{"type":"ship_repair_percent","per_level":1,"unit":"percent"}', '+1-10% ship repair percentage'),
+('high_yield_mining', 'High Yield Mining', 'logistics_construction', 10, '[]', 0, 0, 1740, 1.5300, 348, 2.3400, '{"type":"metal_output","per_level":1,"unit":"percent"}', '+1-10% Metal output'),
+('high_yield_chemistry', 'High Yield Chemistry', 'logistics_construction', 10, '[{"tech":"high_yield_mining","level":2}]', 0, 0, 2400, 1.5300, 480, 2.3400, '{"type":"he3_output","per_level":1,"unit":"percent"}', '+1-10% He3 output'),
+('high_yield_investing', 'High Yield Investing', 'logistics_construction', 10, '[{"tech":"high_yield_chemistry","level":2}]', 0, 0, 3570, 1.5300, 714, 2.3400, '{"type":"gold_output","per_level":1,"unit":"percent"}', '+1-10% Gold output'),
+('expand_capacity', 'Expand Capacity', 'logistics_construction', 7, '[{"tech":"high_yield_investing","level":4}]', 0, 0, 3540, 1.5300, 708, 2.3400, '{"type":"warehouse_capacity","per_level":50000,"unit":"flat"}', '+50,000-350,000 warehouse storage per level');
+```
+
+### 3.29 Seed Data: Tech Types (Ballistics Science)
+
+```sql
+INSERT INTO tech_types (name, display_name, tree, max_level, prerequisites_json, base_cost_metal, base_cost_he3, base_cost_gold, cost_multiplier, base_time_seconds, time_multiplier, effects_json, description) VALUES
+('ballistics_base', 'Ballistics', 'ballistics_science', 10, '[]', 0, 0, 541, 1.5300, 117, 2.3400, '{"type":"ballistic_damage","per_level":5,"unit":"percent"}', '+5% ballistic damage per level'),
+('ballistic_malice', 'Ballistic Malice', 'ballistics_science', 5, '[{"tech":"ballistics_base","level":3}]', 0, 0, 7558, 1.4300, 1428, 1.3400, '{"type":"ballistic_crit_rate","per_level":1,"unit":"percent"}', '+1% critical hit rate per level'),
+('ballistic_crackdown', 'Ballistic Crackdown', 'ballistics_science', 2, '[{"tech":"ballistics_base","level":3}]', 0, 0, 29628, 1.1600, 4335, 1.3400, '{"type":"ballistic_crit_damage","per_level":10,"unit":"percent"}', '+10% critical damage per level'),
+('steady_control', 'Steady Control Tech', 'ballistics_science', 5, '[{"tech":"ballistics_base","level":6},{"tech":"ballistic_malice","level":3}]', 0, 0, 26108, 1.4300, 3366, 1.3400, '{"type":"weapon_space_reduction","per_level":2,"unit":"percent"}', '-2% weapon space per level'),
+('precise_ballistics', 'Precise Ballistics', 'ballistics_science', 5, '[{"tech":"ballistics_base","level":8},{"tech":"steady_control","level":3}]', 0, 0, 51100, 1.4300, 4080, 1.3400, '{"type":"ballistic_hit_rate","per_level":1,"unit":"percent"}', '+1% hit rate per level'),
+('shield_penetration', 'Shield Penetration', 'ballistics_science', 1, '[{"tech":"ballistic_malice","level":5},{"tech":"ballistic_crackdown","level":1},{"tech":"precise_ballistics","level":1}]', 0, 0, 154616, 1.0000, 15300, 1.0000, '{"type":"shield_bypass","flat":15,"unit":"percent"}', '15% shield bypass damage'),
+('depleted_uranium_bomb', 'Depleted Uranium Bomb', 'ballistics_science', 3, '[{"tech":"ballistic_crackdown","level":2},{"tech":"shield_penetration","level":1}]', 0, 0, 203249, 1.3300, 12750, 1.3400, '{"type":"armor_bonus","neutral":10,"light":1,"unit":"percent_per_level"}', '+10-30% vs Neutral armor, +1-3% vs Light armor'),
+('fire_bomb_research', 'Fire Bomb Research', 'ballistics_science', 3, '[{"tech":"ballistic_crackdown","level":2},{"tech":"shield_penetration","level":1}]', 0, 0, 203249, 1.3300, 12750, 1.3400, '{"type":"armor_bonus","regen":10,"light":1,"unit":"percent_per_level"}', '+10-30% vs Regen armor, +1-3% vs Light armor'),
+('improved_penetration', 'Improved Penetration', 'ballistics_science', 3, '[{"tech":"depleted_uranium_bomb","level":1},{"tech":"fire_bomb_research","level":1}]', 0, 0, 484776, 1.3300, 22950, 1.3400, '{"type":"shield_pen_chance","per_level":3,"light_bonus":1,"unit":"percent"}', '+1-3% vs Light armor, 3-10% shield pen chance'),
+('victory_rush', 'Victory Rush', 'ballistics_science', 1, '[{"tech":"depleted_uranium_bomb","level":3},{"tech":"fire_bomb_research","level":3},{"tech":"improved_penetration","level":3}]', 0, 0, 1918521, 1.0000, 224400, 1.0000, '{"type":"range_damage","ranges":[220,180,150,120],"crit_rate":5,"crit_damage":5}', 'Range damage: 220%/180%/150%/120%, +5% crit rate/damage'),
+('ballistic_scattering', 'Ballistic Scattering', 'ballistics_science', 5, '[{"tech":"ballistics_base","level":10},{"tech":"ballistic_malice","level":5},{"tech":"steady_control","level":5},{"tech":"precise_ballistics","level":3}]', 0, 0, 119765, 1.4300, 9180, 1.3400, '{"type":"scatter_damage","per_level":5,"unit":"percent"}', '5-25% scatter damage to adjacent ships'),
+('improved_ballistic_scattering', 'Improved Ballistic Scattering', 'ballistics_science', 3, '[{"tech":"precise_ballistics","level":5},{"tech":"ballistic_scattering","level":3}]', 0, 0, 240487, 1.3300, 17850, 1.3400, '{"type":"scatter_rate","per_level":8,"unit":"percent"}', '+8-25% scattering rate'),
+('hop_bomb_research', 'Hop Bomb Research', 'ballistics_science', 5, '[{"tech":"ballistic_scattering","level":5},{"tech":"improved_ballistic_scattering","level":2}]', 0, 0, 349930, 1.4300, 20400, 1.3400, '{"type":"scatter_weapon_chance","per_level":3,"unit":"percent"}', '3-15% chance to deal 100% weapon damage as scatter');
+```
+
+### 3.30 Seed Data: Tech Types (Ship Defense Science)
+
+```sql
+INSERT INTO tech_types (name, display_name, tree, max_level, prerequisites_json, base_cost_metal, base_cost_he3, base_cost_gold, cost_multiplier, base_time_seconds, time_multiplier, effects_json, description) VALUES
+('ship_defense_base', 'Ship Defense Tech', 'ship_defense_science', 2, '[]', 0, 0, 2846, 1.1600, 3240, 1.3400, '{"type":"base_defense_stats","shield":2,"structure":2,"agility":2,"defense":2,"stability":5,"unit":"percent_per_level"}', '+2-5% base shield/structure/agility/defense, +5-10% stability'),
+('shield_research', 'Shield Research', 'ship_defense_science', 5, '[{"tech":"ship_defense_base","level":1}]', 0, 0, 10392, 1.4300, 2700, 1.3400, '{"type":"base_shield","per_level":1,"unit":"percent"}', '+1-5% base shield'),
+('energy_diffusion', 'Energy Diffusion Tech', 'ship_defense_science', 3, '[{"tech":"ship_defense_base","level":2},{"tech":"shield_research","level":3}]', 0, 0, 46765, 1.3300, 10800, 1.3400, '{"type":"shield_damage_reduction","per_level":1,"unit":"flat"}', 'Each shield module reduces damage by 1-3 points'),
+('penetration_resistance', 'Penetration Resistance', 'ship_defense_science', 2, '[{"tech":"shield_research","level":5},{"tech":"energy_diffusion","level":1}]', 0, 0, 117576, 1.1600, 21600, 1.3400, '{"type":"shield_pen_resist","per_level":3,"unit":"percent"}', '-3-7% enemy shield penetration chance'),
+('augment_shield', 'Augment Shield', 'ship_defense_science', 3, '[{"tech":"energy_diffusion","level":2},{"tech":"penetration_resistance","level":1}]', 0, 0, 248747, 1.3300, 39600, 1.3400, '{"type":"base_shield_bonus","values":[6,12,20],"unit":"percent"}', '+6-20% base shield'),
+('restoration', 'Restoration', 'ship_defense_science', 2, '[{"tech":"energy_diffusion","level":3},{"tech":"augment_shield","level":2}]', 0, 0, 540000, 1.1600, 90000, 1.3400, '{"type":"shield_restore","per_level":30,"intercept":1,"unit":"percent"}', '+30-60% shield restore per round, +1-2% interception'),
+('augment_absorption', 'Augment Absorption', 'ship_defense_science', 2, '[{"tech":"shield_research","level":5},{"tech":"energy_diffusion","level":1}]', 0, 0, 117576, 1.1600, 21600, 1.3400, '{"type":"shield_flat_reduction","per_level":2,"unit":"flat"}', 'Shield modules reduce damage by 2-5 points'),
+('energy_conservation_defense', 'Energy Conservation', 'ship_defense_science', 3, '[{"tech":"energy_diffusion","level":2},{"tech":"augment_absorption","level":1}]', 0, 0, 248747, 1.3300, 39600, 1.3400, '{"type":"absorb_no_he3","per_level":3,"unit":"percent"}', '+3-10% chance absorb damage without He3'),
+('electronic_barrier', 'Electronic Barrier', 'ship_defense_science', 2, '[{"tech":"energy_diffusion","level":3},{"tech":"energy_conservation_defense","level":2}]', 0, 0, 540000, 1.1600, 90000, 1.3400, '{"type":"reflect_damage","per_level":5,"unit":"percent"}', 'Reflect 5-10% damage before shields drop to 0'),
+('damage_mitigation', 'Damage Mitigation', 'ship_defense_science', 3, '[{"tech":"augment_shield","level":3},{"tech":"restoration","level":2},{"tech":"energy_conservation_defense","level":3},{"tech":"electronic_barrier","level":2}]', 0, 0, 805152, 1.3300, 108000, 1.3400, '{"type":"absorb_double","per_level":10,"collateral_reduction":15,"unit":"percent"}', '10-30% absorb double damage, 15-45% lower collateral'),
+-- Structure branch
+('ship_structural_analysis', 'Ship Structural Analysis', 'ship_defense_science', 5, '[{"tech":"ship_defense_base","level":1}]', 0, 0, 10392, 1.4300, 2700, 1.3400, '{"type":"base_structure","per_level":1,"unit":"percent"}', '+1-5% base structure'),
+('ship_reinforcement', 'Ship Reinforcement Tech', 'ship_defense_science', 3, '[{"tech":"ship_defense_base","level":2},{"tech":"ship_structural_analysis","level":3}]', 0, 0, 46765, 1.3300, 10800, 1.3400, '{"type":"structure_damage_reduction","per_level":1,"unit":"flat"}', 'Each structure module reduces damage by 1-3'),
+('resilience', 'Resilience', 'ship_defense_science', 2, '[{"tech":"ship_structural_analysis","level":5},{"tech":"ship_reinforcement","level":1}]', 0, 0, 117576, 1.1600, 21600, 1.3400, '{"type":"structure_pen_resist","per_level":3,"unit":"percent"}', '-3-7% enemy structure penetration chance'),
+('structure_improvement', 'Structure Improvement', 'ship_defense_science', 3, '[{"tech":"ship_reinforcement","level":2},{"tech":"resilience","level":1}]', 0, 0, 248747, 1.3300, 39600, 1.3400, '{"type":"base_structure_bonus","values":[6,12,20],"unit":"percent"}', '+6-20% base structure'),
+('fast_repair', 'Fast Repair', 'ship_defense_science', 2, '[{"tech":"ship_reinforcement","level":3},{"tech":"structure_improvement","level":2}]', 0, 0, 540000, 1.1600, 90000, 1.3400, '{"type":"structure_restore","per_level":30,"unit":"percent"}', '+30-60% structure restore per round'),
+('reaction_armor_improvement', 'Reaction Armor Improvement', 'ship_defense_science', 2, '[{"tech":"ship_structural_analysis","level":5},{"tech":"ship_reinforcement","level":1}]', 0, 0, 117576, 1.1600, 21600, 1.3400, '{"type":"structure_flat_reduction","per_level":2,"unit":"flat"}', 'Structure modules reduce damage by 2-5'),
+('defense_improvement', 'Defense Improvement', 'ship_defense_science', 3, '[{"tech":"ship_reinforcement","level":2},{"tech":"reaction_armor_improvement","level":1}]', 0, 0, 248747, 1.3300, 39600, 1.3400, '{"type":"absorb_no_he3_structure","per_level":3,"unit":"percent"}', '+3-10% absorb damage without He3'),
+('reflection_mastery', 'Reflection Mastery', 'ship_defense_science', 2, '[{"tech":"ship_reinforcement","level":3},{"tech":"defense_improvement","level":2}]', 0, 0, 540000, 1.1600, 90000, 1.3400, '{"type":"reflect_structure_damage","per_level":5,"unit":"percent"}', 'Reflect 5-10% damage before structure drops to 0'),
+('stability_mastery', 'Stability Mastery', 'ship_defense_science', 3, '[{"tech":"structure_improvement","level":3},{"tech":"fast_repair","level":2},{"tech":"defense_improvement","level":3},{"tech":"reflection_mastery","level":2}]', 0, 0, 805152, 1.3300, 108000, 1.3400, '{"type":"absorb_double_structure","per_level":10,"collateral_reduction":15,"unit":"percent"}', '10-30% absorb double damage, 15-45% lower collateral');
+```
+
+### 3.31 Seed Data: Tech Types (Directional, Missile, Ship-Based, Planetary Defense)
+
+```sql
+-- Directional Science (15 techs)
+INSERT INTO tech_types (name, display_name, tree, max_level, prerequisites_json, base_cost_metal, base_cost_he3, base_cost_gold, cost_multiplier, base_time_seconds, time_multiplier, effects_json, description) VALUES
+('optics_base', 'Optics', 'directional_science', 10, '[]', 0, 0, 541, 1.5300, 117, 2.3400, '{"type":"directional_damage","per_level":5,"unit":"percent"}', '+5% directional weapon damage per level'),
+('directional_malice', 'Directional Malice', 'directional_science', 5, '[{"tech":"optics_base","level":3}]', 0, 0, 7558, 1.4300, 1428, 1.3400, '{"type":"directional_crit_rate","per_level":1,"unit":"percent"}', '+1% critical strike rate per level'),
+('directional_accuracy', 'Directional Accuracy', 'directional_science', 5, '[{"tech":"optics_base","level":3}]', 0, 0, 7558, 1.4300, 1428, 1.3400, '{"type":"directional_accuracy","per_level":1,"unit":"percent"}', '+1% accuracy per level'),
+('eagle_eye', 'Eagle Eye', 'directional_science', 2, '[{"tech":"optics_base","level":6},{"tech":"directional_accuracy","level":1}]', 0, 0, 22724, 1.1600, 2550, 1.3400, '{"type":"steering_power","per_level":10,"unit":"percent"}', '+10% steering power per level'),
+('energy_penetration', 'Energy Penetration', 'directional_science', 1, '[{"tech":"directional_accuracy","level":2},{"tech":"eagle_eye","level":1}]', 0, 0, 62584, 1.0000, 6120, 1.0000, '{"type":"hit_and_shield_pen","hit":8,"shield_pen":8,"unit":"percent"}', '+8% hit rate AND 8% shield penetration chance'),
+('pierce', 'Pierce', 'directional_science', 5, '[{"tech":"optics_base","level":10},{"tech":"directional_malice","level":5},{"tech":"directional_accuracy","level":5},{"tech":"energy_penetration","level":1}]', 0, 0, 87919, 1.4300, 4947, 1.3400, '{"type":"piercing_damage","per_level":3,"unit":"percent"}', 'Piercing damage through target rows, +3% per level'),
+('radiative_interference', 'Radiative Interference', 'directional_science', 5, '[{"tech":"optics_base","level":6},{"tech":"directional_accuracy","level":2}]', 0, 0, 43116, 1.4300, 9180, 1.3400, '{"type":"enemy_hit_reduction","per_level":2,"unit":"percent"}', 'Reduces enemy hit rate by 2% per level'),
+('improved_pierce', 'Improved Pierce', 'directional_science', 2, '[{"tech":"pierce","level":3},{"tech":"eagle_eye","level":2}]', 0, 0, 240487, 1.1600, 17850, 1.3400, '{"type":"piercing_damage_bonus","per_level":5,"unit":"percent"}', '+5% additional piercing damage per level'),
+('energy_accumulation', 'Energy Accumulation', 'directional_science', 3, '[{"tech":"eagle_eye","level":2},{"tech":"energy_penetration","level":1}]', 0, 0, 136845, 1.3300, 11985, 1.3400, '{"type":"movement_crit_bonus","per_level":2,"unit":"percent"}', '+2-6% critical bonus when fleet moves'),
+('electronic_interference', 'Electronic Interference', 'directional_science', 3, '[{"tech":"directional_accuracy","level":2},{"tech":"radiative_interference","level":3}]', 0, 0, 87581, 1.3300, 11985, 1.3400, '{"type":"steering_reduction","chance":5,"per_level":3,"unit":"percent"}', '5% chance reduce enemy steering by 10%; -3-9% weapon space'),
+('piercing_crit', 'Piercing Crit', 'directional_science', 1, '[{"tech":"pierce","level":5},{"tech":"improved_pierce","level":1}]', 0, 0, 391234, 1.0000, 25500, 1.0000, '{"type":"piercing_critical","enabled":true}', 'Enables critical piercing vs horizontally-aligned ships'),
+('weakness_detection', 'Weakness Detection', 'directional_science', 3, '[{"tech":"energy_accumulation","level":3},{"tech":"electronic_interference","level":3}]', 0, 0, 349054, 1.3300, 20298, 1.3400, '{"type":"base_damage_and_accuracy","damage":5,"accuracy":3,"unit":"percent_per_level"}', '+5% base damage per level; 3-10% bonus accuracy'),
+('particle_impact', 'Particle Impact Tech', 'directional_science', 3, '[{"tech":"improved_pierce","level":2},{"tech":"piercing_crit","level":1}]', 0, 0, 646368, 1.3300, 40800, 1.3400, '{"type":"enemy_attack_reduction","per_level":10,"duration":2,"unit":"percent"}', 'Reduces enemy attack power by 10-30%, lasts 2 rounds'),
+('magnetic_impact', 'Magnetic Impact', 'directional_science', 3, '[{"tech":"directional_accuracy","level":5},{"tech":"radiative_interference","level":5},{"tech":"weakness_detection","level":2}]', 0, 0, 996120, 1.3300, 96900, 1.3400, '{"type":"ignore_agility","per_level":8,"chance":10,"unit":"percent"}', 'Ignores 8-25% enemy agility with 10-30% chance'),
+('dynamic_impairment', 'Dynamic Impairment', 'directional_science', 3, '[{"tech":"particle_impact","level":3},{"tech":"weakness_detection","level":3},{"tech":"magnetic_impact","level":3}]', 0, 0, 1431605, 1.3300, 124950, 1.3400, '{"type":"ignore_defense","per_level":8,"mov_reduction":1,"chance":6,"unit":"percent"}', 'Ignores 8-25% defense; reduces movement 1-3');
+
+-- Missile Science (14 confirmed techs)
+INSERT INTO tech_types (name, display_name, tree, max_level, prerequisites_json, base_cost_metal, base_cost_he3, base_cost_gold, cost_multiplier, base_time_seconds, time_multiplier, effects_json, description) VALUES
+('missile_theory', 'Missile Theory', 'missile_science', 10, '[]', 0, 0, 541, 1.5300, 117, 2.3400, '{"type":"missile_damage","per_level":4,"unit":"percent"}', '+4% missile damage per level'),
+('missile_accuracy', 'Missile Accuracy', 'missile_science', 5, '[{"tech":"missile_theory","level":3}]', 0, 0, 7558, 1.4300, 1428, 1.3400, '{"type":"missile_hit_rate","per_level":2,"unit":"percent"}', '+2% hit rate per level'),
+('cruise_dynamics', 'Cruise Dynamics', 'missile_science', 2, '[{"tech":"missile_theory","level":3}]', 0, 0, 11603, 1.1600, 3366, 1.3400, '{"type":"steering_power","per_level":10,"unit":"percent"}', '+10% steering power per level'),
+('missile_research', 'Missile Research', 'missile_science', 3, '[{"tech":"missile_theory","level":6},{"tech":"cruise_dynamics","level":1}]', 0, 0, 38831, 1.3300, 7446, 1.3400, '{"type":"missile_damage_and_pen","damage":3,"pen":1,"unit":"percent_per_level"}', '+3-10% base damage, +1-5% shield pen chance'),
+('missile_elusion', 'Missile Elusion', 'missile_science', 3, '[{"tech":"cruise_dynamics","level":2},{"tech":"missile_research","level":1}]', 0, 0, 78750, 1.3300, 9690, 1.3400, '{"type":"intercept_reduction","per_level":3,"hit_bonus":3,"unit":"percent"}', '-3-10% interception rate, +3-9% hit rate'),
+('missile_space_optimization', 'Missile Space Optimization', 'missile_science', 4, '[{"tech":"missile_research","level":2},{"tech":"missile_elusion","level":2}]', 0, 0, 233515, 1.3300, 16830, 1.3400, '{"type":"weapon_space_reduction","per_level":5,"unit":"percent"}', '-5-20% weapon space per level'),
+('multidirectional_assault', 'Multidirectional Assault', 'missile_science', 5, '[{"tech":"missile_theory","level":10},{"tech":"missile_accuracy","level":3},{"tech":"cruise_dynamics","level":2},{"tech":"missile_research","level":3}]', 0, 0, 80796, 1.4300, 10200, 1.3400, '{"type":"scatter_all","per_level":6,"unit":"percent"}', 'Scatters 6-30% damage across ALL enemy ships'),
+('nuclear_radiation', 'Nuclear Radiation Research', 'missile_science', 5, '[{"tech":"missile_accuracy","level":4},{"tech":"multidirectional_assault","level":1}]', 0, 0, 112916, 1.4300, 8160, 1.3400, '{"type":"damage_taken_increase","per_level":2,"chance":4,"unit":"percent"}', '2-10% increase to target damage taken, 4-20% chance'),
+('break_armor', 'Break Armor', 'missile_science', 1, '[{"tech":"multidirectional_assault","level":2},{"tech":"nuclear_radiation","level":3}]', 0, 0, 287437, 1.0000, 25500, 1.0000, '{"type":"armor_damage_bonus","flat":5,"unit":"percent"}', '+5% damage to all armor types'),
+('energy_conservation_missile', 'Energy Conservation', 'missile_science', 4, '[{"tech":"multidirectional_assault","level":3},{"tech":"nuclear_radiation","level":5},{"tech":"break_armor","level":1}]', 0, 0, 428575, 1.3300, 30600, 1.3400, '{"type":"he3_cost_reduction","per_level":4,"chance_for_half":true,"unit":"percent"}', '4-18% chance to reduce He3 cost by 50%'),
+('shrapnel_research', 'Shrapnel Research', 'missile_science', 2, '[{"tech":"missile_accuracy","level":5},{"tech":"multidirectional_assault","level":3}]', 0, 0, 157172, 1.1600, 15810, 1.3400, '{"type":"scatter_bonus","per_level":2,"unit":"percent"}', '+2-4% more scattering damage'),
+('exaltation', 'Exaltation', 'missile_science', 4, '[{"tech":"multidirectional_assault","level":5},{"tech":"shrapnel_research","level":1}]', 0, 0, 224495, 1.3300, 15555, 1.3400, '{"type":"scatter_vs_low_structure","per_level":20,"he3_reduction":2,"unit":"percent"}', '+20-80% scatter vs lower-structure fleets'),
+('suppression', 'Suppression', 'missile_science', 4, '[{"tech":"shrapnel_research","level":2},{"tech":"exaltation","level":4}]', 0, 0, 484776, 1.3300, 22950, 1.3400, '{"type":"scatter_vs_high_structure","per_level":3,"crit":3,"unit":"percent"}', '+3-12% scatter vs higher-structure fleets, +3-12% crit'),
+('missile_concussion', 'Missile Concussion', 'missile_science', 1, '[{"tech":"energy_conservation_missile","level":2},{"tech":"missile_research","level":3},{"tech":"missile_elusion","level":3},{"tech":"missile_space_optimization","level":4}]', 0, 0, 1351976, 1.0000, 178500, 1.0000, '{"type":"knockback","chance":25,"distance":2,"per_round":true}', '25% chance to push target back 2 spaces');
+
+-- Ship-Based Science (core 10 techs with confirmed costs)
+INSERT INTO tech_types (name, display_name, tree, max_level, prerequisites_json, base_cost_metal, base_cost_he3, base_cost_gold, cost_multiplier, base_time_seconds, time_multiplier, effects_json, description) VALUES
+('fighter_weapons_theory', 'Fighter Weapons Theory', 'ship_based_science', 10, '[]', 0, 0, 541, 1.5300, 117, 2.3400, '{"type":"fighter_damage","per_level":3,"unit":"percent"}', '+3% fighter weapon damage per level'),
+('reconnaissance', 'Reconnaissance', 'ship_based_science', 2, '[{"tech":"fighter_weapons_theory","level":3}]', 0, 0, 7558, 1.1600, 1428, 1.3400, '{"type":"steering_power","per_level":10,"unit":"percent"}', '+10% steering power per level'),
+('thruster_optimization', 'Thruster Optimization', 'ship_based_science', 5, '[{"tech":"fighter_weapons_theory","level":3}]', 0, 0, 7558, 1.4300, 1428, 1.3400, '{"type":"intercept_reduction","per_level":1,"unit":"percent"}', '-1% intercept rate per level'),
+('navigation', 'Navigation', 'ship_based_science', 5, '[{"tech":"fighter_weapons_theory","level":3}]', 0, 0, 7558, 1.4300, 1428, 1.3400, '{"type":"fighter_hit_rate","per_level":1,"unit":"percent"}', '+1% hit rate per level'),
+('fuel_optimization', 'Fuel Optimization', 'ship_based_science', 5, '[{"tech":"fighter_weapons_theory","level":6},{"tech":"reconnaissance","level":1}]', 0, 0, 26108, 1.4300, 3366, 1.3400, '{"type":"he3_cost_reduction","per_level":1,"unit":"percent"}', '-1-5% He3 costs'),
+('fighter_mastery', 'Fighter Mastery', 'ship_based_science', 1, '[{"tech":"fighter_weapons_theory","level":6},{"tech":"navigation","level":3}]', 0, 0, 51100, 1.0000, 4080, 1.0000, '{"type":"base_attack","flat":5,"unit":"percent"}', '+5% base attack power'),
+('fighter_tech_upgrades', 'Fighter Tech Upgrades', 'ship_based_science', 3, '[{"tech":"reconnaissance","level":2},{"tech":"fuel_optimization","level":5}]', 0, 0, 136845, 1.3300, 11985, 1.3400, '{"type":"he3_and_shield_damage","he3":2,"shield_damage":3,"unit":"percent_per_level"}', '-2-6% He3; +3-10% damage vs shielded enemies'),
+('armor_structural_analysis', 'Armor Structural Analysis', 'ship_based_science', 1, '[{"tech":"fighter_tech_upgrades","level":3}]', 0, 0, 391234, 1.0000, 25500, 1.0000, '{"type":"ship_shield_damage","flat":10,"unit":"percent"}', '+10% damage vs ships and shields'),
+('fighter_weapons_efficiency', 'Fighter-based Weapons Efficiency', 'ship_based_science', 3, '[{"tech":"fighter_weapons_theory","level":10},{"tech":"armor_structural_analysis","level":1}]', 0, 0, 349054, 1.3300, 20298, 1.3400, '{"type":"reload_chance","per_level":10,"unit":"percent"}', '+10% chance per level to finish reloading after attacks'),
+('ingenuity', 'Ingenuity', 'ship_based_science', 1, '[{"tech":"fighter_weapons_efficiency","level":3}]', 0, 0, 2045150, 1.0000, 255000, 1.0000, '{"type":"multi_bonus","swarm":5,"attack":5,"he3":-5,"intercept":20,"unshielded":10}', '+5% swarm/attack, -5% He3, +20% intercept, +10% unshielded dmg');
+
+-- Planetary Defense Science (8 techs)
+INSERT INTO tech_types (name, display_name, tree, max_level, prerequisites_json, base_cost_metal, base_cost_he3, base_cost_gold, cost_multiplier, base_time_seconds, time_multiplier, effects_json, description) VALUES
+('energy_control', 'Energy Control', 'planetary_defense', 10, '[]', 0, 0, 2500, 2.0000, 500, 2.0000, '{"type":"defense_cost_reduction","per_level":1,"unit":"percent"}', '-1-10% resource costs for defensive structures'),
+('rapid_defense_buildup', 'Rapid Defense Buildup', 'planetary_defense', 10, '[{"tech":"energy_control","level":1}]', 0, 0, 3000, 2.0000, 600, 2.0000, '{"type":"defense_build_speed","per_level":1,"unit":"percent"}', '+1-10% defense construction speed'),
+('defense_enhancement', 'Defense Enhancement', 'planetary_defense', 10, '[{"tech":"energy_control","level":3},{"tech":"rapid_defense_buildup","level":3}]', 0, 0, 1500, 2.0000, 300, 2.0000, '{"type":"defense_value","per_level":1,"unit":"percent"}', '+1-10% defensive value of all structures'),
+('emplacement_mastery', 'Emplacement Mastery', 'planetary_defense', 10, '[{"tech":"rapid_defense_buildup","level":5}]', 0, 0, 2250, 2.0000, 450, 2.0000, '{"type":"emplacement_attack","per_level":1,"unit":"percent"}', '+1-10% emplacement attack power'),
+('utmost_defense_buildup', 'Utmost Defense Buildup', 'planetary_defense', 10, '[{"tech":"energy_control","level":5},{"tech":"defense_enhancement","level":5},{"tech":"emplacement_mastery","level":3}]', 0, 0, 1750, 2.0000, 350, 2.0000, '{"type":"max_defense_structures","per_level":1,"unit":"percent"}', '+1-10% max defensive structures'),
+('range_extension', 'Range Extension', 'planetary_defense', 2, '[{"tech":"rapid_defense_buildup","level":8},{"tech":"emplacement_mastery","level":5}]', 0, 0, 300000, 2.0000, 60000, 2.0000, '{"type":"defense_range","applies_to":["particle_cannon","anti_aircraft_gun"]}', 'Increases attack range of Particle Cannons and Anti-Aircraft Guns'),
+('thor_buildup', 'Thor Buildup', 'planetary_defense', 1, '[{"tech":"energy_control","level":8},{"tech":"utmost_defense_buildup","level":5},{"tech":"range_extension","level":1}]', 0, 0, 800000, 1.0000, 160000, 1.0000, '{"type":"max_thor_cannon","flat":1}', '+1 max Thor''s Cannon allowed'),
+('augment_propulsion', 'Augment Propulsion', 'planetary_defense', 2, '[{"tech":"emplacement_mastery","level":8},{"tech":"thor_buildup","level":1}]', 0, 0, 400000, 2.2500, 80000, 2.2500, '{"type":"defense_movement","per_level":1,"unit":"flat"}', '+1-2 ship movement speed when defending own planet');
+```
+
 ---
 
 ## 4. Game Formulas
@@ -1480,15 +2323,48 @@ Where:
 
 ### 4.6 Research Cost Scaling
 
-```
-Based on Ballistics Science Lv1 data:
-  Lv1: 541 Gold, 0:01:57
-  Lv10: 18,808 Gold, 39:18:21
+**All tech research costs Gold only** -- no Metal or He3 for any of the 7 science trees.
 
-Research costs increase exponentially per tech level.
+**Base techs (Lv 1-10) across all weapon trees share identical cost scaling:**
+
+| Level | Gold Cost | Base Time |
+|-------|-----------|-----------|
+| 1 | 541 | 00:01:57 |
+| 2 | 628 | 00:02:38 |
+| 3 | 959 | 00:06:08 |
+| 4 | 1,467 | 00:14:21 |
+| 5 | 2,244 | 00:33:35 |
+| 6 | 3,434 | 01:18:37 |
+| 7 | 5,253 | 03:03:59 |
+| 8 | 8,036 | 07:10:34 |
+| 9 | 12,294 | 16:47:41 |
+| 10 | 18,808 | 39:18:21 |
+
+```
+Approximate formulas (base techs across all weapon trees):
+
+GoldCost(level) ~= 541 * 1.53^(level-1)
+BaseTime(level) ~= 117 * 2.34^(level-1)   // in seconds
+
+Average multipliers per level:
+  Cost:  ~1.53x
+  Time:  ~2.34x
+
+Higher-tier techs have different base costs but similar exponential
+scaling within their own level ranges.
 ```
 
-[NEEDS RESEARCH: exact research cost scaling multiplier per level; the data shows Lv1-Lv10 but the formula has not been confirmed]
+**Estimated total Gold investment per tree (all techs maxed):**
+
+| Tree | Approx Total Gold |
+|------|-------------------|
+| Logistics Construction | ~12,000,000 |
+| Ballistics | ~6,500,000 |
+| Directional | ~8,500,000 |
+| Missile | ~8,000,000 |
+| Ship-Based | ~14,000,000 |
+| Ship Defense | ~8,000,000 |
+| Planetary Defense | ~12,000,000 |
 
 ### 4.7 Research Time Reduction (Technology Center)
 
@@ -1727,9 +2603,11 @@ All endpoints are prefixed with `/api`. Authentication is via JWT Bearer token i
 | Method | Endpoint | Description | Auth |
 |--------|----------|-------------|------|
 | `GET` | `/api/research` | List all research progress for player | Yes |
-| `GET` | `/api/research/trees` | Get all 7 tech trees with prerequisites | Yes |
+| `GET` | `/api/research/trees` | Get all 7 tech trees with prerequisites and costs | Yes |
+| `GET` | `/api/research/trees/:tree` | Get single tree (e.g., `ballistics_science`) | Yes |
 | `POST` | `/api/research/start` | Start researching a technology | Yes |
 | `POST` | `/api/research/cancel` | Cancel in-progress research | Yes |
+| `POST` | `/api/research/speedup` | Spend vouchers/MP to accelerate research | Yes |
 
 **POST /api/research/start**
 ```json
@@ -1750,6 +2628,46 @@ All endpoints are prefixed with `/api`. Authentication is via JWT Bearer token i
         "he3": 42000,
         "gold": 60000
     }
+}
+```
+
+**POST /api/research/speedup**
+```json
+// Request:
+{ "tech_type_id": 5, "speedup_minutes": 30 }
+
+// Response 200:
+{
+    "technology": {
+        "id": "uuid",
+        "tech_type": 5,
+        "is_researching": true,
+        "research_finish_at": "2026-02-05T03:15:00Z"
+    },
+    "vouchers_spent": 3
+}
+// Cost: 3 vouchers/MP per 30 minutes of reduction
+```
+
+**GET /api/research/trees/:tree**
+```json
+// Response 200:
+{
+    "tree": "ballistics_science",
+    "techs": [
+        {
+            "id": 12,
+            "name": "ballistics_base",
+            "display_name": "Ballistics",
+            "max_level": 10,
+            "prerequisites": [],
+            "current_level": 6,
+            "is_researching": false,
+            "cost_next_level": { "gold": 3434 },
+            "time_next_level_seconds": 4717,
+            "effects": { "type": "ballistic_damage", "per_level": 5, "unit": "percent" }
+        }
+    ]
 }
 ```
 
@@ -1888,6 +2806,133 @@ All endpoints are prefixed with `/api`. Authentication is via JWT Bearer token i
 |--------|----------|-------------|------|
 | `POST` | `/api/ships/recycle` | Scrap ships to recover resources (Recycling Plant) | Yes |
 
+### 5.17 Quests
+
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| `GET` | `/api/quests` | Get all player quests (main + side) with current status | Yes |
+| `GET` | `/api/quests/main` | Get main quest chain with progress | Yes |
+| `GET` | `/api/quests/side` | Get side quests with tier progress | Yes |
+| `POST` | `/api/quests/:id/claim` | Claim reward for a completed quest | Yes |
+| `GET` | `/api/quests/daily` | Get today's daily quest progress and tier status | Yes |
+| `POST` | `/api/quests/daily/:quest_key/complete` | Mark a daily quest as completed | Yes |
+| `POST` | `/api/quests/daily/claim-tier` | Claim a daily tier reward (bronze/silver/gold/diamond) | Yes |
+
+**GET /api/quests**
+```json
+// Response 200:
+{
+    "main_quests": [
+        {
+            "id": "uuid",
+            "quest_key": "main_01_collecting_resources",
+            "display_name": "Collecting Resources",
+            "status": "claimed",
+            "progress_value": 1,
+            "requirement_value": 1,
+            "chain_order": 1
+        },
+        {
+            "id": "uuid",
+            "quest_key": "main_03_tech_center",
+            "display_name": "Level 1 Technology Center",
+            "status": "available",
+            "progress_value": 0,
+            "requirement_value": 1,
+            "chain_order": 3
+        }
+    ],
+    "side_quests": [
+        {
+            "id": "uuid",
+            "quest_key": "side_harvest_time_1",
+            "display_name": "Harvest Time I",
+            "status": "in_progress",
+            "progress_value": 1500,
+            "requirement_value": 2180,
+            "chain_order": 1,
+            "category_group": "resource_production"
+        }
+    ],
+    "current_main_quest": {
+        "quest_key": "main_03_tech_center",
+        "display_name": "Level 1 Technology Center",
+        "description": "Build Technology Center Lv1",
+        "progress_value": 0,
+        "requirement_value": 1
+    }
+}
+```
+
+**POST /api/quests/:id/claim**
+```json
+// Response 200:
+{
+    "quest_key": "main_01_collecting_resources",
+    "rewards": {
+        "metal": 450,
+        "he3": 950,
+        "gold": 500,
+        "items": [{"type": "item", "item_key": "loudspeaker", "quantity": 1}]
+    },
+    "next_quest_unlocked": "main_03_tech_center"
+}
+
+// Validations:
+// - Quest belongs to player
+// - Quest status is 'completed' (requirement met, not yet claimed)
+// - For main quests: prerequisite quest must be claimed
+// - Reward resources are added to player's planet resources
+// - Blueprint rewards are added to player_blueprints
+// - Item rewards are added to player inventory
+// - Quest status transitions to 'claimed'
+// - Next quest in chain transitions from 'locked' to 'available'
+```
+
+**GET /api/quests/daily**
+```json
+// Response 200:
+{
+    "date": "2026-02-06",
+    "daily_points": 17,
+    "quests": [
+        { "quest_key": "daily_login", "display_name": "Daily Log In", "completed": true, "points": 10 },
+        { "quest_key": "daily_collect_dues", "display_name": "Collect Your Dues", "completed": false, "points": 4 },
+        { "quest_key": "daily_need_for_speed", "display_name": "Need for Speed", "completed": true, "points": 3 },
+        { "quest_key": "daily_stockpiling", "display_name": "Stockpiling", "completed": false, "progress": 1, "required": 3, "points_per": 1, "max_points": 3 }
+    ],
+    "tier_rewards": [
+        { "tier": "bronze", "points_required": 10, "claimed": true },
+        { "tier": "silver", "points_required": 30, "claimed": false },
+        { "tier": "gold", "points_required": 50, "claimed": false },
+        { "tier": "diamond", "points_required": 70, "claimed": false }
+    ]
+}
+```
+
+**POST /api/quests/daily/claim-tier**
+```json
+// Request:
+{
+    "tier": "bronze"
+}
+
+// Response 200:
+{
+    "tier": "bronze",
+    "reward": {
+        "type": "loudspeaker",
+        "quantity": 1
+    }
+}
+
+// Validations:
+// - Player has enough daily_points for the tier threshold
+// - Tier has not already been claimed today
+// - Reward is randomly rolled from the tier's loot table
+// - Tier is added to tier_rewards_claimed_json
+```
+
 ---
 
 ## 6. MVP Prioritization (Phase 1)
@@ -1941,7 +2986,7 @@ On guest account creation, the server automatically:
 |-------|----------|
 | **Phase 1 (MVP)** | Auth, buildings (ground + space), resources (Metal/He3/Gold), 2 tech trees |
 | **Phase 2** | Ship Factory (24 lvl), Ship Design (Frigate/Cruiser/Battleship + modules), Spacedock (12 lvl), Fleet System (3x3), Blueprints (ship + module), 30 Normal Instances, Combat (8-phase) |
-| **Phase 3** | Command Center, commander recruitment/merging, PvP combat, combat reports, Radar |
+| **Phase 3** | Full 7 tech trees + Research UI, Weapon Research Center, Command Center, commander recruitment/merging, PvP combat, combat reports, Radar |
 | **Phase 4** | Corps, RBPs, corp donations, Galactic Wars, Alliance Center |
 | **Phase 5** | Trading Center, Recycling Plant, Restricted/Constellation Instances, Weapon Research Center |
 | **Phase 6** | League/Championship, Honor/Champion Points shops, decorative buildings, Galaxy Transporter |
@@ -2074,10 +3119,10 @@ Items marked [NEEDS RESEARCH] throughout this document that need investigation:
 | 2.2.3 | Spacedock, Weapon Research Center, Recycling Plant max levels | Medium |
 | 2.2.4 | Decorative buildings: exact list, effects, costs | Low |
 | 2.2.5 | Space Base building max levels, costs per level, prerequisites | High |
-| 2.2.7 | Technology Center levels 2-4, 6-11 exact costs | Medium |
+| ~~2.2.7~~ | ~~Technology Center levels 2-4, 6-11 exact costs~~ | ~~RESOLVED (Section 2.2.7 complete Lv1-12 table)~~ |
 | 2.2.8 | Command Center levels 6-12 exact costs and cooldowns | Medium |
-| 2.3.4 | Logistics Construction full tech tree with prerequisites, costs, max levels | High |
-| 2.3.5 | Directional Science, Missile Science, Ship-Based Science, Planetary Defense full tech trees | Medium |
+| ~~2.3.4~~ | ~~Logistics Construction full tech tree with prerequisites, costs, max levels~~ | ~~RESOLVED (Section 2.3.4 full tree + summary table + seed data 3.28)~~ |
+| ~~2.3.5~~ | ~~Directional Science, Missile Science, Ship-Based Science, Planetary Defense full tech trees~~ | ~~RESOLVED (Sections 2.3.5-2.3.8 + seed data 3.31)~~ |
 | 2.4.2 | Complete module list with stats, space requirements, and costs | High |
 | 2.4.3 | Complete ship hull table with base stats for all hull types | High |
 | 2.4.5 | Exact grid positions activated for each formation | Medium |
@@ -2088,13 +3133,19 @@ Items marked [NEEDS RESEARCH] throughout this document that need investigation:
 | 2.6.5 | Complete gem types, bionic chip types, and their stat values | Low |
 | 2.8.5 | Corp level requirements, max level, member limits per level | Medium |
 | 2.9.2 | Instance list with levels, enemy compositions, and reward tables | Low |
-| 2.10.1 | Complete quest chain list beyond initial quests | Low |
+| ~~2.10.1~~ | ~~Complete quest chain list beyond initial quests~~ | ~~RESOLVED (Section 2.10.1-2.10.6, 3.22-3.27, 5.17)~~ |
 | 3.21 | Residential Area (Gold) per-level production table | High |
 | 3.21 | Resource Warehouse per-level storage capacity table | High |
 | 3.21 | Metal Collector per-level cost and build time table | Medium |
-| 4.6 | Exact research cost scaling multiplier per level | High |
+| ~~4.6~~ | ~~Exact research cost scaling multiplier per level~~ | ~~RESOLVED (Section 4.6 formula: ~1.53x cost, ~2.34x time + per-level table)~~ |
 | 4.8 | Exact min/max hit chance clamp values | Medium |
 | 4.11 | Exact Star Rank to Effective Stack bonus formula/table | High |
+| 2.3.5 | Ballistics: Demolition Warhead, Range Extension, Artillery Specialization full details | Low |
+| 2.3.6 | Missile: Rapid Loading and Perfect Storm full details | Low |
+| 2.3.7 | Ship-Based: remaining tech costs (Reconnaissance through Fortune) | Low |
+| 2.3.8 | Planetary Defense: per-level costs for Defense Enhancement, Emplacement Mastery, Utmost Defense | Low |
+| 2.3.10 | Weapon Research Center Lv 2-5, 7-11 build costs | Medium |
+| 2.3.4 | Logistics: Expand Capacity exact max level (7+ confirmed, exact cap unknown) | Low |
 
 ## Appendix B: He3 Extractor Per-Level Reference
 
@@ -2192,14 +3243,16 @@ AFTER BATTLE:
 - 30 Normal Instances (PvE)
 - Combat system (8-phase resolution)
 
-**OUT OF SCOPE (deferred to later phases):**
+**OUT OF SCOPE (deferred to later phases or removed):**
 - Special Hulls (require Badge Points from Restricted Instances)
-- Flagships / Humaroid Flagships (require Blueprint Shreds)
-- Blueprint Shreds (only for Flagship crafting)
 - Restricted Instances, Scenario Instances, Constellation Instances
-- Light Armor (Flagship-exclusive)
 - Commander acquisition loop (Lucky Wheel, Mall Point draws, Compound Center merging)
 - Commander Cards gacha system
+
+**PERMANENTLY OUT OF SCOPE:**
+- Flagships / Humaroid Flagships (not implemented; only Frigate, Cruiser, Battleship)
+- Blueprint Shreds (Flagship-only crafting material)
+- Light Armor (Flagship-exclusive armor type)
 
 ---
 
@@ -2273,7 +3326,7 @@ CREATE TABLE ship_factory_levels (
     metal_cost BIGINT NOT NULL,
     he3_cost BIGINT NOT NULL,
     gold_cost BIGINT NOT NULL,
-    build_time_seconds INTEGER NOT NULL,
+    build_time_seconds BIGINT NOT NULL,
     speed_bonus_pct INTEGER NOT NULL,
     production_slots INTEGER NOT NULL
 );
@@ -2740,7 +3793,7 @@ Grid indices (row, col):
 | Second (row 1) | Left Flank, Glasshouse, Right Flank | 90% |
 | Third (row 2) | Left Rear, Tail, Right Rear | 75% |
 
-**Glasshouse** (center [1,1]) is the single most protected position. Typically houses glass cannons or flagships.
+**Glasshouse** (center [1,1]) is the single most protected position. Typically houses glass cannon stacks.
 
 #### 8.5.3 Fleet Formations
 

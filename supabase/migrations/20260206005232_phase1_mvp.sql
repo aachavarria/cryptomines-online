@@ -94,13 +94,16 @@ CREATE TABLE buildings (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     planet_id UUID NOT NULL REFERENCES planets(id) ON DELETE CASCADE,
     building_type INTEGER NOT NULL REFERENCES building_types(id),
+    grid_col INTEGER NOT NULL,
+    grid_row INTEGER NOT NULL,
     level INTEGER NOT NULL DEFAULT 1,
     is_upgrading BOOLEAN NOT NULL DEFAULT false,
     upgrade_finish_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
 
-    CONSTRAINT chk_level_positive CHECK (level >= 1),
+    CONSTRAINT chk_level_positive CHECK (level >= 0),
+    CONSTRAINT chk_grid_bounds CHECK (grid_col >= 0 AND grid_row >= 0),
     CONSTRAINT chk_upgrade_consistency CHECK (
         (is_upgrading = true AND upgrade_finish_at IS NOT NULL) OR
         (is_upgrading = false AND upgrade_finish_at IS NULL)

@@ -1,9 +1,9 @@
 # Cryptomines Online - UI/UX Specification
 
-> **Version**: 2.2
+> **Version**: 2.5
 > **Last Updated**: 2026-02-06
-> **Status**: Phase 1 UI Redesign (Grid v2 — multi-tile buildings)
-> **Scope**: Planet/Base View (3D), Building Detail, Construction, Resource HUD
+> **Status**: Phase 1 UI + Phase 2 Ship Designer + Quest Panel + Research Panel
+> **Scope**: Planet/Base View (3D), Building Detail, Construction, Resource HUD, Ship Design Editor, Quest Panel
 > **Renderer**: Three.js (React Three Fiber) for 3D scenes + HTML/CSS overlays for HUD/panels
 > **Directive**: Visual style inspired by Galaxy Online 2 layout and structure. 3D planet view with HTML overlay panels. All mechanics names faithful to GO2.
 
@@ -27,6 +27,9 @@
 14. [Responsive Design](#14-responsive-design)
 15. [API Integration Map](#15-api-integration-map)
 16. [Performance Considerations](#16-performance-considerations)
+17. [Screen: Ship Design Editor (Phase 2)](#17-screen-ship-design-editor-phase-2)
+18. [Screen: Quest Panel (HTML Overlay)](#18-screen-quest-panel-html-overlay)
+19. [Screen: Research Panel (HTML Overlay)](#19-screen-research-panel-html-overlay)
 
 ---
 
@@ -1716,6 +1719,620 @@ Use `@react-three/drei`'s `useGLTF.preload()` for high-priority models and `Susp
 
 ---
 
+## 17. Screen: Ship Design Editor (Phase 2)
+
+The Ship Design Editor is a full-screen modal for creating and editing ship designs. Accessed from the Ship Factory building (via "View" -> "Design" tab) or the Fleet page. The layout is adapted from the KRTools ship designer reference with a 3-column layout, 3D ship preview, and full blueprint gating.
+
+> **Reference**: GDD Section 8.2 (Ship Design System), Section 8.3 (Blueprints)
+> **Source inspiration**: KRTools Ship Designer (krtools.deajae.co.uk/des/)
+> **Renderer**: HTML modal with embedded React Three Fiber canvas for 3D ship preview
+
+### 17.1 Overall Layout (3-Column)
+
+The editor is a single-screen modal -- all interaction happens in one view with no page navigation. Target size: ~800x600px desktop, responsive down to 700x500px.
+
+```
++------------------------------------------------------------------+
+| [X]  NEW SHIP DESIGN                                              |
++--------+--------------------------+------------------------------+
+| HULL   | MODULE SELECTION         | DESIGN PREVIEW               |
+| CLASS  |                          |                              |
+| [FRG]  | [Attack] [Def] [Aux]    | Hull: Weikes Tier I          |
+| [CRS]  | [BAL][DIR][MIS][SBW][PL]| Name: [ MyFrigate-V1       ] |
+| [BTL]  |                          |                              |
+|        | +----------------------+ | +----------+                 |
+| HULL   | | Rapid Fire III       | | |          |                 |
+| LIST   | |   ATK:48-72  v:18   | | |   3D     |                 |
+|        | | Taskmaster II        | | |  Model   |                 |
+| Weikes | |   ATK:28-40  v:14   | | | Preview  |                 |
+| Air W. | | Gatling Cannon I     | | |  (R3F)   |                 |
+| Valky. | |   ATK:16-22  v:10   | | |          |                 |
+| GoGett | +----------------------+ | +----------+                 |
+| Sp.Hnt |                          |                              |
+| Sparrw |                          | Volume: [========  ] 68/80   |
+| Devour |                          |                              |
+| ...    |                          | INSTALLED MODULES            |
+|        |                          | Rapid Fire III   x4   72v [-]|
+|        |                          | Orbital Shield   x2   12v [-]|
+|        |                          |                              |
++--------+--------------------------+------------------------------+
+| STATS                                              | COST        |
+| Attack: 288    | Shield: 870    | Atk/Rnd: 288    | M: 12,400   |
+| Structure: 770 | Steering: 0    | Agility: 0      | He3: 8,200  |
+| Storage: 0     | Stability: 0   | Mobility: 1     | Au: 9,800   |
+| Defense: 0                                         |             |
++----------------------------------------------------+-------------+
+|                    [ SAVE DESIGN ]                                |
++------------------------------------------------------------------+
+```
+
+### 17.2 Modal Container
+
+- Rendered via `createPortal` to document body (same pattern as ConstructionPanel)
+- z-index: 350 (above other panels, below tooltips)
+- Background backdrop: `rgba(0, 0, 0, 0.8)` with `backdrop-filter: blur(4px)`
+- Modal body: `--bg-panel-solid` (`#0c0c20`)
+- Border: 1px solid `--border-glow` (`#3366cc`) with `box-shadow: var(--glow-blue)`
+- Border-radius: 8px
+- Desktop: 800x600px centered
+- Title bar: "NEW SHIP DESIGN" or "EDIT SHIP DESIGN" (when editing existing), `--font-lg`, `--text-bright`
+- Close button: top-right X icon, same as BuildingDetailPanel
+
+### 17.3 Left Column: Hull Selection (~100px wide)
+
+#### 17.3.1 Hull Class Tabs (Vertical)
+
+Three vertical tab buttons for hull class filtering:
+
+```
++------+
+| FRG  |  <-- Frigate (active: cyan border-left)
++------+
+| CRS  |  <-- Cruiser
++------+
+| BTL  |  <-- Battleship
++------+
+```
+
+| Tab | Label | Hull Class | Color Accent |
+|-----|-------|-----------|--------------|
+| FRG | Frigate | `frigate` | `#44aaff` (cyan-blue) |
+| CRS | Cruiser | `cruiser` | `#cc8844` (amber) |
+| BTL | Battleship | `battleship` | `#aa4444` (red) |
+
+- Active tab: left border 3px solid class color, background `--bg-panel-light`
+- Inactive tab: `--text-dim`, no left border highlight
+- Layout: vertical stack, each tab 100px wide x 40px tall
+- Font: `--font-sm`, uppercase, `--text-label`
+
+#### 17.3.2 Hull List (Scrollable)
+
+Below the class tabs, a scrollable list of hull lines filtered by the selected class:
+
+```
++------------------+
+| Weikes           |  <-- selected (highlighted)
+| T1  S:270 St:770 |
++------------------+
+| Air Wanderer     |  <-- owned, normal
+| T1  S:290 St:810 |
++------------------+
+| Valkyrie    [LK] |  <-- not owned (greyed, lock icon)
+| T1  S:310 St:750 |
++------------------+
+```
+
+Each hull card shows:
+- Hull line name: `--font-base`, `--text-bright` (or `--text-dim` if locked)
+- Compact stats: Tier, Shield, Structure -- `--font-xs`, `--text-label`
+- Selected hull: background `--bg-panel-light`, left border 2px solid class color
+- No hull thumbnail images -- text cards only (no sprite assets available)
+- Scrollable area: max-height fills remaining column below class tabs
+- Scroll: thin custom scrollbar matching `--border-frame` color
+
+#### 17.3.3 Hull Tier Selector
+
+When a hull line is selected, a small tier selector appears (either inline on the hull card or as a sub-row):
+
+```
+| Weikes                |
+| [I] [II] [III]        |  <-- tier buttons
+| S:270  St:770  Sl:80  |  <-- stats update per tier
+```
+
+- Three small pill buttons: I, II, III
+- Active tier: filled with class color
+- Inactive tier: outline only
+- Stats on the card update to reflect the selected tier
+- Default: Tier I selected
+
+### 17.4 Center Column: Module Selection (~300px wide)
+
+#### 17.4.1 Module Type Tabs (Horizontal)
+
+Three horizontal tabs across the top of the center column:
+
+```
++----------+----------+----------+
+|  Attack  | Defense  | Auxiliary |
++----------+----------+----------+
+```
+
+| Tab | Category | Color Accent |
+|-----|----------|-------------|
+| Attack | `attack` | `--accent-danger` (`#ff4444`) |
+| Defense | `defense` | `--accent-primary` (`#4488ff`) |
+| Auxiliary | `auxiliary` | `--accent-success` (`#22cc66`) |
+
+- Active tab: bottom border 2px solid category color, text in category color
+- Inactive: `--text-dim`
+- Width: ~100px each, evenly distributed
+- Font: `--font-sm`, semi-bold
+
+#### 17.4.2 Module Sub-Category Icons (Horizontal Row)
+
+Below the type tabs, a row of clickable sub-category filter icons. The visible icons change based on which type tab is active.
+
+**Attack type selected:**
+```
+[BAL] [DIR] [MIS] [SBW] [PLN]
+```
+
+**Defense type selected:**
+```
+[STR] [SHD] [AAD]
+```
+
+**Auxiliary type selected:**
+```
+[ELC] [STO] [TRN]
+```
+
+| Sub-Category | Abbrev | Parent Type | Suggested Icon |
+|--------------|--------|------------|----------------|
+| Ballistic | BAL | Attack | Bullet/shell |
+| Directional | DIR | Attack | Laser beam |
+| Missile | MIS | Attack | Rocket |
+| Ship-Based | SBW | Attack | Crosshair |
+| Planetary | PLN | Attack | Globe with arrow |
+| Structure | STR | Defense | Shield with rivets |
+| Shield | SHD | Defense | Energy dome |
+| Air Defense | AAD | Defense | Interceptor |
+| Electronic | ELC | Auxiliary | Circuit board |
+| Storage | STO | Auxiliary | Container |
+| Transmission | TRN | Auxiliary | Engine/thruster |
+
+- Each icon: 28x28px clickable button, with 3-letter label fallback if no icon asset
+- Active sub-category: background highlight in parent type color (low opacity), bottom dot indicator
+- Default on type tab switch: first sub-category auto-selected
+- Spacing: 4px gap between icons, centered in the column
+
+#### 17.4.3 Module List (Scrollable)
+
+Below the sub-category row, a scrollable list of modules filtered by the active type + sub-category:
+
+```
++--------------------------------------------+
+| [Icon] Rapid Fire III          vol: 18     |
+|        ATK: 48-72  He3/rnd: 8  [+]        |
++--------------------------------------------+
+| [Icon] Rapid Fire II           vol: 12     |
+|        ATK: 24-36  He3/rnd: 4  [+]        |
++--------------------------------------------+
+| [LK] Taskmaster III           vol: 20     |  <-- locked (no blueprint)
+|        ATK: 56-80  He3/rnd: 8             |
++--------------------------------------------+
+```
+
+Each module item:
+- Module icon: 36x36px placeholder (colored square with abbreviation until art is ready)
+- Module name: `--font-base`, `--text-bright`, includes tier in roman numerals
+- Volume: right-aligned, `--font-xs`, `--text-label`
+- Primary stat line: damage range for weapons, effect description for defense/auxiliary
+- He3/round: for attack modules, `--font-xs`, `--color-he3`
+- Add button `[+]`: right side, only visible for owned modules, adds one to design
+- Per-ship limit badge: "1/ship" in amber pill for modules with `limit_per_ship = 1`
+- Scrollable area: fills remaining height in center column
+- Item height: ~52px
+
+**Module Blueprint Gating Visuals:**
+
+| Blueprint State | Visual Treatment | Interaction |
+|----------------|-----------------|-------------|
+| **Owned & Activated** | Full opacity, normal appearance, `[+]` button visible | Click `[+]` adds to design |
+| **Not Owned** | 30% opacity, greyed out, lock icon overlay on module icon, stats hidden (show "---") | Click shows tooltip: "Blueprint required -- obtain from instances or auction house" |
+
+### 17.5 Right Column: Design Preview (~300px wide)
+
+#### 17.5.1 Hull & Design Name Header
+
+```
++------------------------------+
+| Hull: Weikes  Tier I         |
+| Name: [ MyFrigate-V1      ] |
++------------------------------+
+```
+
+- Hull name: `--font-base`, `--text-bright`, tinted with hull class color
+- Tier: displayed as "Tier I/II/III" beside hull name
+- Name input: inline text field, `--bg-panel` background, `--border-frame` border
+  - Validation: alphanumeric + `.` `-` `_`, no spaces, max 20 characters
+  - Invalid input: border turns `--accent-danger`, tooltip shows rules
+  - Placeholder: "Enter design name..."
+
+#### 17.5.2 3D Ship Preview
+
+A React Three Fiber `<Canvas>` embedded in the right column displaying the selected hull's 3D model.
+
+```
++----------------------------+
+|                            |
+|                            |
+|      [3D Ship Model]      |
+|       auto-rotating        |
+|                            |
+|                            |
++----------------------------+
+```
+
+| Property | Value |
+|----------|-------|
+| Canvas size | 260x200px |
+| Camera | Perspective, FOV 45, auto-fit to model bounding box |
+| Rotation | Auto-rotate Y-axis at 0.5 rad/s; drag to orbit manually |
+| Lighting | AmbientLight intensity 0.4 + DirectionalLight intensity 0.8 from top-right |
+| Background | Transparent (shows modal panel background beneath) |
+| Post-processing | None (keep lightweight inside modal) |
+
+**Hull Class to 3D Model Mapping:**
+
+| Hull Class | Primary GLB | Alternate GLB | Assignment |
+|------------|------------|--------------|-----------|
+| **Frigate** | `nave1.glb` | `nave2.glb` | nave1: Weikes, Valkyrie, Space Hunter, Devourer, Cybra. nave2: Air Wanderer, GoGetter, Sparrow, Polymesus, Hamdar |
+| **Cruiser** | `nave2.glb` | `nave3.glb` | nave2: Typhoon, Duke, Watchman, Wraith, Nicholas. nave3: Bombardier, The Shuttler, Spinner, Encratos, Helena |
+| **Battleship** | `nave4.glb` | `nave5.glb` | nave4: Estrella, Diaz, Palenka. nave5: Nettle, RV766-The Explorer |
+
+GLB files are located at `/assets/glb/ships/`. Models are tinted by hull class color:
+- Frigate: `#44aaff` (cyan-blue)
+- Cruiser: `#cc8844` (amber)
+- Battleship: `#aa4444` (red)
+
+**3D Preview States:**
+
+| State | Behavior |
+|-------|----------|
+| No hull selected | Empty canvas with text: "Select a hull" in `--text-dim` |
+| Hull selected | Model loads and auto-rotates; brief fade-in transition |
+| Hull changed | Previous model fades out (150ms), new model fades in (200ms) |
+| Loading | Small spinner centered in canvas area |
+
+#### 17.5.3 Volume Bar
+
+Below the 3D preview, a horizontal progress bar showing module volume usage:
+
+```
+Volume: [================      ] 68 / 80
+```
+
+| Property | Value |
+|----------|-------|
+| Bar height | 12px |
+| Bar background | `--bg-panel` |
+| Fill color (normal) | `--accent-primary` (`#4488ff`) |
+| Fill color (>80%) | `--accent-warning` (`#ffaa22`) |
+| Fill color (100%) | `--accent-danger` (`#ff4444`) |
+| Text | "X / Y" right-aligned, `--font-xs`, monospace |
+| Border | 1px solid `--border-frame` |
+| Border-radius | 4px |
+
+The volume bar represents: `SUM(installed module volumes) / hull.installation_slots`. When volume exceeds capacity, the `[+]` buttons on modules become disabled and the bar pulses red.
+
+#### 17.5.4 Installed Modules List
+
+Below the volume bar, a scrollable list of modules currently added to the design:
+
+```
+INSTALLED MODULES
++--------------------------------------------+
+| #1  Reflective Plating II   x1   12v  [-] |
+| #2  Team Combat Engine III  x1   18v  [-] |
+| #3  Rapid Fire III          x4   72v  [-] |
+| #4  Orbital Shield          x2   12v  [-] |
++--------------------------------------------+
+```
+
+Each installed module row:
+- Placement order number: `#N` prefix, `--font-xs`, `--text-dim` -- auto-sorted per GDD Section 8.2.7
+- Module name + tier: `--font-sm`, `--text-bright`
+- Quantity: `xN`, `--font-sm`, `--text-label`
+- Total volume: `Nv` (quantity * per-module volume), `--font-xs`, `--text-label`
+- Remove button `[-]`: removes one from design, `--accent-danger` on hover
+- Scrollable: max-height ~160px with thin scrollbar
+- Empty state: "No modules installed" in `--text-dim`
+
+**Module Placement Order (Auto-Sort):**
+
+Installed modules are automatically sorted according to optimal placement order (GDD Section 8.2.7):
+
+```
+ 1. Reflective Plating
+ 2. Engines (Team Combat, Anti-Matter)
+ 3. Electronics (Agility Booster, Infrared Scanner, ECM, Auto Target, Time Dilation)
+ 4. Maintenance (Ship Reinforcement, Shield Regenerator)
+ 5. Air Defense (Anti-Aircraft Cannon, Powered Pulse Cannon)
+ 6. Ship-Based Weapons
+ 7. Extreme Counterattack
+ 8. Quick Reaction Armor
+ 9. Daedalus Control System
+10. Shields (EOS Phase Shift, Detonator, Space-Time Magnetic, Heat Diffusion, Particle Stun)
+11. Energy Shield Booster
+12. Energy Armor
+13. Non-SBW Weapons (Ballistic, Directional, Missile)
+```
+
+Placement-independent modules (Station Warehouse, Nano Station Warehouse, Atomic Framework, Orbital Shield, Super Transmission Engine) are listed at the end without a placement number.
+
+### 17.6 Bottom Section: Stats & Cost (Full Width)
+
+#### 17.6.1 Stats Grid (2-Column)
+
+Below the three columns, a full-width stats display in a 2-column grid:
+
+```
++----------------------------------------------------+-------------+
+| Attack: 288    | Shield: 870    | Atk/Rnd: 288    | COST        |
+| Structure: 770 | Steering: 0    | Agility: 0      | M: 12,400   |
+| Storage: 0     | Stability: 0   | Mobility: 1     | He3: 8,200  |
+| Defense: 0     |                |                  | Au: 9,800   |
++----------------------------------------------------+-------------+
+```
+
+**10 Stats displayed** (per GDD Section 8.2.9):
+
+| Stat | Calculation | Color |
+|------|------------|-------|
+| Attack | SUM(module avg_damage * quantity) | `--accent-danger` |
+| Shield | hull.base_shield + SUM(shield_bonuses) | `--color-he3` |
+| Atk/Rnd | Same as Attack (display alias) | `--accent-danger` |
+| Structure | hull.base_structure + SUM(structure_bonuses) + (atomic_framework_count * 500) | `--text-bright` |
+| Steering | SUM(steering_bonuses) | `--text-bright` |
+| Agility | hull.base_agility + SUM(agility_bonuses) | `--text-bright` |
+| Storage | hull.base_storage + SUM(storage_bonuses) | `--text-bright` |
+| Stability | 0 + SUM(stability_bonuses) | `--text-bright` |
+| Mobility | hull.base_movement + SUM(movement_bonuses) | `--text-bright` |
+| Defense | hull.base_defense + SUM(defense_bonuses) | `--text-bright` |
+
+- Layout: CSS grid, 3 stat columns + 1 cost column
+- Stat labels: `--font-xs`, `--text-label`, uppercase
+- Stat values: `--font-base`, `--text-bright`, bold, monospace for alignment
+- Values update live as modules are added/removed
+- Zero values shown as "0" in `--text-dim`
+
+#### 17.6.2 Cost Display
+
+Right side of the stats section, showing total resource cost:
+
+| Resource | Color | Format |
+|----------|-------|--------|
+| Metal | `--color-metal` | Formatted with comma separators |
+| He3 | `--color-he3` | Formatted with comma separators |
+| Gold | `--color-gold` | Formatted with comma separators |
+
+Cost calculation (per GDD Section 8.2.9):
+```
+Metal = hull_base_metal + SUM(module.metal_cost * quantity)
+He3   = hull_base_he3 + SUM(module.he3_cost * quantity)
+Gold  = hull_base_gold + SUM(module.gold_cost * quantity)
+```
+
+#### 17.6.3 Save Button
+
+Centered below the stats/cost area:
+
+```
+[ ===== SAVE DESIGN ===== ]
+```
+
+- `GlowButton` component with `--accent-primary` gradient
+- Disabled states:
+  - No hull selected: grey, tooltip "Select a hull first"
+  - No name entered: grey, tooltip "Enter a design name"
+  - Invalid name: grey, tooltip shows validation error
+  - Volume exceeded: grey, tooltip "Module volume exceeds hull capacity"
+  - No modules: grey, tooltip "Add at least one module"
+  - Max 20 designs reached: grey, tooltip "Maximum 20 designs -- delete one first"
+- Active: blue glow, "SAVE DESIGN"
+- On save success: modal closes, toast notification "Design saved: [name]"
+- On save failure: red toast with error message, modal stays open
+
+### 17.7 Hull Blueprint Gating UX
+
+Players must own an activated hull blueprint to select that hull for design (per GDD Section 8.3).
+
+| Blueprint State | Visual Treatment | Interaction |
+|----------------|-----------------|-------------|
+| **Owned & Activated** | Full opacity, normal hull card appearance | Clickable, selects hull for design |
+| **Owned but NOT Activated** | 50% opacity, amber border (`--accent-warning`), "Activate" badge pill | Click shows tooltip: "Activate this blueprint first" |
+| **Not Owned** | 30% opacity, greyed out text, lock icon overlay | Click shows tooltip: "Blueprint required -- obtain from instances, auction house, or Galactic Trafficker" |
+
+**Starter hulls** (always shown as owned & activated per GDD Section 8.3.5):
+- Weikes (Frigate)
+- Typhoon (Cruiser)
+- Estrella (Battleship)
+
+### 17.8 Design Validation Rules
+
+Before saving, the editor validates (per GDD Section 8.2.8):
+
+| Rule | Error Display |
+|------|--------------|
+| Max 20 designs in Ship Factory | Save button disabled + tooltip |
+| Name: no spaces, only `.` `-` `_` allowed, max 20 chars | Name input border turns red, inline error text |
+| Hull blueprint required | Cannot proceed without selecting a valid hull |
+| Module blueprints required | Locked modules cannot be added |
+| Volume constraint: SUM(module volumes) <= hull installation_slots | Volume bar turns red, `[+]` buttons disabled |
+| Per-ship module limits (e.g., max 1 Extreme Counterattack) | `[+]` button disabled with "Limit reached" tooltip when at max |
+
+### 17.9 Interaction Flow
+
+```
+1. Player opens Ship Design Editor (from Ship Factory or Fleet page)
+   |
+   +--> Modal fades in (200ms ease-out), hull class defaults to Frigate
+   |
+2. Player selects hull class tab (Frigate/Cruiser/Battleship)
+   |
+   +--> Hull list filters to show only hulls of that class
+   |    Locked hulls shown greyed at bottom of list
+   |
+3. Player selects hull line + tier
+   |
+   +--> 3D preview loads the hull's GLB model (fade in)
+   |    Stats reset to hull base values
+   |    Volume bar resets (0 / installation_slots)
+   |
+4. Player selects module type tab (Attack/Defense/Auxiliary)
+   |
+   +--> Sub-category icons update to match type
+   |    First sub-category auto-selected
+   |
+5. Player selects module sub-category
+   |
+   +--> Module list filters to matching modules
+   |    Locked modules shown greyed at bottom of list
+   |
+6. Player clicks [+] on a module
+   |
+   +--> Module added to installed list (auto-sorted by placement order)
+   |    Volume bar updates
+   |    Stats update live
+   |    Cost updates live
+   |    If volume would exceed capacity: [+] button was already disabled
+   |
+7. Player clicks [-] on installed module
+   |
+   +--> Module quantity decremented (removed if qty reaches 0)
+   |    Volume/stats/cost update live
+   |
+8. Player enters design name
+   |
+   +--> Validated in real-time (border color feedback)
+   |
+9. Player clicks SAVE DESIGN
+   |
+   +--> API call: POST /api/ship-designs
+   |    On success: modal closes, toast "Design saved: [name]"
+   |    On failure: toast with error, modal stays open
+```
+
+### 17.10 Component Structure
+
+```tsx
+interface ShipDesignEditorProps {
+  existingDesign?: ShipDesign | null    // null = new design, set = editing
+  onClose: () => void
+  onSave: (design: ShipDesign) => void
+}
+```
+
+**Sub-Components:**
+
+| Component | Description | Location |
+|-----------|-------------|----------|
+| `ShipDesignEditor` | Root modal component, manages state | `panels/ShipDesignEditor.tsx` |
+| `HullClassTabs` | Vertical hull class tab bar | Inside editor |
+| `HullList` | Scrollable hull line list with blueprint gating | Inside editor |
+| `ModuleTypeTabs` | Horizontal Attack/Defense/Auxiliary tabs | Inside editor |
+| `ModuleSubCategoryBar` | Sub-category icon filter row | Inside editor |
+| `ModuleList` | Scrollable module list with blueprint gating | Inside editor |
+| `ShipPreview3D` | R3F Canvas with auto-rotating hull model | `three/ShipPreview3D.tsx` |
+| `VolumeBar` | Progress bar for module volume | Inside editor |
+| `InstalledModulesList` | Auto-sorted installed modules with remove | Inside editor |
+| `DesignStatsGrid` | 2-column stats display | Inside editor |
+| `DesignCostDisplay` | Metal/He3/Gold cost display | Inside editor |
+
+### 17.11 Responsive Behavior
+
+#### Desktop (>= 1200px)
+- Modal: 800x600px centered
+- Full 3-column layout as described above
+- All panels visible simultaneously
+
+#### Tablet (768-1199px)
+- Modal: 700x550px centered
+- 3D preview shrinks to 200x160px
+- Module list and installed list get reduced max-heights
+- Stats grid may wrap to 2 rows
+
+#### Mobile (< 768px)
+- Modal: full-screen overlay (100vw x 100vh)
+- Layout switches to vertical stack:
+  1. Hull class tabs become horizontal across top
+  2. Hull list becomes horizontal scrollable row of compact cards
+  3. Module selection fills middle area (type tabs + sub-category + list)
+  4. 3D preview: hidden or collapsed to 120x100px toggle
+  5. Installed modules: collapsible section
+  6. Stats/cost: compact single-column at bottom
+- Save button: fixed at bottom of modal (sticky)
+- Touch: tap-and-hold on locked hull/module shows blueprint tooltip
+
+### 17.12 Data Requirements
+
+**API Endpoints:**
+
+| Endpoint | Method | Used For |
+|----------|--------|----------|
+| `GET /api/hull-types` | GET | Hull list with stats per tier |
+| `GET /api/module-types` | GET | Module list with stats, categories, sub-categories |
+| `GET /api/player/blueprints` | GET | Player's owned/activated blueprints |
+| `POST /api/ship-designs` | POST | Create new design |
+| `PUT /api/ship-designs/:id` | PUT | Update existing design |
+| `GET /api/ship-designs` | GET | List existing designs (for max 20 check) |
+
+**State Management:**
+
+```tsx
+interface ShipDesignEditorState {
+  // Selection state
+  selectedHullClass: 'frigate' | 'cruiser' | 'battleship'
+  selectedHullLineId: number | null
+  selectedTier: 1 | 2 | 3
+  selectedModuleType: 'attack' | 'defense' | 'auxiliary'
+  selectedSubCategory: string              // 'ballistic', 'directional', etc.
+
+  // Design state
+  designName: string
+  installedModules: Array<{
+    moduleTypeId: number
+    quantity: number
+  }>
+
+  // Computed (derived from above)
+  totalVolume: number
+  maxVolume: number                        // from selected hull tier
+  stats: DesignStats                       // 10 stat values
+  cost: { metal: number; he3: number; gold: number }
+
+  // UI state
+  nameError: string | null
+  isSaving: boolean
+}
+```
+
+### 17.13 3D Assets for Ship Preview
+
+| Asset | Path | Size | Used For |
+|-------|------|------|----------|
+| `nave1.glb` | `/assets/glb/ships/nave1.glb` | 970 KB | Frigate primary model |
+| `nave2.glb` | `/assets/glb/ships/nave2.glb` | 1.0 MB | Frigate alt + Cruiser primary |
+| `nave3.glb` | `/assets/glb/ships/nave3.glb` | 1.1 MB | Cruiser alt model |
+| `nave4.glb` | `/assets/glb/ships/nave4.glb` | 2.5 MB | Battleship primary model |
+| `nave5.glb` | `/assets/glb/ships/nave5.glb` | 2.1 MB | Battleship alt model |
+
+Models are preloaded via `useGLTF.preload()` when the Fleet/Ship Factory page mounts (not on app startup). Only the model for the currently selected hull is rendered in the preview canvas.
+
+---
+
 ## Appendix A: File Structure (Proposed)
 
 ```
@@ -1744,11 +2361,13 @@ frontend/src/
       CameraController.tsx     // Pan-based camera (fixed isometric angle)
       SceneLighting.tsx        // Lights setup
       PlaceholderBuilding.tsx  // Colored box placeholder
+      ShipPreview3D.tsx        // 3D ship model preview for design editor (Phase 2)
     panels/
       BuildingContextMenu.tsx  // View/Move/Upgrade popup on click (HTML)
       BuildingDetailPanel.tsx  // Right slide-in, opened via "View" (HTML)
       ConstructionPanel.tsx    // Modal overlay for building selection (HTML)
       ConstructionInfoPanel.tsx // Bottom-right countdown panel (HTML)
+      ShipDesignEditor.tsx     // Ship design 3-column modal (Phase 2)
     ui/
       ProgressBar.tsx
       CountdownTimer.tsx
@@ -1782,6 +2401,7 @@ frontend/src/
     index.ts                   // (existing)
   assets/
     models/                    // .glb files for buildings
+    glb/ships/                 // .glb files for ship hull 3D models (Phase 2)
     textures/                  // Planet surface, skybox, particles
     icons/                     // 2D building icons, resource icons
   styles/
@@ -1832,6 +2452,12 @@ frontend/src/
 | Timer pulse (< 60s) | 1000ms | ease-in-out | Timer < 60s, infinite |
 | Skeleton shimmer | 1500ms | linear | Loading state, infinite |
 | Toast notification | 300ms in, 200ms out | ease | Error/success event |
+| Ship Design Editor modal open | 200ms | ease-out | Open editor |
+| Ship Design Editor modal close | 150ms | ease-in | Close editor / save |
+| Hull 3D model fade-out | 150ms | ease-in | Hull selection changed |
+| Hull 3D model fade-in | 200ms | ease-out | New hull model loaded |
+| Volume bar fill | 300ms | ease-out | Module added/removed |
+| Stats value change | 200ms | ease-out | Module added/removed |
 
 ## Appendix C: Interaction Summary
 
@@ -1855,6 +2481,463 @@ frontend/src/
 | Timer reaches zero | Scaffolding + progress bar disappear, model "upgrades" (glow) | Timer removed, level updates |
 | Click info panel entry (2D) | Camera pans to that building | Highlight in info panel |
 | ESC key | Deselect building (ring off), cancel placement mode | Close context menu/panel/modal |
+| Open Ship Design Editor | - | Modal fades in with 3-column layout |
+| Select hull class tab | - | Hull list filters, 3D preview clears |
+| Select hull line + tier | 3D model loads in preview canvas | Stats reset to hull base values |
+| Select module type tab | - | Sub-category icons update, module list filters |
+| Click [+] on module | - | Module added to installed list, volume/stats/cost update live |
+| Click [-] on installed module | - | Module removed, volume/stats/cost update live |
+| Click locked hull/module | - | Tooltip: "Blueprint required" |
+| Click SAVE DESIGN | - | API call, modal closes on success, toast notification |
+
+## 18. Screen: Quest Panel (HTML Overlay)
+
+The quest panel is a full-screen HTML overlay accessible from the left sidebar navigation. It mirrors GO2's quest interface: a tabbed panel showing main quests, side quests, and daily quests.
+
+### 18.1 Quest Panel Layout
+
+```
++----------------------------------------------------------------------+
+| [X] QUEST LOG                                                         |
+|----------------------------------------------------------------------|
+| [ Main Quests ]  [ Side Quests ]  [ Daily Quests ]                   |
+|----------------------------------------------------------------------|
+|                                                                      |
+|  CURRENT MAIN QUEST                                                  |
+|  +----------------------------------------------------------------+  |
+|  | [!] Level 1 Technology Center                                  |  |
+|  |     Build Technology Center Lv1                                |  |
+|  |     Progress: [========>                ] 0/1                  |  |
+|  |     Rewards: 2,250M  2,100H  3,250G  + Loudspeaker            |  |
+|  +----------------------------------------------------------------+  |
+|                                                                      |
+|  COMPLETED QUESTS                                                    |
+|  +----------------------------------------------------------------+  |
+|  | [v] Collecting Resources              [CLAIMED]                |  |
+|  +----------------------------------------------------------------+  |
+|                                                                      |
+|  UPCOMING QUESTS                                                     |
+|  +----------------------------------------------------------------+  |
+|  | [lock] Metal Production                [LOCKED]                |  |
+|  | [lock] He3 Production                  [LOCKED]                |  |
+|  +----------------------------------------------------------------+  |
+|                                                                      |
++----------------------------------------------------------------------+
+```
+
+### 18.2 Main Quest Tab
+
+- Shows the current active main quest prominently at the top with full details
+- Below: scrollable list of all main quests in chain order
+- Completed + claimed quests: dimmed with checkmark icon, "CLAIMED" badge
+- Completed but unclaimed: golden glow, pulsing "CLAIM" button
+- Current quest: highlighted border, progress bar, requirement text
+- Locked quests: greyed out with lock icon, "LOCKED" badge
+- Clicking "CLAIM" triggers `POST /api/quests/:id/claim` and shows reward animation
+
+### 18.3 Side Quest Tab
+
+```
++----------------------------------------------------------------------+
+| [X] QUEST LOG                                                         |
+|----------------------------------------------------------------------|
+| [ Main Quests ]  [*Side Quests*]  [ Daily Quests ]                   |
+|----------------------------------------------------------------------|
+|                                                                      |
+|  RESOURCE PRODUCTION                                                 |
+|  +----------------------------------------------------------------+  |
+|  | Harvest Time II          Tier 2/9                              |  |
+|  | Increase Metal prod to 4,360/hr                                |  |
+|  | Progress: [=========>           ] 3,200/4,360                  |  |
+|  | Reward: 1,500M  1,200H  1,500G                                |  |
+|  +----------------------------------------------------------------+  |
+|  +----------------------------------------------------------------+  |
+|  | Gathering He3 I           Tier 1/20                            |  |
+|  | Increase He3 prod to 2,360/hr                                  |  |
+|  | [CLAIM REWARD]                                                 |  |
+|  +----------------------------------------------------------------+  |
+|                                                                      |
+|  MILITARY (Phase 2)                                                  |
+|  +----------------------------------------------------------------+  |
+|  | Building Ships I          [LOCKED - Phase 2]                   |  |
+|  +----------------------------------------------------------------+  |
+|                                                                      |
++----------------------------------------------------------------------+
+```
+
+- Side quests grouped by category (Resource Production, Military, Social, Speedup, Instance)
+- Each category shows only the current active tier
+- Tier indicator: "Tier X/Y" showing progress through the category
+- Completed tiers shown as collapsed row with tier count
+- Phase-locked categories shown as locked with "Phase 2" badge
+
+### 18.4 Daily Quest Tab
+
+```
++----------------------------------------------------------------------+
+| [X] QUEST LOG                                                         |
+|----------------------------------------------------------------------|
+| [ Main Quests ]  [ Side Quests ]  [*Daily Quests*]                   |
+|----------------------------------------------------------------------|
+|                                                                      |
+|  TODAY'S QUESTS                    Points: 17/70                     |
+|                                                                      |
+|  [v] Daily Log In                              +10 pts              |
+|  [ ] Collect Your Dues                         +4 pts               |
+|  [v] Need for Speed                            +3 pts               |
+|  [ ] Stockpiling (1/3)                         +1 pt each           |
+|                                                                      |
+|  REWARD TIERS                                                        |
+|  +----------------------------------------------------------------+  |
+|  |  [10 pts] Bronze  [CLAIMED]                                    |  |
+|  |  [30 pts] Silver  [=====>          ] 17/30                     |  |
+|  |  [50 pts] Gold    [locked]                                     |  |
+|  |  [70 pts] Diamond [locked]         Raw Gemstone (guaranteed)   |  |
+|  +----------------------------------------------------------------+  |
+|                                                                      |
+|  Resets at 1:00 PM server time                                       |
+|                                                                      |
++----------------------------------------------------------------------+
+```
+
+- Top section: list of daily quests with completion checkmarks
+- Point counter shows current/max points
+- Bottom section: tier reward meter with visual progress bar
+- Claimable tiers: golden "CLAIM" button
+- Claimed tiers: checkmark badge
+- Locked tiers: greyed out until point threshold reached
+- Diamond tier explicitly shows "Raw Gemstone (guaranteed)" to motivate completion
+- Reset timer countdown at the bottom
+
+### 18.5 Quest Notification Indicators
+
+- **Left sidebar quest icon**: Red dot badge when any quest is claimable
+- **Quest icon pulse**: Gentle pulse animation when a quest has just been completed
+- **Toast notification**: "Quest Complete: [Quest Name]" appears when a quest requirement is met during gameplay
+- **Reward popup**: Modal overlay showing received rewards after claiming (similar to instance reward popup)
+
+### 18.6 Quest Panel Styling
+
+- **Panel**: Full-screen dark overlay (`rgba(0,0,0,0.85)`) with centered content panel
+- **Content panel**: `max-width: 800px`, dark metallic background (`#1a1a2e`), border glow (`#4a90d9`)
+- **Tabs**: Horizontal tab bar with active tab highlighted in blue (`#4a90d9`)
+- **Quest cards**: Dark card background (`#0d1117`), subtle border, hover glow effect
+- **Progress bars**: Blue fill (`#4a90d9`) on dark track (`#21262d`), rounded ends
+- **Claim button**: Golden background (`#d4a017`), pulse animation, high contrast text
+- **Status badges**: Green "CLAIMED", Blue "IN PROGRESS", Grey "LOCKED", Gold "COMPLETE"
+- **Reward icons**: Small 24x24 icons for Metal/He3/Gold/Items inline with reward text
+- **Typography**: Section headers in uppercase, quest names in medium weight, descriptions in light weight
+
+### 18.7 Quest Panel API Integration
+
+| User Action | API Call | Visual Response |
+|-------------|----------|----------------|
+| Open Quest Panel | `GET /api/quests` | Panel fades in with all quest data |
+| Switch to Daily tab | `GET /api/quests/daily` | Tab content updates |
+| Claim main/side quest | `POST /api/quests/:id/claim` | Reward animation, quest moves to claimed, next quest unlocks |
+| Claim daily tier | `POST /api/quests/daily/claim-tier` | Tier badge changes to claimed, reward popup |
+| Complete a quest during gameplay | (WebSocket push or poll) | Toast notification, quest icon badge updates |
+
+### 18.8 Quest Panel Interaction Table
+
+| Action | 3D Response | 2D Response |
+|--------|------------|-------------|
+| Click quest nav icon (left sidebar) | - | Quest panel overlay opens |
+| Click [X] or ESC | - | Quest panel closes |
+| Click tab (Main/Side/Daily) | - | Tab content switches |
+| Click CLAIM button | - | Reward animation plays, resources update in HUD |
+| Hover quest card | - | Card border glow, slight elevation |
+| Quest completed during gameplay | - | Toast notification + sidebar icon badge |
+
+---
+
+## 19. Screen: Research Panel (HTML Overlay)
+
+Accessed by clicking the Technology Center building (View) or the "Tech" icon in the left sidebar. Displays all 7 science trees with research progress, costs, and prerequisites.
+
+### 19.1 Research Panel Layout
+
+```
++------------------------------------------------------------------+
+| [X]  TECHNOLOGY CENTER  (Lv 5 - 15% Research Time Reduction)     |
++------------------------------------------------------------------+
+|                                                                    |
+| [Tab Bar - 7 Science Trees]                                       |
+| [Logistics] [Ballistics] [Directional] [Missile]                  |
+| [Ship-Based] [Ship Defense] [Planetary]                            |
+|                                                                    |
++------------------------------------------------------------------+
+|                                                                    |
+|  TECH TREE VIEW (scrollable area)                                  |
+|                                                                    |
+|  +--[Concurrent Construction]--+                                   |
+|  |  Lv 1/1  (COMPLETED)       |                                   |
+|  +-----------------------------+                                   |
+|          |                                                         |
+|          v                                                         |
+|  +--[Construction Boost]-------+  +--[Ship Building Boost]---+    |
+|  |  Lv 6/10                   |  |  Lv 3/10                 |    |
+|  |  Next: +7% build speed     |  |  Next: +4% ship speed    |    |
+|  |  Cost: 3,434 Gold          |  |  Cost: 1,514 Gold        |    |
+|  |  Time: 1:18:37             |  |  [RESEARCH]              |    |
+|  |  [RESEARCH]                |  +---------------------------+    |
+|  +-----------------------------+                                   |
+|          |                                                         |
+|          v                                                         |
+|  +--[Quality Materials]--------+                                   |
+|  |  Lv 0/10  (LOCKED)         |                                   |
+|  |  Requires: Const.Boost Lv3 |                                   |
+|  +-----------------------------+                                   |
+|                                                                    |
++------------------------------------------------------------------+
+|                                                                    |
+| ACTIVE RESEARCH (this tree):                                       |
+| [icon] Construction Boost Lv 6 -> 7  |  0:42:15 remaining         |
+| [============================--------] 64%    [SPEEDUP]            |
+|                                                                    |
++------------------------------------------------------------------+
+```
+
+### 19.2 Panel Container
+
+- **Type:** Full-screen overlay (same pattern as Quest Panel)
+- **z-index:** 200 (same level as Building Detail Panel)
+- **Background:** `rgba(0, 0, 0, 0.85)` with metallic panel border
+- **Width:** 800px max (responsive: 95vw on smaller screens)
+- **Height:** 85vh
+- **Position:** Centered horizontally and vertically
+
+### 19.3 Tab Bar (7 Science Trees)
+
+```
++----------+----------+----------+----------+----------+----------+----------+
+| Logistics| Ballistic| Direction| Missile  | Ship-    | Ship     | Planetary|
+| Construc.| Science  | Science  | Science  | Based    | Defense  | Defense  |
++----------+----------+----------+----------+----------+----------+----------+
+```
+
+**Tab States:**
+- **Default:** `bg: var(--bg-panel)`, `color: var(--text-secondary)`, `border-bottom: 2px solid transparent`
+- **Active:** `bg: var(--bg-panel-accent)`, `color: var(--text-primary)`, `border-bottom: 2px solid var(--accent-cyan)`
+- **Has Active Research:** Pulsing cyan dot indicator on tab
+- **All Maxed:** Gold border glow
+
+### 19.4 Tech Tree View
+
+Each technology is rendered as a **card** connected by **lines** showing prerequisites.
+
+**Tech Card States:**
+
+| State | Visual |
+|-------|--------|
+| **Locked** | Greyed out, padlock icon, shows prerequisite text |
+| **Available** | Normal colors, shows cost/time, [RESEARCH] button enabled |
+| **Researching** | Cyan pulsing border, progress bar, countdown timer |
+| **Completed (not max)** | Green checkmark, shows current level, [RESEARCH] button for next level |
+| **Maxed** | Gold border glow, "MAX" badge, no button |
+
+**Tech Card Layout:**
+```
++----------------------------------+
+| [Icon]  Tech Name         Lv X/Y |
+|----------------------------------|
+| Effect: +5% ballistic damage     |
+| Next:   +5% (total 30%)         |
+|                                  |
+| Cost:   3,434 Gold              |
+| Time:   1:18:37  (-> 1:06:24*)  |
+|         (* with TC Lv 5)        |
+|                                  |
+| [     RESEARCH     ]            |
++----------------------------------+
+```
+
+**Card Dimensions:** 220px wide x auto height
+**Card Spacing:** 30px horizontal gap, 40px vertical gap between tiers
+**Connection Lines:** 2px solid `var(--border-subtle)` lines from parent bottom-center to child top-center
+
+### 19.5 Active Research Bar (Bottom Section)
+
+Always visible at the bottom of the panel when research is active in the currently viewed tree.
+
+```
++------------------------------------------------------------------+
+| [tech icon]  Construction Boost  Lv 6 -> 7                        |
+| [========================================---------] 72%           |
+| 0:22:15 remaining                        [SPEEDUP] [CANCEL]      |
++------------------------------------------------------------------+
+```
+
+**Progress Bar:** `var(--accent-cyan)` fill on `var(--bg-input)` track
+**SPEEDUP button:** `var(--accent-gold)` background, shows "3 VP / 30 min"
+**CANCEL button:** `var(--danger-red)` text, no background, requires confirmation modal
+
+### 19.6 Research Confirmation Modal
+
+When clicking [RESEARCH] on a tech card:
+
+```
++------------------------------------------+
+|         Research: Ballistics Lv 7         |
+|------------------------------------------|
+|                                          |
+|  Current: +30% ballistic damage          |
+|  Next:    +35% ballistic damage          |
+|                                          |
+|  Cost:    5,253 Gold                     |
+|  Time:    3:03:59                        |
+|  With TC: 2:35:23 (15% reduction)       |
+|                                          |
+|  Your Gold: 42,500                       |
+|                                          |
+|  [  CANCEL  ]      [  CONFIRM  ]         |
+|                                          |
++------------------------------------------+
+```
+
+**Insufficient Resources:** CONFIRM button disabled, cost text turns red.
+
+### 19.7 Research Panel Styling
+
+```css
+.research-panel {
+    background: var(--bg-panel);
+    border: 1px solid var(--border-panel);
+    border-radius: 8px;
+    box-shadow: 0 0 20px rgba(0, 200, 255, 0.1);
+}
+
+.tech-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: 6px;
+    padding: 12px;
+    transition: border-color 0.2s;
+}
+
+.tech-card--locked {
+    opacity: 0.5;
+    filter: grayscale(50%);
+}
+
+.tech-card--researching {
+    border-color: var(--accent-cyan);
+    animation: pulse-border 2s ease-in-out infinite;
+}
+
+.tech-card--maxed {
+    border-color: var(--accent-gold);
+    box-shadow: 0 0 8px rgba(255, 200, 0, 0.3);
+}
+
+.research-progress-bar {
+    height: 6px;
+    background: var(--bg-input);
+    border-radius: 3px;
+}
+
+.research-progress-fill {
+    background: var(--accent-cyan);
+    border-radius: 3px;
+    transition: width 1s linear;
+}
+```
+
+### 19.8 Research Panel API Integration
+
+| Action | API Call | Response Handling |
+|--------|----------|------------------|
+| Open panel | `GET /api/research/trees` + `GET /api/research` | Populate all 7 trees with player progress |
+| Click tree tab | `GET /api/research/trees/:tree` | Load tree-specific data (can cache) |
+| Click RESEARCH | `POST /api/research/start` | Start timer, update Gold in HUD, show progress |
+| Click SPEEDUP | `POST /api/research/speedup` | Reduce timer, deduct vouchers |
+| Click CANCEL | `POST /api/research/cancel` | Stop research, refund partial resources |
+| Timer completes | WebSocket event or polling | Level up animation, update card state, toast notification |
+
+### 19.9 Research Panel Interaction Table
+
+| Action | 3D Response | 2D Response |
+|--------|------------|-------------|
+| Click Tech nav icon (left sidebar) | - | Research panel overlay opens |
+| Click Technology Center -> View | - | Research panel overlay opens |
+| Click [X] or ESC | - | Research panel closes |
+| Click tree tab | - | Tree content switches with slide animation |
+| Click RESEARCH button | - | Confirmation modal appears |
+| Confirm research | Tech Center building shows activity particles | Progress bar appears, Gold updates in HUD |
+| Click SPEEDUP | - | Timer reduces, voucher count updates |
+| Research completes | Tech Center flash effect | Toast: "Research Complete: [Tech Name] Lv X", card updates |
+| Hover locked tech | - | Tooltip: "Requires: [Prereq] Lv X" |
+| Hover tech card | - | Card border glow, slight elevation |
+
+### 19.10 Component Structure
+
+```
+<ResearchPanel>
+  <PanelHeader>                     // Title bar with TC level + close button
+  <TreeTabBar>                      // 7 science tree tabs
+    <TreeTab />                     // Individual tab with active research indicator
+  </TreeTabBar>
+  <TreeView>                        // Scrollable tech tree visualization
+    <TechCard />                    // Individual tech node
+    <PrerequisiteLine />            // SVG/CSS lines connecting cards
+  </TreeView>
+  <ActiveResearchBar />             // Bottom progress bar (if researching)
+  <ResearchConfirmModal />          // Confirmation popup
+  <SpeedupConfirmModal />           // Speedup confirmation
+</ResearchPanel>
+```
+
+### 19.11 Responsive Behavior
+
+**Desktop (>= 1200px):** Full 800px panel, tech cards arranged in tree layout with connection lines.
+
+**Tablet (768-1199px):** Panel fills 95vw, tech cards shrink to 180px wide, horizontal scroll enabled for wide trees.
+
+**Mobile (< 768px):** Panel fills 100vw x 100vh, tech tree becomes a vertical scrollable list (cards stacked, no connection lines, indentation shows depth). Tab bar becomes horizontally scrollable.
+
+### 19.12 Data Requirements
+
+```typescript
+interface TechType {
+  id: number;
+  name: string;
+  display_name: string;
+  tree: string;
+  max_level: number;
+  prerequisites: { tech: string; level: number }[];
+  base_cost_gold: number;
+  cost_multiplier: number;
+  base_time_seconds: number;
+  time_multiplier: number;
+  effects: {
+    type: string;
+    per_level?: number;
+    unit?: string;
+    [key: string]: any;
+  };
+  description: string;
+}
+
+interface PlayerTech {
+  id: string;
+  tech_type_id: number;
+  level: number;
+  is_researching: boolean;
+  research_finish_at: string | null;
+}
+
+interface ResearchTreeResponse {
+  tree: string;
+  techs: (TechType & {
+    current_level: number;
+    is_researching: boolean;
+    cost_next_level: { gold: number } | null;
+    time_next_level_seconds: number | null;
+  })[];
+}
+```
+
+---
 
 ## Appendix D: WebGL Fallback
 
