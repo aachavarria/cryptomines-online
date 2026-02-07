@@ -27,27 +27,36 @@ import type {
   InstanceAttemptResponse,
   SpacedockStatus,
   SpacedockRepair,
+  QuestsResponse,
+  DailyQuestsResponse,
+  ClaimQuestResponse,
+  ClaimDailyTierResponse,
+  ResearchAllResponse,
+  ResearchTreeResponse,
+  StartResearchResponse,
+  CancelResearchResponse,
+  SpeedupResearchResponse,
+  ActiveResearch,
 } from '../types'
 
 const api = axios.create({
   baseURL: '/api',
 })
 
-// Attach JWT to every request if available
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token')
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`
+// Request interceptor to add auth token
+api.interceptors.request.use(async (config) => {
+  const { data: { session } } = await import('../lib/supabase').then(m => m.supabase.auth.getSession())
+  if (session?.access_token) {
+    config.headers.Authorization = `Bearer ${session.access_token}`
   }
   return config
 })
 
-// Auth
+// Auth - now just a wrapper, actual auth is handled by Supabase client
 export async function guestLogin(): Promise<GuestAuthResponse> {
-  const { data } = await api.post<GuestAuthResponse>('/auth/guest')
-  localStorage.setItem('token', data.token)
-  localStorage.setItem('player_id', data.player.id)
-  return data
+  // This function is now deprecated - auth is handled by useAuth hook with Supabase client
+  // Keeping for backwards compatibility
+  throw new Error('Use Supabase client directly via useAuth hook')
 }
 
 // Health
@@ -76,11 +85,27 @@ export async function listBuildings(planetId: string): Promise<BuildingWithType[
 export async function constructBuilding(
   planetId: string,
   buildingType: string,
+  gridCol: number,
+  gridRow: number,
 ): Promise<BuildingResponse> {
   const { data } = await api.post<BuildingResponse>(`/planets/${planetId}/buildings`, {
     building_type: buildingType,
+    grid_col: gridCol,
+    grid_row: gridRow,
   })
   return data
+}
+
+export async function moveBuilding(
+  planetId: string,
+  buildingId: string,
+  gridCol: number,
+  gridRow: number,
+): Promise<void> {
+  await api.put(`/planets/${planetId}/buildings/${buildingId}/move`, {
+    grid_col: gridCol,
+    grid_row: gridRow,
+  })
 }
 
 export async function upgradeBuilding(
@@ -270,6 +295,63 @@ export async function startRepair(): Promise<void> {
 
 export async function accelerateRepair(): Promise<void> {
   await api.post('/spacedock/accelerate')
+}
+
+// ============ Quests ============
+
+export async function getQuests(): Promise<QuestsResponse> {
+  const { data } = await api.get<QuestsResponse>('/quests')
+  return data
+}
+
+export async function getDailyQuests(): Promise<DailyQuestsResponse> {
+  const { data } = await api.get<DailyQuestsResponse>('/quests/daily')
+  return data
+}
+
+export async function claimQuest(questId: string): Promise<ClaimQuestResponse> {
+  const { data } = await api.post<ClaimQuestResponse>(`/quests/${questId}/claim`)
+  return data
+}
+
+export async function claimDailyTier(tier: string): Promise<ClaimDailyTierResponse> {
+  const { data } = await api.post<ClaimDailyTierResponse>('/quests/daily/claim-tier', { tier })
+  return data
+}
+
+// ============ Research ============
+
+export async function getResearch(): Promise<ResearchAllResponse> {
+  const { data } = await api.get<ResearchAllResponse>('/research')
+  return data
+}
+
+export async function getResearchTree(tree: string): Promise<ResearchTreeResponse> {
+  const { data } = await api.get<ResearchTreeResponse>(`/research/trees/${tree}`)
+  return data
+}
+
+export async function getActiveResearch(): Promise<ActiveResearch | null> {
+  const { data } = await api.get<ActiveResearch | null>('/research/active')
+  return data
+}
+
+export async function startResearch(techTypeId: number): Promise<StartResearchResponse> {
+  const { data } = await api.post<StartResearchResponse>('/research/start', { tech_type_id: techTypeId })
+  return data
+}
+
+export async function cancelResearch(techTypeId: number): Promise<CancelResearchResponse> {
+  const { data } = await api.post<CancelResearchResponse>('/research/cancel', { tech_type_id: techTypeId })
+  return data
+}
+
+export async function speedupResearch(techTypeId: number, speedupMinutes: number): Promise<SpeedupResearchResponse> {
+  const { data } = await api.post<SpeedupResearchResponse>('/research/speedup', {
+    tech_type_id: techTypeId,
+    speedup_minutes: speedupMinutes,
+  })
+  return data
 }
 
 export default api
