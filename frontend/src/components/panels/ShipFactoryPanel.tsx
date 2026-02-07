@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useShipFactory } from '../../hooks/useShipFactory.ts'
 import { useShipDesigns } from '../../hooks/useShipDesigns.ts'
 import { useCountdown, formatDuration, formatNumber } from '../../hooks/useCountdown.ts'
@@ -36,7 +37,7 @@ function BuildModal({ slot, designs, speedBonus, onBuild, onClose }: BuildModalP
     }
   }
 
-  return (
+  return createPortal(
     <div className="p2-modal-backdrop" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
       <div className="p2-modal p2-modal-sm">
         <div className="p2-modal-header">
@@ -91,6 +92,19 @@ function BuildModal({ slot, designs, speedBonus, onBuild, onClose }: BuildModalP
                   <span>-{speedBonus}%</span>
                 </div>
               )}
+              <div className="p2-summary-divider" />
+              <div className="p2-summary-row">
+                <span>Total Metal:</span>
+                <span className="p2-summary-value">{formatNumber(design.metal_cost * quantity)}</span>
+              </div>
+              <div className="p2-summary-row">
+                <span>Total He3:</span>
+                <span className="p2-summary-value">{formatNumber(design.he3_cost * quantity)}</span>
+              </div>
+              <div className="p2-summary-row">
+                <span>Total Gold:</span>
+                <span className="p2-summary-value">{formatNumber(design.gold_cost * quantity)}</span>
+              </div>
             </div>
           )}
 
@@ -103,7 +117,8 @@ function BuildModal({ slot, designs, speedBonus, onBuild, onClose }: BuildModalP
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
 
