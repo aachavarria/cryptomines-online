@@ -48,6 +48,7 @@ import type {
   AttackPlanetRequest,
   AttackPlanetResponse,
 } from '../types'
+import type { InventoryItem, UseItemResponse } from '../types/inventory'
 
 const api = axios.create({
   baseURL: '/api',
@@ -451,6 +452,134 @@ export async function searchPlanets(query: string): Promise<PvPSearchResult[]> {
 export async function attackPlanet(req: AttackPlanetRequest): Promise<AttackPlanetResponse> {
   const { data } = await api.post<AttackPlanetResponse>('/pvp/attack', req)
   return data
+}
+
+// ============ Commanders ============
+
+export interface Commander {
+  id: string
+  player_id: string
+  name: string
+  rarity: 'common' | 'skill' | 'super'
+  star_rank: number
+  accuracy: number
+  dodge: number
+  speed: number
+  electron: number
+  weapon_expertise?: string
+  ship_expertise?: string
+  is_deployed: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface RecruitResponse {
+  commander: Commander
+  is_duplicate: boolean
+  message: string
+}
+
+export interface MergeResponse {
+  new_star_rank: number
+  duplicates_used: number
+  remaining_duplicates: number
+  message: string
+}
+
+export async function recruitCommander(): Promise<RecruitResponse> {
+  const { data } = await api.post<RecruitResponse>('/commanders/recruit')
+  return data
+}
+
+export async function listCommanders(): Promise<Commander[]> {
+  const { data } = await api.get<Commander[]>('/commanders')
+  return data
+}
+
+export async function mergeCommander(commanderId: string, quantity: number): Promise<MergeResponse> {
+  const { data } = await api.post<MergeResponse>('/commanders/merge', {
+    commander_id: commanderId,
+    quantity,
+  })
+  return data
+}
+
+export async function assignCommander(fleetId: string, commanderId: string): Promise<{ message: string }> {
+  const { data } = await api.post<{ message: string }>(`/fleets/${fleetId}/assign-commander`, {
+    commander_id: commanderId,
+  })
+  return data
+}
+
+export async function unassignCommander(fleetId: string): Promise<{ message: string }> {
+  const { data } = await api.post<{ message: string }>(`/fleets/${fleetId}/unassign-commander`)
+  return data
+}
+
+export async function dismissCommander(commanderId: string): Promise<{ message: string }> {
+  const { data } = await api.delete<{ message: string }>(`/commanders/${commanderId}`)
+  return data
+}
+
+// ============ Inventory ============
+
+export async function getInventory(): Promise<InventoryItem[]> {
+  const { data } = await api.get<InventoryItem[]>('/inventory')
+  return data
+}
+
+export async function useItem(itemId: string): Promise<UseItemResponse> {
+  const { data } = await api.post<UseItemResponse>(`/inventory/${itemId}/use`)
+  return data
+}
+
+// ============ Combat Reports Helpers ============
+
+export interface LootData {
+  metal: number
+  he3: number
+  gold: number
+}
+
+export interface AttackData {
+  AttackerStackID: string
+  DefenderStackID: string
+  AttackerSide: string
+  DefenderSide: string
+  Hit: boolean
+  Damage: number
+  ShieldDamage: number
+  StructureDamage: number
+  ShipsDestroyed: number
+}
+
+export interface RoundData {
+  RoundNumber: number
+  Attacks: AttackData[]
+  Casualties: Record<string, number>
+}
+
+export const combatReportsAPI = {
+  list: listCombatReports,
+  get: getCombatReport,
+
+  parseLoot: (report: CombatReport): LootData | null => {
+    if (!report.loot_json) return null
+    try {
+      return JSON.parse(report.loot_json) as LootData
+    } catch {
+      return null
+    }
+  },
+
+  parseRounds: (report: CombatReport): RoundData[] | null => {
+    if (!report.rounds_json) return null
+    try {
+      return JSON.parse(report.rounds_json) as RoundData
+    } catch {
+      return null
+    }
+  },
 }
 
 export default api

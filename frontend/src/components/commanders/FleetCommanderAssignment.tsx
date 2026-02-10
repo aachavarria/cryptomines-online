@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useCommanders } from '../../hooks/useCommanders'
-import { assignCommander, unassignCommander, type Commander } from '../../api/commanders'
+import { assignCommander, unassignCommander, type Commander } from '../../services/api'
 import './FleetCommanderAssignment.css'
 
 interface FleetCommanderAssignmentProps {

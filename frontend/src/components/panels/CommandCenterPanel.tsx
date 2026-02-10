@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useGame } from '../../contexts/GameContext'
 import { useCommanders } from '../../hooks/useCommanders'
-import { recruitCommander, type Commander, type RecruitResponse } from '../../api/commanders'
+import { recruitCommander, type Commander, type RecruitResponse } from '../../services/api'
 import LoadingButton from '../common/LoadingButton.tsx'
 import './CommandCenterPanel.css'
 import '../../styles/common.css'

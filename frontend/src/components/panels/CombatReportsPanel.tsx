@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useCombatReports, useCombatReport } from '../../hooks/useCombatReports';
-import { combatReportsAPI, type RoundData } from '../../api/combatReports';
+import { combatReportsAPI, type RoundData } from '../../services/api';
 import './CombatReportsPanel.css';
 
 export const CombatReportsPanel: React.FC = () => {

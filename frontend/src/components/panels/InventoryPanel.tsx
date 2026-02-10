@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react'
-import { useGame } from '../../contexts/GameContext'
-import { getInventory, useItem } from '../../api/inventory'
+import { useGameContext } from '../../contexts/GameContext'
+import { getInventory, useItem } from '../../services/api'
 import type { InventoryItem } from '../../types/inventory'
 import './InventoryPanel.css'
 
 export default function InventoryPanel() {
-  const { refreshResources } = useGame()
+  const { refreshResources } = useGameContext()
   const [items, setItems] = useState<InventoryItem[]>([])
   const [loading, setLoading] = useState(false)
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null)

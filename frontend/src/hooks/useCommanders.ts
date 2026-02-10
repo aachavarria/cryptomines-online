@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { listCommanders, type Commander } from '../api/commanders'
+import { listCommanders, type Commander } from '../services/api'
 
 export function useCommanders() {
   const [commanders, setCommanders] = useState<Commander[]>([])

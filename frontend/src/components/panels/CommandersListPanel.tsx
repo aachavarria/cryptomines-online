@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useCommanders } from '../../hooks/useCommanders'
-import { dismissCommander, type Commander } from '../../api/commanders'
+import { dismissCommander, type Commander } from '../../services/api'
 import './CommandersListPanel.css'
 
 type FilterRarity = 'all' | 'common' | 'skill' | 'super'

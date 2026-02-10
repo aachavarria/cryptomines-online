@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { combatReportsAPI, type CombatReport } from '../api/combatReports';
+import { combatReportsAPI, type CombatReport } from '../services/api';
 
 export const useCombatReports = () => {
   const [reports, setReports] = useState<CombatReport[]>([]);
