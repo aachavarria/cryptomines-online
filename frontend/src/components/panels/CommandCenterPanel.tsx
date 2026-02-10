@@ -1,16 +1,17 @@
 import { useState } from 'react'
-import { useGame } from '../../contexts/GameContext'
 import { useCommanders } from '../../hooks/useCommanders'
-import { recruitCommander, type Commander, type RecruitResponse } from '../../services/api'
+import { useResources } from '../../hooks/useResources'
+import { recruitCommander, type RecruitResponse } from '../../services/api'
 import LoadingButton from '../common/LoadingButton.tsx'
 import './CommandCenterPanel.css'
 import '../../styles/common.css'
 
 export default function CommandCenterPanel() {
-  const { refreshResources } = useGame()
+  const { refreshResources } = useResources()
   const { commanders, refresh: refreshCommanders } = useCommanders()
   const [recruiting, setRecruiting] = useState(false)
   const [result, setResult] = useState<RecruitResponse | null>(null)
+  const [error, setError] = useState<string | null>(null)
   const [cooldown, setCooldown] = useState(0) // TODO: Implement cooldown tracking
 
   const handleRecruit = async () => {
@@ -18,6 +19,7 @@ export default function CommandCenterPanel() {
 
     setRecruiting(true)
     setResult(null)
+    setError(null)
 
     try {
       const response = await recruitCommander()
@@ -26,11 +28,9 @@ export default function CommandCenterPanel() {
       // Refresh commanders list and resources
       await refreshCommanders()
       await refreshResources()
-
-      // Show success message
-      alert(`✓ ${response.message}`)
-    } catch (err: any) {
-      alert(`✗ Recruitment failed: ${err.message || 'Unknown error'}`)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error'
+      setError(`Recruitment failed: ${message}`)
     } finally {
       setRecruiting(false)
     }
@@ -44,6 +44,8 @@ export default function CommandCenterPanel() {
           {commanders.length} / 60 Commanders
         </div>
       </div>
+
+      {error && <div className="p2-error-msg">{error}</div>}
 
       <div className="recruitment-section">
         <div className="recruitment-info">

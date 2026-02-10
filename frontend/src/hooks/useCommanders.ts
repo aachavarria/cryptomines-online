@@ -12,9 +12,8 @@ export function useCommanders() {
       const data = await listCommanders()
       setCommanders(data)
       setError(null)
-    } catch (err: any) {
-      setError(err.message || 'Failed to load commanders')
-      console.error('Failed to fetch commanders:', err)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load commanders')
     } finally {
       setLoading(false)
     }

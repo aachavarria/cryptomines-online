@@ -39,8 +39,9 @@ export function usePvP() {
         })
         setLastBattle(result)
         return result
-      } catch (error: any) {
-        const message = error.response?.data?.error || 'Attack failed'
+      } catch (error: unknown) {
+        const axiosErr = error as { response?: { data?: { error?: string } } }
+        const message = axiosErr.response?.data?.error || 'Attack failed'
         dispatch({ type: 'SET_ERROR', payload: message })
         return null
       } finally {

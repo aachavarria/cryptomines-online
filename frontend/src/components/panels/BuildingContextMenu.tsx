@@ -103,8 +103,12 @@ function UpgradeButton({
 
   async function handleUpgrade() {
     if (isMaxLevel || isUpgrading) return
-    await onUpgrade(building.id)
-    deselectAll()
+    try {
+      await onUpgrade(building.id)
+      deselectAll()
+    } catch {
+      // Error is handled by useBuildings hook via dispatch SET_ERROR
+    }
   }
 
   let label = 'Upgrade'

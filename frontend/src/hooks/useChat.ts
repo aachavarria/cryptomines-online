@@ -68,8 +68,9 @@ export function useChat(channel: 'world' | 'alliance' = 'world') {
         }, 1000)
 
         return true
-      } catch (error: any) {
-        const message = error.response?.data?.error || 'Failed to send message'
+      } catch (error: unknown) {
+        const axiosErr = error as { response?: { data?: { error?: string } } }
+        const message = axiosErr.response?.data?.error || 'Failed to send message'
         dispatch({ type: 'SET_ERROR', payload: message })
         return false
       } finally {

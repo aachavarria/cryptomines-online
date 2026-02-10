@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
+import LoadingButton from '../common/LoadingButton'
 import { useShipFactory } from '../../hooks/useShipFactory.ts'
 import { useShipDesigns } from '../../hooks/useShipDesigns.ts'
 import { useCountdown, formatDuration, formatNumber } from '../../hooks/useCountdown.ts'
@@ -108,13 +109,14 @@ function BuildModal({ slot, designs, speedBonus, onBuild, onClose }: BuildModalP
             </div>
           )}
 
-          <button
+          <LoadingButton
             className="p2-btn p2-btn-primary p2-btn-full"
             onClick={handleBuild}
-            disabled={!selectedDesign || quantity < 1 || submitting}
+            disabled={!selectedDesign || quantity < 1}
+            loading={submitting}
           >
-            {submitting ? 'Starting...' : 'Start Production'}
-          </button>
+            Start Production
+          </LoadingButton>
         </div>
       </div>
     </div>,

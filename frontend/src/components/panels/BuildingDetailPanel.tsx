@@ -1,7 +1,6 @@
-import { useGameContext } from '../../contexts/GameContext.tsx'
+import { useGameContext, CATEGORY_COLORS, BUILDING_ABBREVIATIONS } from '../../contexts/GameContext.tsx'
 import { useBuildings } from '../../hooks/useBuildings.ts'
 import { useCountdown, formatNumber, formatDuration } from '../../hooks/useCountdown.ts'
-import { CATEGORY_COLORS, BUILDING_ABBREVIATIONS } from '../../contexts/GameContext.tsx'
 import { useResources } from '../../hooks/useResources.ts'
 import { useEffect, useState } from 'react'
 import { cancelUpgrade } from '../../services/api.ts'
@@ -98,7 +97,7 @@ export default function BuildingDetailPanel() {
       await cancelUpgrade(state.currentPlanet.id, building.id)
       await refreshBuildings()
     } catch {
-      // silent
+      // Error displayed via context
     } finally {
       setCancelling(false)
     }

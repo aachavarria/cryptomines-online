@@ -3,7 +3,7 @@ import { useCountdown, formatNumber } from '../../hooks/useCountdown.ts'
 import type { SpacedockRepair } from '../../types'
 
 function RepairTimer({ finishAt }: { finishAt: string | null }) {
-  const timeLeft = finishAt ? useCountdown(finishAt) : null
+  const timeLeft = useCountdown(finishAt)
   if (!timeLeft) return <span className="dock-repair-done">Complete</span>
   return <span className="dock-repair-timer">{timeLeft}</span>
 }

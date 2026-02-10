@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
+import LoadingButton from '../common/LoadingButton'
 import { useBlueprints } from '../../hooks/useBlueprints.ts'
 import { useCountdown, formatDuration, formatNumber } from '../../hooks/useCountdown.ts'
 import type { Blueprint, PlayerBlueprint } from '../../types'
@@ -148,25 +149,25 @@ export default function BlueprintPanel() {
                 {!owned ? (
                   <span className="bp-status-locked">🔒 Not Owned</span>
                 ) : !activated ? (
-                  <button
+                  <LoadingButton
                     className="p2-btn p2-btn-success p2-btn-sm"
                     onClick={() => handleActivate(bp.id)}
-                    disabled={activating === bp.id}
+                    loading={activating === bp.id}
                   >
-                    {activating === bp.id ? '...' : 'Activate'}
-                  </button>
+                    Activate
+                  </LoadingButton>
                 ) : researchLevel >= 3 ? (
                   <span className="bp-status-maxed">Max Research</span>
                 ) : isResearching ? (
                   <span className="bp-status-researching">Researching...</span>
                 ) : canResearch && playerBp ? (
-                  <button
+                  <LoadingButton
                     className="p2-btn p2-btn-research p2-btn-sm"
                     onClick={() => handleResearch(bp, playerBp)}
-                    disabled={researchingBp === bp.id}
+                    loading={researchingBp === bp.id}
                   >
-                    {researchingBp === bp.id ? '...' : `Research Lv${researchLevel + 1}`}
-                  </button>
+                    {`Research Lv${researchLevel + 1}`}
+                  </LoadingButton>
                 ) : activeResearch ? (
                   <span className="bp-status-busy">WRC Busy</span>
                 ) : (
@@ -285,13 +286,13 @@ function ResearchConfirmModal({
           <button className="bp-confirm-cancel" onClick={onCancel}>
             CANCEL
           </button>
-          <button
+          <LoadingButton
             className="bp-confirm-ok"
             onClick={onConfirm}
-            disabled={pending}
+            loading={pending}
           >
-            {pending ? '...' : 'START RESEARCH'}
-          </button>
+            START RESEARCH
+          </LoadingButton>
         </div>
       </div>
     </div>,

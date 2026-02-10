@@ -217,6 +217,9 @@ export default function InstancePanel() {
       {error && <div className="p2-error-msg">{error}</div>}
 
       <div className="inst-list">
+        {instances.length === 0 && (
+          <div className="p2-empty-state">No instances available.</div>
+        )}
         {instances.map(inst => {
           const completed = isCompleted(inst.id)
           return (

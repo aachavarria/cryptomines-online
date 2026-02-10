@@ -122,7 +122,7 @@ export default function ChatPanel() {
               className="chat-input"
               value={inputMessage}
               onChange={(e) => setInputMessage(e.target.value)}
-              onKeyPress={handleKeyPress}
+              onKeyDown={handleKeyPress}
               placeholder="Type your message... (Max 500 characters)"
               maxLength={500}
               rows={2}

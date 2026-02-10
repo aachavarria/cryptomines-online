@@ -14,13 +14,15 @@ export function useRecycling() {
   const [jobs, setJobs] = useState<RecyclingJob[]>([])
   const [availableShips, setAvailableShips] = useState<AvailableShip[]>([])
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const fetchJobs = useCallback(async () => {
     try {
       const data = await listRecyclingJobs()
       setJobs(data)
-    } catch (error) {
-      console.error('Failed to fetch recycling jobs:', error)
+      setError(null)
+    } catch {
+      setError('Failed to load recycling jobs')
     }
   }, [])
 
@@ -28,9 +30,7 @@ export function useRecycling() {
     try {
       const data = await listAvailableShipsForRecycling()
       setAvailableShips(data)
-    } catch (error) {
-      // Endpoint not implemented yet (Task #70)
-      // Silently fail and show empty list
+    } catch {
       setAvailableShips([])
     }
   }, [])
@@ -108,6 +108,7 @@ export function useRecycling() {
     jobs,
     availableShips,
     loading,
+    error,
     recycle,
     collect,
     cancel,

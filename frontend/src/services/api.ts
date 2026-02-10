@@ -152,9 +152,8 @@ export async function getBuildingTypes(): Promise<BuildingTypeData[]> {
 }
 
 // Cancel upgrade
-export async function cancelUpgrade(planetId: string, buildingId: string): Promise<any> {
-  const { data } = await api.post(`/planets/${planetId}/buildings/${buildingId}/cancel`)
-  return data
+export async function cancelUpgrade(planetId: string, buildingId: string): Promise<void> {
+  await api.post(`/planets/${planetId}/buildings/${buildingId}/cancel`)
 }
 
 // ============ Phase 2: Hull & Module Reference ============
@@ -575,7 +574,7 @@ export const combatReportsAPI = {
   parseRounds: (report: CombatReport): RoundData[] | null => {
     if (!report.rounds_json) return null
     try {
-      return JSON.parse(report.rounds_json) as RoundData
+      return JSON.parse(report.rounds_json) as RoundData[]
     } catch {
       return null
     }

@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react'
-import { useGameContext } from '../../contexts/GameContext'
 import { getInventory, useItem } from '../../services/api'
+import { useResources } from '../../hooks/useResources'
+import LoadingButton from '../common/LoadingButton'
 import type { InventoryItem } from '../../types/inventory'
 import './InventoryPanel.css'
 
 export default function InventoryPanel() {
-  const { refreshResources } = useGameContext()
+  const { refreshResources } = useResources()
   const [items, setItems] = useState<InventoryItem[]>([])
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null)
   const [hoveredItem, setHoveredItem] = useState<InventoryItem | null>(null)
 
@@ -15,8 +17,9 @@ export default function InventoryPanel() {
     try {
       const data = await getInventory()
       setItems(data)
-    } catch (err) {
-      console.error('Failed to fetch inventory:', err)
+      setError(null)
+    } catch {
+      setError('Failed to load inventory')
     }
   }
 
@@ -37,8 +40,9 @@ export default function InventoryPanel() {
       // Refresh inventory + resources
       await fetchInventory()
       await refreshResources()
-    } catch (err: any) {
-      alert(`✗ Failed to use item: ${err.message || 'Unknown error'}`)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error'
+      setError(`Failed to use item: ${message}`)
     } finally {
       setLoading(false)
     }
@@ -75,6 +79,8 @@ export default function InventoryPanel() {
           <span>{items.reduce((sum, item) => sum + item.quantity, 0)} items</span>
         </div>
       </div>
+
+      {error && <div className="p2-error-msg">{error}</div>}
 
       {items.length === 0 ? (
         <div className="inventory-empty">
@@ -156,13 +162,13 @@ export default function InventoryPanel() {
             </div>
           </div>
           <div className="detail-actions">
-            <button
+            <LoadingButton
               className="use-btn"
               onClick={() => handleUse(selectedItem)}
-              disabled={loading}
+              loading={loading}
             >
-              {loading ? 'Using...' : 'Use Item'}
-            </button>
+              Use Item
+            </LoadingButton>
           </div>
         </div>
       )}

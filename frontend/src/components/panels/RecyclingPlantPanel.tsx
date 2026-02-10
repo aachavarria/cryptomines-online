@@ -2,11 +2,12 @@ import { useState, useMemo } from 'react'
 import { useRecycling } from '../../hooks/useRecycling.ts'
 import { formatNumber, useCountdown } from '../../hooks/useCountdown.ts'
 import LoadingButton from '../common/LoadingButton.tsx'
+import type { RecyclingJob } from '../../types'
 import '../../styles/phase2.css'
 import '../../styles/common.css'
 
 export default function RecyclingPlantPanel() {
-  const { jobs, availableShips, loading, recycle, collect, cancel } = useRecycling()
+  const { jobs, availableShips, loading, error, recycle, collect, cancel } = useRecycling()
   const [selectedShipId, setSelectedShipId] = useState<string>('')
   const [confirmRecycle, setConfirmRecycle] = useState(false)
 
@@ -45,6 +46,8 @@ export default function RecyclingPlantPanel() {
       </div>
 
       <div className="panel-content">
+        {error && <div className="p2-error-msg">{error}</div>}
+
         {/* Available Ships Section */}
         <div className="rp-section">
           <h3>Available Ships for Recycling</h3>
@@ -145,7 +148,7 @@ export default function RecyclingPlantPanel() {
   )
 }
 
-function RecyclingJobCard({ job, onCancel }: { job: any; onCancel: (id: string) => void }) {
+function RecyclingJobCard({ job, onCancel }: { job: RecyclingJob; onCancel: (id: string) => void }) {
   const countdown = useCountdown(job.completed_at)
   const progress = useMemo(() => {
     const start = new Date(job.started_at).getTime()
@@ -177,7 +180,7 @@ function RecyclingJobCard({ job, onCancel }: { job: any; onCancel: (id: string) 
   )
 }
 
-function CompletedJobCard({ job, onCollect }: { job: any; onCollect: (id: string) => void }) {
+function CompletedJobCard({ job, onCollect }: { job: RecyclingJob; onCollect: (id: string) => void }) {
   return (
     <div className="rp-job-card completed">
       <div className="rp-job-header">

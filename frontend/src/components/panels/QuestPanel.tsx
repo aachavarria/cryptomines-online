@@ -6,6 +6,7 @@ import type {
   PlayerQuestWithType,
   DailyQuestEntry,
   DailyTierReward,
+  DailyQuestsResponse,
 } from '../../types'
 
 type Tab = 'main' | 'side' | 'daily'

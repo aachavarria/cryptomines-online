@@ -40,8 +40,9 @@ export default function CommandersListPanel() {
       alert(`✓ ${commander.name} dismissed`)
       await refresh()
       setSelectedCommander(null)
-    } catch (err: any) {
-      alert(`✗ Failed to dismiss commander: ${err.message}`)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error'
+      alert(`Failed to dismiss commander: ${message}`)
     }
   }
 

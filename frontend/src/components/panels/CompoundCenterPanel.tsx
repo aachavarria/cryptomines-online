@@ -12,14 +12,16 @@ export default function CompoundCenterPanel() {
   const [selectedCommander, setSelectedCommander] = useState<Commander | null>(null)
   const [mergeQuantity, setMergeQuantity] = useState(1)
   const [merging, setMerging] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   // Fetch inventory to get commander cards
   const fetchInventory = async () => {
     try {
       const items = await getInventory()
       setInventory(items.filter(item => item.category === 'commander'))
-    } catch (err) {
-      console.error('Failed to fetch inventory:', err)
+      setError(null)
+    } catch {
+      setError('Failed to load commander cards from inventory')
     }
   }
 
@@ -65,8 +67,9 @@ export default function CompoundCenterPanel() {
       }
 
       setMergeQuantity(1)
-    } catch (err: any) {
-      alert(`✗ Merge failed: ${err.message}`)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error'
+      setError(`Merge failed: ${message}`)
     } finally {
       setMerging(false)
     }
@@ -86,6 +89,8 @@ export default function CompoundCenterPanel() {
           Merge duplicate commanders to increase star rank (max 15 stars)
         </div>
       </div>
+
+      {error && <div className="p2-error-msg">{error}</div>}
 
       {mergeableCommanders.length === 0 ? (
         <div className="empty-state">

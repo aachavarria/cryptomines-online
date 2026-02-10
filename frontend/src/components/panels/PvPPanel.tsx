@@ -52,7 +52,7 @@ export default function PvPPanel() {
                 placeholder="Search by planet or player name..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
               />
               <LoadingButton className="btn btn-primary" onClick={handleSearch} loading={searching}>
                 Search
@@ -103,7 +103,7 @@ export default function PvPPanel() {
                     onClick={() => toggleFleet(fleet.id)}
                   >
                     <div className="pvp-fleet-name">{fleet.name}</div>
-                    <div className="pvp-fleet-ships">{fleet.stacks.length} stacks</div>
+                    <div className="pvp-fleet-ships">{fleet.stacks?.length || 0} stacks</div>
                   </div>
                 ))}
               </div>
