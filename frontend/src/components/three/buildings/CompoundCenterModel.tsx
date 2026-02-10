@@ -6,6 +6,7 @@ interface BuildingComponentProps {
   position?: [number, number, number]
   scale?: number
   level?: number
+  animate?: boolean
 }
 
 /**
@@ -14,7 +15,7 @@ interface BuildingComponentProps {
  * connected by elevated walkways. Central holographic beam display.
  * Window strips glow in alternating patterns.
  */
-export default function CompoundCenterModel({ position = [0, 0, 0], scale = 1, level = 1 }: BuildingComponentProps) {
+export default function CompoundCenterModel({ position = [0, 0, 0], scale = 1, level = 1, animate = true }: BuildingComponentProps) {
   const groupRef = useRef<Group>(null)
   const holoRef = useRef<Mesh>(null)
   const windowARef = useRef<Mesh>(null)
@@ -22,6 +23,7 @@ export default function CompoundCenterModel({ position = [0, 0, 0], scale = 1, l
   const windowCRef = useRef<Mesh>(null)
 
   useFrame((state) => {
+    if (!animate) return
     const t = state.clock.elapsedTime
     // Hologram beam rotates (Y-axis, period ~6s) and pulses (opacity 0.2-0.4)
     if (holoRef.current) {

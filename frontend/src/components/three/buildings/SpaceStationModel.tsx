@@ -6,6 +6,7 @@ interface BuildingComponentProps {
   position?: [number, number, number]
   scale?: number
   level?: number
+  animate?: boolean
 }
 
 /**
@@ -17,6 +18,7 @@ export default function SpaceStationModel({
   position = [0, 0, 0],
   scale = 1,
   level = 1,
+  animate = true,
 }: BuildingComponentProps) {
   const groupRef = useRef<Group>(null)
   const innerRingRef = useRef<Mesh>(null)
@@ -27,6 +29,7 @@ export default function SpaceStationModel({
   const color = '#44ccff'
 
   useFrame((state) => {
+    if (!animate) return
     const t = state.clock.elapsedTime
     // Inner ring rotates clockwise
     if (innerRingRef.current) {

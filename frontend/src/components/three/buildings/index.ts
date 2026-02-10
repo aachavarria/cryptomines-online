@@ -1,31 +1,33 @@
-import type { ComponentType } from 'react'
-import CivicCenterModel from './CivicCenterModel'
-import TechnologyCenterModel from './TechnologyCenterModel'
-import AllianceCenterModel from './AllianceCenterModel'
-import TradingCenterModel from './TradingCenterModel'
-import GalaxyTransporterModel from './GalaxyTransporterModel'
-import CompoundCenterModel from './CompoundCenterModel'
-import MetalCollectorModel from './MetalCollectorModel'
-import He3ExtractorModel from './He3ExtractorModel'
-import ResidentialAreaModel from './ResidentialAreaModel'
-import ResourceWarehouseModel from './ResourceWarehouseModel'
-import ShipFactoryBuildingModel from './ShipFactoryBuildingModel'
-import SpacedockBuildingModel from './SpacedockBuildingModel'
-import CommandCenterModel from './CommandCenterModel'
-import WeaponResearchCenterModel from './WeaponResearchCenterModel'
-import RadarModel from './RadarModel'
-import SpaceStationModel from './SpaceStationModel'
-import MeteorStarModel from './MeteorStarModel'
-import ParticleCannonModel from './ParticleCannonModel'
-import AntiAircraftGunModel from './AntiAircraftGunModel'
-import ThorsCannonModel from './ThorsCannonModel'
-import CelestialBaseModel from './CelestialBaseModel'
-import RecyclingPlantModel from './RecyclingPlantModel'
+import { lazy, type ComponentType } from 'react'
+
+const CivicCenterModel = lazy(() => import('./CivicCenterModel'))
+const TechnologyCenterModel = lazy(() => import('./TechnologyCenterModel'))
+const AllianceCenterModel = lazy(() => import('./AllianceCenterModel'))
+const TradingCenterModel = lazy(() => import('./TradingCenterModel'))
+const GalaxyTransporterModel = lazy(() => import('./GalaxyTransporterModel'))
+const CompoundCenterModel = lazy(() => import('./CompoundCenterModel'))
+const MetalCollectorModel = lazy(() => import('./MetalCollectorModel'))
+const He3ExtractorModel = lazy(() => import('./He3ExtractorModel'))
+const ResidentialAreaModel = lazy(() => import('./ResidentialAreaModel'))
+const ResourceWarehouseModel = lazy(() => import('./ResourceWarehouseModel'))
+const ShipFactoryBuildingModel = lazy(() => import('./ShipFactoryBuildingModel'))
+const SpacedockBuildingModel = lazy(() => import('./SpacedockBuildingModel'))
+const CommandCenterModel = lazy(() => import('./CommandCenterModel'))
+const WeaponResearchCenterModel = lazy(() => import('./WeaponResearchCenterModel'))
+const RadarModel = lazy(() => import('./RadarModel'))
+const SpaceStationModel = lazy(() => import('./SpaceStationModel'))
+const MeteorStarModel = lazy(() => import('./MeteorStarModel'))
+const ParticleCannonModel = lazy(() => import('./ParticleCannonModel'))
+const AntiAircraftGunModel = lazy(() => import('./AntiAircraftGunModel'))
+const ThorsCannonModel = lazy(() => import('./ThorsCannonModel'))
+const CelestialBaseModel = lazy(() => import('./CelestialBaseModel'))
+const RecyclingPlantModel = lazy(() => import('./RecyclingPlantModel'))
 
 export interface BuildingComponentProps {
   position?: [number, number, number]
   scale?: number
   level?: number
+  animate?: boolean
 }
 
 export const BUILDING_MODELS: Record<string, ComponentType<BuildingComponentProps>> = {

@@ -6,6 +6,7 @@ interface BuildingComponentProps {
   position?: [number, number, number]
   scale?: number
   level?: number
+  animate?: boolean
 }
 
 /**
@@ -13,13 +14,14 @@ interface BuildingComponentProps {
  * Central hexagonal tower topped with hemisphere dome, four wings at 90-degree intervals,
  * apex spire with pulsing beacon. The heart of the colony.
  */
-export default function CivicCenterModel({ position = [0, 0, 0], scale = 1, level = 1 }: BuildingComponentProps) {
+export default function CivicCenterModel({ position = [0, 0, 0], scale = 1, level = 1, animate = true }: BuildingComponentProps) {
   const groupRef = useRef<Group>(null)
   const domeRef = useRef<Mesh>(null)
   const beaconRef = useRef<Mesh>(null)
   const ringGroupRef = useRef<Group>(null)
 
   useFrame((state) => {
+    if (!animate) return
     const t = state.clock.elapsedTime
     // Dome pulses gently (emissiveIntensity 0.3-0.6, period ~3s)
     if (domeRef.current) {

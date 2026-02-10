@@ -6,6 +6,7 @@ interface BuildingComponentProps {
   position?: [number, number, number]
   scale?: number
   level?: number
+  animate?: boolean
 }
 
 /**
@@ -13,7 +14,7 @@ interface BuildingComponentProps {
  * rotating crane arm, and glowing production bays.
  * Building-context version following the building component pattern.
  */
-export default function ShipFactoryBuildingModel({ position = [0, 0, 0], scale = 1, level = 1 }: BuildingComponentProps) {
+export default function ShipFactoryBuildingModel({ position = [0, 0, 0], scale = 1, level = 1, animate = true }: BuildingComponentProps) {
   const groupRef = useRef<Group>(null)
   const craneRef = useRef<Group>(null)
   const bayLightRef = useRef<Mesh>(null)
@@ -21,6 +22,7 @@ export default function ShipFactoryBuildingModel({ position = [0, 0, 0], scale =
   const color = '#ff4444'
 
   useFrame((state) => {
+    if (!animate) return
     const t = state.clock.elapsedTime
     // Slowly rotating crane arm (period ~3.3s)
     if (craneRef.current) {

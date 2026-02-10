@@ -6,13 +6,14 @@ interface BuildingComponentProps {
   position?: [number, number, number]
   scale?: number
   level?: number
+  animate?: boolean
 }
 
 /**
  * Weapon Research Center (military, 2x2): Bunker-like base with containment sphere
  * held in a cradle of support arms. Hazard markings and experimental aesthetic.
  */
-export default function WeaponResearchCenterModel({ position = [0, 0, 0], scale = 1, level = 1 }: BuildingComponentProps) {
+export default function WeaponResearchCenterModel({ position = [0, 0, 0], scale = 1, level = 1, animate = true }: BuildingComponentProps) {
   const groupRef = useRef<Group>(null)
   const sphereRef = useRef<Mesh>(null)
   const ringRef = useRef<Mesh>(null)
@@ -20,6 +21,7 @@ export default function WeaponResearchCenterModel({ position = [0, 0, 0], scale 
   const ventRefs = useRef<Mesh[]>([])
 
   useFrame((state) => {
+    if (!animate) return
     const t = state.clock.elapsedTime
     // Containment sphere pulses ominously (period ~2s)
     if (sphereRef.current) {

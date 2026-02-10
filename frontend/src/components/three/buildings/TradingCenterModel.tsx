@@ -6,6 +6,7 @@ interface BuildingComponentProps {
   position?: [number, number, number]
   scale?: number
   level?: number
+  animate?: boolean
 }
 
 /**
@@ -13,11 +14,12 @@ interface BuildingComponentProps {
  * Two-level octagonal bazaar with partial retractable dome,
  * cargo containers at base, landing pad ring, trade beacon.
  */
-export default function TradingCenterModel({ position = [0, 0, 0], scale = 1, level = 1 }: BuildingComponentProps) {
+export default function TradingCenterModel({ position = [0, 0, 0], scale = 1, level = 1, animate = true }: BuildingComponentProps) {
   const beaconRef = useRef<Mesh>(null)
   const landingRingRef = useRef<Mesh>(null)
 
   useFrame((state) => {
+    if (!animate) return
     const t = state.clock.elapsedTime
     // Trade beacon blinks (0.5-2.0, period ~1s)
     if (beaconRef.current) {

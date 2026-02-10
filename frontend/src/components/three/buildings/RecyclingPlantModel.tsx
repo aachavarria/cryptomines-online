@@ -6,6 +6,7 @@ interface BuildingComponentProps {
   position?: [number, number, number]
   scale?: number
   level?: number
+  animate?: boolean
 }
 
 /**
@@ -17,6 +18,7 @@ export default function RecyclingPlantModel({
   position = [0, 0, 0],
   scale = 1,
   level = 1,
+  animate = true,
 }: BuildingComponentProps) {
   const groupRef = useRef<Group>(null)
   const hopperRimRef = useRef<Mesh>(null)
@@ -27,6 +29,7 @@ export default function RecyclingPlantModel({
   const color = '#44ccff'
 
   useFrame((state) => {
+    if (!animate) return
     const t = state.clock.elapsedTime
     // Hopper rim pulses - intake active
     if (hopperRimRef.current) {

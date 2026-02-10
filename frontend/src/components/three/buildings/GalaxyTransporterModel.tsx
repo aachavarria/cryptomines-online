@@ -6,6 +6,7 @@ interface BuildingComponentProps {
   position?: [number, number, number]
   scale?: number
   level?: number
+  animate?: boolean
 }
 
 /**
@@ -13,13 +14,14 @@ interface BuildingComponentProps {
  * Two tall vertical pylons flanking a circular energy portal ring.
  * Portal fill ripples with energy. Energy conduits connect pylons to ring.
  */
-export default function GalaxyTransporterModel({ position = [0, 0, 0], scale = 1, level = 1 }: BuildingComponentProps) {
+export default function GalaxyTransporterModel({ position = [0, 0, 0], scale = 1, level = 1, animate = true }: BuildingComponentProps) {
   const portalRingRef = useRef<Mesh>(null)
   const portalFillRef = useRef<Mesh>(null)
   const leftCapRef = useRef<Mesh>(null)
   const rightCapRef = useRef<Mesh>(null)
 
   useFrame((state) => {
+    if (!animate) return
     const t = state.clock.elapsedTime
     // Portal ring rotates on Z-axis (period ~5s)
     if (portalRingRef.current) {

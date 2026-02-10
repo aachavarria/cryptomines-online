@@ -7,19 +7,21 @@ interface BuildingComponentProps {
   position?: [number, number, number]
   scale?: number
   level?: number
+  animate?: boolean
 }
 
 /**
  * Radar (military, 1x1): Slender scanning tower with a large rotating
  * parabolic dish at the top. Classic radar silhouette -- tall and narrow.
  */
-export default function RadarModel({ position = [0, 0, 0], scale = 1, level = 1 }: BuildingComponentProps) {
+export default function RadarModel({ position = [0, 0, 0], scale = 1, level = 1, animate = true }: BuildingComponentProps) {
   const groupRef = useRef<Group>(null)
   const dishRef = useRef<Group>(null)
   const feedTipRef = useRef<Mesh>(null)
   const baseLightRef = useRef<Mesh>(null)
 
   useFrame((state) => {
+    if (!animate) return
     const t = state.clock.elapsedTime
     // Dish rotates (Y-axis, period ~4s) - the signature radar spin
     if (dishRef.current) {

@@ -6,6 +6,7 @@ interface BuildingComponentProps {
   position?: [number, number, number]
   scale?: number
   level?: number
+  animate?: boolean
 }
 
 /**
@@ -13,13 +14,14 @@ interface BuildingComponentProps {
  * Circular base with hexagonal pillar ring supporting a floating platform.
  * Holographic globe hovers in center. Platform edge has orbiting lights.
  */
-export default function AllianceCenterModel({ position = [0, 0, 0], scale = 1, level = 1 }: BuildingComponentProps) {
+export default function AllianceCenterModel({ position = [0, 0, 0], scale = 1, level = 1, animate = true }: BuildingComponentProps) {
   const groupRef = useRef<Group>(null)
   const globeRef = useRef<Mesh>(null)
   const globeWireRef = useRef<Mesh>(null)
   const orbitRef = useRef<Group>(null)
 
   useFrame((state) => {
+    if (!animate) return
     const t = state.clock.elapsedTime
     // Globe rotates (Y-axis, period ~6s)
     if (globeRef.current) {

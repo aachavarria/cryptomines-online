@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useRef, useMemo } from 'react'
 import { useFrame } from '@react-three/fiber'
 import type { Mesh } from 'three'
 import type { BuildingWithType } from '../../types/index.ts'
@@ -13,15 +13,16 @@ export default function UpgradeProgressBar3D({ building, yOffset }: UpgradeProgr
   const barWidth = 2.5
   const barHeight = 0.2
 
+  const { startTime, totalDuration } = useMemo(() => {
+    const finish = building.upgrade_finish_at ? new Date(building.upgrade_finish_at).getTime() : 0
+    const start = new Date(building.updated_at).getTime()
+    return { startTime: start, totalDuration: finish - start }
+  }, [building.upgrade_finish_at, building.updated_at])
+
   useFrame(() => {
-    if (!fillRef.current || !building.upgrade_finish_at) return
+    if (!fillRef.current || !building.upgrade_finish_at || totalDuration <= 0) return
 
-    const finishTime = new Date(building.upgrade_finish_at).getTime()
-    const now = Date.now()
-    const totalDuration = finishTime - new Date(building.updated_at).getTime()
-    const elapsed = now - new Date(building.updated_at).getTime()
-
-    if (totalDuration <= 0) return
+    const elapsed = Date.now() - startTime
     const progress = Math.min(1, Math.max(0, elapsed / totalDuration))
 
     fillRef.current.scale.x = progress

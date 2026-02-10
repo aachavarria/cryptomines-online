@@ -6,6 +6,7 @@ interface BuildingComponentProps {
   position?: [number, number, number]
   scale?: number
   level?: number
+  animate?: boolean
 }
 
 /**
@@ -13,7 +14,7 @@ interface BuildingComponentProps {
  * Central drill shaft with support frame, angled excavation arm
  * with rotating drum, ore containers at base. Rugged, heavy-industry feel.
  */
-export default function MetalCollectorModel({ position = [0, 0, 0], scale = 1, level = 1 }: BuildingComponentProps) {
+export default function MetalCollectorModel({ position = [0, 0, 0], scale = 1, level = 1, animate = true }: BuildingComponentProps) {
   const groupRef = useRef<Group>(null)
   const drumRef = useRef<Mesh>(null)
   const shaftRef = useRef<Mesh>(null)
@@ -21,6 +22,7 @@ export default function MetalCollectorModel({ position = [0, 0, 0], scale = 1, l
   const light1Ref = useRef<Mesh>(null)
 
   useFrame((state) => {
+    if (!animate) return
     const t = state.clock.elapsedTime
     // Excavation drum rotates (local X-axis, period ~2s)
     if (drumRef.current) {

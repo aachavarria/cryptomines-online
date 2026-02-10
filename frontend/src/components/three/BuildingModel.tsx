@@ -1,10 +1,11 @@
-import { useRef, useMemo } from 'react'
-import { useFrame } from '@react-three/fiber'
+import { useRef, useMemo, Suspense } from 'react'
+import { useFrame, useThree } from '@react-three/fiber'
 import { Html } from '@react-three/drei'
 import * as THREE from 'three'
 import type { Group } from 'three'
 import SelectionRing from './SelectionRing.tsx'
 import UpgradeProgressBar3D from './UpgradeProgressBar3D.tsx'
+import SimpleBuildingLOD from './SimpleBuildingLOD.tsx'
 import { CATEGORY_COLORS, BUILDING_ABBREVIATIONS, TILE_WORLD_SIZE } from '../../contexts/GameContext.tsx'
 import { useCountdown } from '../../hooks/useCountdown.ts'
 import { getBuildingSize } from '../../config/buildingConfig.ts'
@@ -46,6 +47,9 @@ export default function BuildingModel({
   const TypeModel = BUILDING_MODELS[building.type_name]
   const size = getBuildingSize(building.type_name)
   const baseRadius = Math.max(size.cols, size.rows) * TILE_WORLD_SIZE * 0.45
+  const { camera } = useThree()
+  const zoom = (camera as THREE.OrthographicCamera).zoom
+  const useLOD = zoom < 5
 
   const emissiveIntensity = isSelected ? 0.4 : isHovered ? 0.25 : 0.1
 
@@ -58,12 +62,13 @@ export default function BuildingModel({
     return (h & 0xff) / 255
   }, [building.id])
 
+  const shouldAnimate = isSelected || isHovered || building.is_upgrading
+
   useFrame((state) => {
-    if (groupRef.current) {
-      const t = state.clock.elapsedTime
-      // Subtle idle breathing bob
-      groupRef.current.position.y = position[1] + Math.sin(t * 0.8 + seed * 6.28) * 0.05
-    }
+    if (!groupRef.current || !shouldAnimate) return
+    const t = state.clock.elapsedTime
+    // Subtle idle breathing bob (only for active buildings)
+    groupRef.current.position.y = position[1] + Math.sin(t * 0.8 + seed * 6.28) * 0.05
   })
 
   return (
@@ -100,9 +105,18 @@ export default function BuildingModel({
         />
       </mesh>
 
-      {/* Building model */}
-      {TypeModel ? (
-        <TypeModel scale={levelScale} level={building.level} />
+      {/* Building model — LOD: simplified box at far zoom, full model at close zoom */}
+      {useLOD ? (
+        <SimpleBuildingLOD typeName={building.type_name} color={color} levelScale={levelScale} />
+      ) : TypeModel ? (
+        <Suspense fallback={
+          <mesh position={[0, baseHeight * levelScale / 2, 0]} castShadow>
+            <boxGeometry args={[2.2, baseHeight, 2.2]} />
+            <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.15} metalness={0.7} roughness={0.3} />
+          </mesh>
+        }>
+          <TypeModel scale={levelScale} level={building.level} animate={shouldAnimate} />
+        </Suspense>
       ) : (
         <mesh
           position={[0, baseHeight * levelScale / 2, 0]}

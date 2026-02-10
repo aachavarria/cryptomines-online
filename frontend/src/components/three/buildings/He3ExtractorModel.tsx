@@ -6,6 +6,7 @@ interface BuildingComponentProps {
   position?: [number, number, number]
   scale?: number
   level?: number
+  animate?: boolean
 }
 
 /**
@@ -14,7 +15,7 @@ interface BuildingComponentProps {
  * radiating pipes to ground-level processing ring. Sleek and vertical.
  * Gas venting effect from the top, orbiting light on processing ring.
  */
-export default function He3ExtractorModel({ position = [0, 0, 0], scale = 1, level = 1 }: BuildingComponentProps) {
+export default function He3ExtractorModel({ position = [0, 0, 0], scale = 1, level = 1, animate = true }: BuildingComponentProps) {
   const groupRef = useRef<Group>(null)
   const innerGlowRef = useRef<Mesh>(null)
   const vent0Ref = useRef<Mesh>(null)
@@ -23,6 +24,7 @@ export default function He3ExtractorModel({ position = [0, 0, 0], scale = 1, lev
   const orbitLightRef = useRef<Group>(null)
 
   useFrame((state) => {
+    if (!animate) return
     const t = state.clock.elapsedTime
     // Tank bulb inner glow pulses (emissiveIntensity 0.6-1.2, period ~2.5s)
     if (innerGlowRef.current) {

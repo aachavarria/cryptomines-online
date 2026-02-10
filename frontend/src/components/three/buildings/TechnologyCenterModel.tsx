@@ -6,6 +6,7 @@ interface BuildingComponentProps {
   position?: [number, number, number]
   scale?: number
   level?: number
+  animate?: boolean
 }
 
 /**
@@ -13,7 +14,7 @@ interface BuildingComponentProps {
  * Rectangular building with angular roof, parabolic dish, holographic ring,
  * and pulsing data cores.
  */
-export default function TechnologyCenterModel({ position = [0, 0, 0], scale = 1, level = 1 }: BuildingComponentProps) {
+export default function TechnologyCenterModel({ position = [0, 0, 0], scale = 1, level = 1, animate = true }: BuildingComponentProps) {
   const groupRef = useRef<Group>(null)
   const holoRingRef = useRef<Mesh>(null)
   const dishGroupRef = useRef<Group>(null)
@@ -22,6 +23,7 @@ export default function TechnologyCenterModel({ position = [0, 0, 0], scale = 1,
   const dataCore2Ref = useRef<Mesh>(null)
 
   useFrame((state) => {
+    if (!animate) return
     const t = state.clock.elapsedTime
     // Holographic ring rotates (Y-axis, period ~4s) and bobs
     if (holoRingRef.current) {

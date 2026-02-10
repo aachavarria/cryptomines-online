@@ -6,13 +6,14 @@ interface BuildingComponentProps {
   position?: [number, number, number]
   scale?: number
   level?: number
+  animate?: boolean
 }
 
 /**
  * Spacedock building (military, 3x2): Circular docking ring with repair arms,
  * energy conduits, and shield generators. Building-context version.
  */
-export default function SpacedockBuildingModel({ position = [0, 0, 0], scale = 1, level = 1 }: BuildingComponentProps) {
+export default function SpacedockBuildingModel({ position = [0, 0, 0], scale = 1, level = 1, animate = true }: BuildingComponentProps) {
   const groupRef = useRef<Group>(null)
   const ringRef = useRef<Group>(null)
   const pulseRef = useRef<Mesh>(null)
@@ -20,6 +21,7 @@ export default function SpacedockBuildingModel({ position = [0, 0, 0], scale = 1
   const color = '#44ccff'
 
   useFrame((state) => {
+    if (!animate) return
     const t = state.clock.elapsedTime
     // Slowly rotating docking ring
     if (ringRef.current) {

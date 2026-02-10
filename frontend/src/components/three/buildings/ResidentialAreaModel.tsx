@@ -7,13 +7,14 @@ interface BuildingComponentProps {
   position?: [number, number, number]
   scale?: number
   level?: number
+  animate?: boolean
 }
 
 /**
  * Residential Area (resource, 2x2): Cluster of dome-shaped habitat pods
  * connected by walkways. Warm interior lighting visible through windows.
  */
-export default function ResidentialAreaModel({ position = [0, 0, 0], scale = 1, level = 1 }: BuildingComponentProps) {
+export default function ResidentialAreaModel({ position = [0, 0, 0], scale = 1, level = 1, animate = true }: BuildingComponentProps) {
   const groupRef = useRef<Group>(null)
   const windowRefs = useRef<Mesh[]>([])
   const orbitLightRef = useRef<Mesh>(null)
@@ -25,6 +26,7 @@ export default function ResidentialAreaModel({ position = [0, 0, 0], scale = 1, 
   const smallDomeGeoB = useMemo(() => new THREE.SphereGeometry(0.7, 8, 6, 0, Math.PI * 2, 0, Math.PI / 2), [])
 
   useFrame((state) => {
+    if (!animate) return
     const t = state.clock.elapsedTime
     // Window flicker
     windowRefs.current.forEach((mesh, i) => {

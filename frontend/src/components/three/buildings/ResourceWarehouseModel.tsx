@@ -7,13 +7,14 @@ interface BuildingComponentProps {
   position?: [number, number, number]
   scale?: number
   level?: number
+  animate?: boolean
 }
 
 /**
  * Resource Warehouse (resource, 3x2): Long storage depot with barrel-vault roof,
  * loading dock doors, stacked cargo, and a conveyor track on the roof ridge.
  */
-export default function ResourceWarehouseModel({ position = [0, 0, 0], scale = 1, level = 1 }: BuildingComponentProps) {
+export default function ResourceWarehouseModel({ position = [0, 0, 0], scale = 1, level = 1, animate = true }: BuildingComponentProps) {
   const groupRef = useRef<Group>(null)
   const dockRefs = useRef<Mesh[]>([])
   const conveyorLightRef = useRef<Mesh>(null)
@@ -27,6 +28,7 @@ export default function ResourceWarehouseModel({ position = [0, 0, 0], scale = 1
   }, [])
 
   useFrame((state) => {
+    if (!animate) return
     const t = state.clock.elapsedTime
     // Loading dock doors pulse staggered
     dockRefs.current.forEach((mesh, i) => {
