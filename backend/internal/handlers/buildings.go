@@ -3,11 +3,13 @@ package handlers
 import (
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"time"
 
 	"github.com/cryptomines-online/backend/internal/database"
+	"github.com/cryptomines-online/backend/internal/errs"
 	"github.com/cryptomines-online/backend/internal/middleware"
 	"github.com/cryptomines-online/backend/internal/models"
 	"github.com/cryptomines-online/backend/internal/services"
@@ -159,7 +161,14 @@ func ConstructBuilding(w http.ResponseWriter, r *http.Request) {
 	}
 	maxSlots := getConstructionSlots(playerID)
 	if activeBuilds >= maxSlots {
-		http.Error(w, `{"error":"all construction slots are in use"}`, http.StatusConflict)
+		errs.Conflict(
+			fmt.Sprintf("All %d construction slots are in use", maxSlots),
+			map[string]interface{}{
+				"slots_used":      activeBuilds,
+				"slots_available": maxSlots,
+				"hint":            "Upgrade Concurrent Construction tech or wait for current construction to finish",
+			},
+		).WriteJSON(w, http.StatusConflict)
 		return
 	}
 
@@ -175,7 +184,11 @@ func ConstructBuilding(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if currentCount >= bt.MaxCountPerPlanet {
-		http.Error(w, `{"error":"maximum count reached for this building type"}`, http.StatusConflict)
+		errs.MaxCountReached(
+			fmt.Sprintf("Maximum %s count reached (%d/%d)", bt.DisplayName, currentCount, bt.MaxCountPerPlanet),
+			bt.MaxCountPerPlanet,
+			currentCount,
+		).WriteJSON(w, http.StatusConflict)
 		return
 	}
 
@@ -195,7 +208,17 @@ func ConstructBuilding(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if prereqLevel < bt.PrerequisiteLevel {
-			http.Error(w, `{"error":"prerequisite not met"}`, http.StatusConflict)
+			var prereqDisplayName string
+			database.DB.QueryRow(`SELECT display_name FROM building_types WHERE name = $1`, *bt.PrerequisiteBuilding).Scan(&prereqDisplayName)
+			if prereqDisplayName == "" {
+				prereqDisplayName = *bt.PrerequisiteBuilding
+			}
+			errs.PrerequisiteNotMet(
+				fmt.Sprintf("%s requires %s level %d (current: %d)", bt.DisplayName, prereqDisplayName, bt.PrerequisiteLevel, prereqLevel),
+				prereqDisplayName,
+				prereqLevel,
+				bt.PrerequisiteLevel,
+			).WriteJSON(w, http.StatusConflict)
 			return
 		}
 	}
@@ -207,22 +230,53 @@ func ConstructBuilding(w http.ResponseWriter, r *http.Request) {
 		bt.CostMultiplier, bt.BaseTimeSeconds, bt.TimeMultiplier,
 	)
 
-	// Deduct resources
-	var res resourceState
-	err = tx.QueryRow(
-		`UPDATE resources
-		 SET metal = metal - $1, he3 = he3 - $2, gold = gold - $3, updated_at = now()
-		 WHERE planet_id = $4 AND metal >= $1 AND he3 >= $2 AND gold >= $3
-		 RETURNING metal, he3, gold`,
-		levelCost.MetalCost, levelCost.He3Cost, levelCost.GoldCost, planetID,
-	).Scan(&res.Metal, &res.He3, &res.Gold)
+	// Apply tech bonuses (build cost reduction and build speed)
+	techBonuses, err := services.GetPlayerTechBonuses(playerID)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			http.Error(w, `{"error":"insufficient resources"}`, http.StatusConflict)
+		log.Printf("Failed to get tech bonuses: %v", err)
+		// Continue without bonuses rather than failing
+		techBonuses = &services.TechBonuses{}
+	}
+
+	// Apply cost reduction bonus
+	costReduction := techBonuses.BuildCostReduction / 100.0
+	levelCost.MetalCost = int64(float64(levelCost.MetalCost) * (1.0 - costReduction))
+	levelCost.He3Cost = int64(float64(levelCost.He3Cost) * (1.0 - costReduction))
+	levelCost.GoldCost = int64(float64(levelCost.GoldCost) * (1.0 - costReduction))
+
+	// Apply build speed bonus (reduces time)
+	speedBonus := techBonuses.BuildSpeed / 100.0
+	levelCost.BuildTimeSeconds = int(float64(levelCost.BuildTimeSeconds) * (1.0 - speedBonus))
+	if levelCost.BuildTimeSeconds < 1 {
+		levelCost.BuildTimeSeconds = 1
+	}
+
+	// Deduct resources with detailed error handling
+	var res resourceState
+	res.Metal, res.He3, res.Gold, err = checkAndDeductResources(
+		tx, planetID,
+		levelCost.MetalCost, levelCost.He3Cost, levelCost.GoldCost,
+		fmt.Sprintf("%s level 1", bt.DisplayName),
+	)
+	if err != nil {
+		if err.Error() == fmt.Sprintf("insufficient resources for %s level 1", bt.DisplayName) {
+			errs.InsufficientResources(
+				fmt.Sprintf("Not enough resources to construct %s", bt.DisplayName),
+				map[string]int64{
+					"metal": levelCost.MetalCost,
+					"he3":   levelCost.He3Cost,
+					"gold":  levelCost.GoldCost,
+				},
+				map[string]int64{
+					"metal": res.Metal,
+					"he3":   res.He3,
+					"gold":  res.Gold,
+				},
+			).WriteJSON(w, http.StatusConflict)
 			return
 		}
 		log.Printf("Failed to deduct resources: %v", err)
-		http.Error(w, `{"error":"internal server error"}`, http.StatusInternalServerError)
+		errs.InternalError("Failed to deduct resources").WriteJSON(w, http.StatusInternalServerError)
 		return
 	}
 
@@ -294,7 +348,14 @@ func UpgradeBuilding(w http.ResponseWriter, r *http.Request) {
 	}
 	maxSlots := getConstructionSlots(playerID)
 	if activeBuilds >= maxSlots {
-		http.Error(w, `{"error":"all construction slots are in use"}`, http.StatusConflict)
+		errs.Conflict(
+			fmt.Sprintf("All %d construction slots are in use", maxSlots),
+			map[string]interface{}{
+				"slots_used":      activeBuilds,
+				"slots_available": maxSlots,
+				"hint":            "Upgrade Concurrent Construction tech or wait for current construction to finish",
+			},
+		).WriteJSON(w, http.StatusConflict)
 		return
 	}
 
@@ -323,16 +384,37 @@ func UpgradeBuilding(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get building display name
+	var displayName string
+	database.DB.QueryRow(`SELECT display_name FROM building_types WHERE id = $1`, bt.ID).Scan(&displayName)
+	if displayName == "" {
+		displayName = bt.Name
+	}
+
 	// Check if already upgrading
 	if b.IsUpgrading {
-		http.Error(w, `{"error":"building is already upgrading"}`, http.StatusConflict)
+		var finishAt string
+		if b.UpgradeFinishAt != nil {
+			finishAt = b.UpgradeFinishAt.Format("2006-01-02 15:04:05")
+		}
+		errs.Conflict(
+			fmt.Sprintf("%s is already upgrading", displayName),
+			map[string]interface{}{
+				"building_id":      b.ID,
+				"current_level":    b.Level,
+				"upgrade_finish_at": finishAt,
+			},
+		).WriteJSON(w, http.StatusConflict)
 		return
 	}
 
 	// Check max level
 	targetLevel := b.Level + 1
 	if targetLevel > bt.MaxLevel {
-		http.Error(w, `{"error":"building is already at max level"}`, http.StatusConflict)
+		errs.MaxLevelReached(
+			fmt.Sprintf("%s is already at max level %d", displayName, bt.MaxLevel),
+			bt.MaxLevel,
+		).WriteJSON(w, http.StatusConflict)
 		return
 	}
 
@@ -352,7 +434,12 @@ func UpgradeBuilding(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if ccLevel < targetLevel {
-			http.Error(w, `{"error":"civic center level too low"}`, http.StatusConflict)
+			errs.PrerequisiteNotMet(
+				fmt.Sprintf("Civic Center must be level %d to upgrade %s to level %d (current: %d)", targetLevel, displayName, targetLevel, ccLevel),
+				"Civic Center",
+				ccLevel,
+				targetLevel,
+			).WriteJSON(w, http.StatusConflict)
 			return
 		}
 	}
@@ -364,22 +451,53 @@ func UpgradeBuilding(w http.ResponseWriter, r *http.Request) {
 		bt.CostMultiplier, bt.BaseTimeSeconds, bt.TimeMultiplier,
 	)
 
-	// Deduct resources
-	var res resourceState
-	err = tx.QueryRow(
-		`UPDATE resources
-		 SET metal = metal - $1, he3 = he3 - $2, gold = gold - $3, updated_at = now()
-		 WHERE planet_id = $4 AND metal >= $1 AND he3 >= $2 AND gold >= $3
-		 RETURNING metal, he3, gold`,
-		levelCost.MetalCost, levelCost.He3Cost, levelCost.GoldCost, planetID,
-	).Scan(&res.Metal, &res.He3, &res.Gold)
+	// Apply tech bonuses (build cost reduction and build speed)
+	techBonuses, err := services.GetPlayerTechBonuses(playerID)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			http.Error(w, `{"error":"insufficient resources"}`, http.StatusConflict)
+		log.Printf("Failed to get tech bonuses: %v", err)
+		// Continue without bonuses rather than failing
+		techBonuses = &services.TechBonuses{}
+	}
+
+	// Apply cost reduction bonus
+	costReduction := techBonuses.BuildCostReduction / 100.0
+	levelCost.MetalCost = int64(float64(levelCost.MetalCost) * (1.0 - costReduction))
+	levelCost.He3Cost = int64(float64(levelCost.He3Cost) * (1.0 - costReduction))
+	levelCost.GoldCost = int64(float64(levelCost.GoldCost) * (1.0 - costReduction))
+
+	// Apply build speed bonus (reduces time)
+	speedBonus := techBonuses.BuildSpeed / 100.0
+	levelCost.BuildTimeSeconds = int(float64(levelCost.BuildTimeSeconds) * (1.0 - speedBonus))
+	if levelCost.BuildTimeSeconds < 1 {
+		levelCost.BuildTimeSeconds = 1
+	}
+
+	// Deduct resources with detailed error handling
+	var res resourceState
+	res.Metal, res.He3, res.Gold, err = checkAndDeductResources(
+		tx, planetID,
+		levelCost.MetalCost, levelCost.He3Cost, levelCost.GoldCost,
+		fmt.Sprintf("%s level %d", displayName, targetLevel),
+	)
+	if err != nil {
+		if err.Error() == fmt.Sprintf("insufficient resources for %s level %d", displayName, targetLevel) {
+			errs.InsufficientResources(
+				fmt.Sprintf("Not enough resources to upgrade %s to level %d", displayName, targetLevel),
+				map[string]int64{
+					"metal": levelCost.MetalCost,
+					"he3":   levelCost.He3Cost,
+					"gold":  levelCost.GoldCost,
+				},
+				map[string]int64{
+					"metal": res.Metal,
+					"he3":   res.He3,
+					"gold":  res.Gold,
+				},
+			).WriteJSON(w, http.StatusConflict)
 			return
 		}
 		log.Printf("Failed to deduct resources: %v", err)
-		http.Error(w, `{"error":"internal server error"}`, http.StatusInternalServerError)
+		errs.InternalError("Failed to deduct resources").WriteJSON(w, http.StatusInternalServerError)
 		return
 	}
 
@@ -582,4 +700,31 @@ func verifyPlanetOwnership(planetID, playerID string) bool {
 		planetID, playerID,
 	).Scan(&exists)
 	return err == nil && exists
+}
+
+// checkAndDeductResources checks if resources are sufficient and deducts them, returning detailed error if insufficient
+func checkAndDeductResources(tx *sql.Tx, planetID string, metalCost, he3Cost, goldCost int64, actionName string) (metal, he3, gold int64, err error) {
+	// Get current resources
+	var currentMetal, currentHe3, currentGold int64
+	err = tx.QueryRow(`SELECT metal, he3, gold FROM resources WHERE planet_id = $1`, planetID).
+		Scan(&currentMetal, &currentHe3, &currentGold)
+	if err != nil {
+		return 0, 0, 0, fmt.Errorf("failed to get resources: %w", err)
+	}
+
+	// Check sufficiency
+	if currentMetal < metalCost || currentHe3 < he3Cost || currentGold < goldCost {
+		return currentMetal, currentHe3, currentGold, fmt.Errorf("insufficient resources for %s", actionName)
+	}
+
+	// Deduct
+	err = tx.QueryRow(
+		`UPDATE resources
+		 SET metal = metal - $1, he3 = he3 - $2, gold = gold - $3, updated_at = now()
+		 WHERE planet_id = $4
+		 RETURNING metal, he3, gold`,
+		metalCost, he3Cost, goldCost, planetID,
+	).Scan(&metal, &he3, &gold)
+
+	return metal, he3, gold, err
 }

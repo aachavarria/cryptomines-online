@@ -48,6 +48,10 @@ export interface Resource {
   he3_per_hour: number
   gold_per_hour: number
   storage_capacity: number
+  warehouse_metal: number
+  warehouse_he3: number
+  warehouse_gold: number
+  warehouse_capacity: number
   last_collected_at: string
   updated_at: string
 }
@@ -237,9 +241,12 @@ export interface BuildShipResponse {
 export interface Blueprint {
   id: number
   name: string
+  display_name: string
   blueprint_type: 'hull' | 'module'
   hull_type_id: number | null
   module_type_id: number | null
+  hull_class?: string
+  module_category?: string
   source: 'instance' | 'quest' | 'auction' | 'trafficker' | 'mall'
   research_level: number
   description: string
@@ -257,6 +264,19 @@ export interface PlayerBlueprint {
   hull_type_id: number | null
   module_type_id: number | null
   source: string
+  is_researching?: boolean
+  research_finish_at?: string
+}
+
+export interface ActiveBlueprintResearch {
+  id: string
+  player_blueprint_id: string
+  target_level: number
+  is_researching: boolean
+  research_finish_at: string
+  blueprint_id: number
+  blueprint_name: string
+  blueprint_type: 'hull' | 'module'
 }
 
 // Fleets
@@ -525,6 +545,99 @@ export interface SpeedupResearchResponse {
     research_finish_at: string
   }
   vouchers_spent: number
+}
+
+// ============ Recycling Plant Types ============
+
+export interface RecyclingJob {
+  id: string
+  player_id: string
+  ship_design_id: string
+  metal_gained: number
+  he3_gained: number
+  gold_gained: number
+  duration_seconds: number
+  started_at: string
+  completed_at: string
+  collected: boolean
+}
+
+export interface StartRecycleResponse {
+  job_id: string
+  metal_gained: number
+  he3_gained: number
+  gold_gained: number
+  duration_seconds: number
+  completed_at: string
+}
+
+export interface CollectRecycleResponse {
+  success: boolean
+  metal_gained: number
+  he3_gained: number
+  gold_gained: number
+}
+
+export interface AvailableShip {
+  id: string
+  design_name: string
+  hull_class: string
+  quantity: number
+}
+
+// ============ Chat System Types ============
+
+export interface ChatMessage {
+  id: string
+  player_id: string
+  player_name: string
+  message: string
+  channel: 'world' | 'alliance'
+  created_at: string
+}
+
+export interface SendMessageRequest {
+  message: string
+  channel: 'world' | 'alliance'
+}
+
+export interface SendMessageResponse {
+  success: boolean
+  message_id: string
+}
+
+// ============ PvP Combat Types ============
+
+export interface PvPSearchResult {
+  planet_id: string
+  planet_name: string
+  player_id: string
+  player_name: string
+}
+
+export interface PvPLoot {
+  metal: number
+  he3: number
+  gold: number
+}
+
+export interface PvPBattleLosses {
+  ships_destroyed: Record<string, number>
+  he3_consumed: number
+}
+
+export interface AttackPlanetRequest {
+  defender_planet_id: string
+  fleet_ids: string[]
+}
+
+export interface AttackPlanetResponse {
+  report_id: string
+  result: 'attacker_win' | 'defender_win' | 'draw'
+  total_rounds: number
+  loot_gained: PvPLoot | null
+  attacker_losses: PvPBattleLosses
+  defender_losses: PvPBattleLosses
 }
 
 // Building types that can be constructed (from seed data)

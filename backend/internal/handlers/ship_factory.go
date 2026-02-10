@@ -3,18 +3,56 @@ package handlers
 import (
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"strconv"
 	"time"
 
 	"github.com/cryptomines-online/backend/internal/database"
+	"github.com/cryptomines-online/backend/internal/errs"
 	"github.com/cryptomines-online/backend/internal/middleware"
 	"github.com/cryptomines-online/backend/internal/models"
 	"github.com/cryptomines-online/backend/internal/services"
 )
 
 const maxBuildQuantity = 2000000
+
+// getShipProductionSlots calculates the total number of ship production slots available.
+// Base slots come from Ship Factory level, +1 from Sync Shipbuilding tech (max 5 total).
+func getShipProductionSlots(playerID string, factoryLevel int) int {
+	// Get base slots from factory level
+	var baseSlots int
+	err := database.DB.QueryRow(
+		`SELECT production_slots FROM ship_factory_levels WHERE level = $1`,
+		factoryLevel,
+	).Scan(&baseSlots)
+	if err != nil {
+		log.Printf("Failed to get factory production slots: %v", err)
+		return 1 // Default to 1 slot
+	}
+
+	// Check for Sync Shipbuilding tech (adds 1 slot, making 5th slot available)
+	var syncShipbuildingLevel int
+	err = database.DB.QueryRow(`
+		SELECT COALESCE(t.level, 0)
+		FROM tech_types tt
+		LEFT JOIN technologies t ON t.tech_type = tt.id AND t.player_id = $1
+		WHERE tt.name = 'sync_shipbuilding'
+	`, playerID).Scan(&syncShipbuildingLevel)
+	if err != nil {
+		log.Printf("Failed to get sync shipbuilding tech: %v", err)
+		return baseSlots
+	}
+
+	// Sync Shipbuilding is max level 1, adds 1 slot
+	totalSlots := baseSlots + syncShipbuildingLevel
+	if totalSlots > 5 {
+		totalSlots = 5 // Hard cap at 5 slots
+	}
+
+	return totalSlots
+}
 
 type shipFactoryStatus struct {
 	Level          int  `json:"level"`
@@ -82,6 +120,9 @@ func GetShipFactory(w http.ResponseWriter, r *http.Request) {
 		sfl.ProductionSlots = 1
 	}
 
+	// Get total production slots (base + tech bonus)
+	totalSlots := getShipProductionSlots(playerID, level)
+
 	// Count active builds
 	var activeBuilds int
 	database.DB.QueryRow(
@@ -93,7 +134,7 @@ func GetShipFactory(w http.ResponseWriter, r *http.Request) {
 		Level:           level,
 		IsUpgrading:     isUpgrading,
 		SpeedBonusPct:   sfl.SpeedBonusPct,
-		ProductionSlots: sfl.ProductionSlots,
+		ProductionSlots: totalSlots,
 		ActiveBuilds:    activeBuilds,
 	}
 
@@ -122,13 +163,8 @@ func GetShipFactorySlots(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var productionSlots int
-	err = database.DB.QueryRow(
-		`SELECT production_slots FROM ship_factory_levels WHERE level = $1`, level,
-	).Scan(&productionSlots)
-	if err != nil {
-		productionSlots = 1
-	}
+	// Get total production slots (base + tech bonus)
+	productionSlots := getShipProductionSlots(playerID, level)
 
 	// Get active builds
 	rows, err := database.DB.Query(
@@ -227,18 +263,21 @@ func BuildShips(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check production slot is unlocked
+	// Get factory speed bonus
 	var sfl models.ShipFactoryLevel
 	err = tx.QueryRow(
-		`SELECT production_slots, speed_bonus_pct FROM ship_factory_levels WHERE level = $1`,
+		`SELECT speed_bonus_pct FROM ship_factory_levels WHERE level = $1`,
 		factoryLevel,
-	).Scan(&sfl.ProductionSlots, &sfl.SpeedBonusPct)
+	).Scan(&sfl.SpeedBonusPct)
 	if err != nil {
 		log.Printf("Failed to get factory level data: %v", err)
 		http.Error(w, `{"error":"internal server error"}`, http.StatusInternalServerError)
 		return
 	}
-	if req.ProductionSlot > sfl.ProductionSlots {
+
+	// Check production slot is unlocked (base + tech bonus)
+	totalSlots := getShipProductionSlots(playerID, factoryLevel)
+	if req.ProductionSlot > totalSlots {
 		http.Error(w, `{"error":"production slot not unlocked"}`, http.StatusConflict)
 		return
 	}
@@ -271,34 +310,72 @@ func BuildShips(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get tech bonuses
+	techBonuses, err := services.GetPlayerTechBonuses(playerID)
+	if err != nil {
+		log.Printf("Failed to get tech bonuses: %v", err)
+		// Continue without bonuses rather than failing
+		techBonuses = &services.TechBonuses{}
+	}
+
+	// Apply ship cost reduction tech bonus
+	costReduction := techBonuses.ShipBuildCostReduction / 100.0
+	effectiveMetalCost := int64(float64(design.MetalCost) * (1.0 - costReduction))
+	effectiveHe3Cost := int64(float64(design.He3Cost) * (1.0 - costReduction))
+	effectiveGoldCost := int64(float64(design.GoldCost) * (1.0 - costReduction))
+
 	// Calculate batch cost (GDD 8.10.1)
 	batchMetal, batchHe3, batchGold := services.ShipBuildCost(
-		design.MetalCost, design.He3Cost, design.GoldCost, req.Quantity,
+		effectiveMetalCost, effectiveHe3Cost, effectiveGoldCost, req.Quantity,
 	)
 
-	// Deduct resources from homeworld
-	var remaining struct{ Metal, He3, Gold int64 }
-	err = tx.QueryRow(
-		`UPDATE resources
-		 SET metal = metal - $1, he3 = he3 - $2, gold = gold - $3, updated_at = now()
-		 WHERE planet_id = (
-		     SELECT p.id FROM planets p WHERE p.player_id = $4 AND p.is_homeworld = true LIMIT 1
-		 ) AND metal >= $1 AND he3 >= $2 AND gold >= $3
-		 RETURNING metal, he3, gold`,
-		batchMetal, batchHe3, batchGold, playerID,
-	).Scan(&remaining.Metal, &remaining.He3, &remaining.Gold)
+	// Get homeworld ID
+	var homeworldID string
+	err = tx.QueryRow(`SELECT id FROM planets WHERE player_id = $1 AND is_homeworld = true LIMIT 1`, playerID).Scan(&homeworldID)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			http.Error(w, `{"error":"insufficient resources"}`, http.StatusConflict)
-			return
-		}
-		log.Printf("Failed to deduct resources: %v", err)
-		http.Error(w, `{"error":"internal server error"}`, http.StatusInternalServerError)
+		log.Printf("Failed to get homeworld: %v", err)
+		errs.InternalError("Failed to find homeworld").WriteJSON(w, http.StatusInternalServerError)
 		return
 	}
 
+	// Get ship design name for error message
+	var designName string
+	tx.QueryRow(`SELECT name FROM ship_designs WHERE id = $1`, design.ID).Scan(&designName)
+
+	// Deduct resources with detailed error
+	var remaining struct{ Metal, He3, Gold int64 }
+	remaining.Metal, remaining.He3, remaining.Gold, err = checkAndDeductResources(
+		tx, homeworldID,
+		batchMetal, batchHe3, batchGold,
+		fmt.Sprintf("%d x %s", req.Quantity, designName),
+	)
+	if err != nil {
+		if err.Error() == fmt.Sprintf("insufficient resources for %d x %s", req.Quantity, designName) {
+			errs.InsufficientResources(
+				fmt.Sprintf("Not enough resources to build %d x %s", req.Quantity, designName),
+				map[string]int64{
+					"metal": batchMetal,
+					"he3":   batchHe3,
+					"gold":  batchGold,
+				},
+				map[string]int64{
+					"metal": remaining.Metal,
+					"he3":   remaining.He3,
+					"gold":  remaining.Gold,
+				},
+			).WriteJSON(w, http.StatusConflict)
+			return
+		}
+		log.Printf("Failed to deduct resources: %v", err)
+		errs.InternalError("Failed to deduct resources").WriteJSON(w, http.StatusInternalServerError)
+		return
+	}
+
+	// Apply ship build speed tech bonus (cumulative with factory bonus)
+	totalSpeedBonus := sfl.SpeedBonusPct + int(techBonuses.ShipBuildSpeed)
+
 	// Calculate batch build time (GDD 8.10.2)
-	batchTimeSec := services.ShipBuildTime(design.BuildTimeSeconds, sfl.SpeedBonusPct, req.Quantity)
+	batchTimeSec := services.ShipBuildTime(design.BuildTimeSeconds, totalSpeedBonus, req.Quantity)
 	finishAt := time.Now().Add(time.Duration(batchTimeSec) * time.Second)
 
 	// Upsert ships row: if player already has ships of this design, update; otherwise insert

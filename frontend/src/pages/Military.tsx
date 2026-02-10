@@ -8,6 +8,9 @@ import BlueprintPanel from '../components/panels/BlueprintPanel.tsx'
 import FleetPanel from '../components/panels/FleetPanel.tsx'
 import InstancePanel from '../components/panels/InstancePanel.tsx'
 import SpacedockPanel from '../components/panels/SpacedockPanel.tsx'
+import RecyclingPlantPanel from '../components/panels/RecyclingPlantPanel.tsx'
+import PvPPanel from '../components/panels/PvPPanel.tsx'
+import { CombatReportsPanel } from '../components/panels/CombatReportsPanel.tsx'
 import { FrigateModel, CruiserModel, BattleshipModel } from '../components/three/ships/index.ts'
 
 const TABS = [
@@ -17,6 +20,9 @@ const TABS = [
   { id: 'fleets', label: 'Fleets', icon: 'FL' },
   { id: 'instances', label: 'Instances', icon: 'IN' },
   { id: 'spacedock', label: 'Spacedock', icon: 'SD' },
+  { id: 'recycling', label: 'Recycling Plant', icon: 'RP' },
+  { id: 'pvp', label: 'PvP Combat', icon: 'PV' },
+  { id: 'reports', label: 'Combat Reports', icon: 'CR' },
 ] as const
 
 type TabId = typeof TABS[number]['id']
@@ -61,6 +67,9 @@ export default function Military() {
       case 'fleets': return <FleetPanel />
       case 'instances': return <InstancePanel />
       case 'spacedock': return <SpacedockPanel />
+      case 'recycling': return <RecyclingPlantPanel />
+      case 'pvp': return <PvPPanel />
+      case 'reports': return <CombatReportsPanel />
     }
   }
 

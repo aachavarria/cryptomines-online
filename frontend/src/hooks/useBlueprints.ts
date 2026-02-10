@@ -1,18 +1,24 @@
 import { useState, useEffect, useCallback } from 'react'
-import { listBlueprints, listMyBlueprints, activateBlueprint } from '../services/api.ts'
-import type { Blueprint, PlayerBlueprint } from '../types'
+import { listBlueprints, listMyBlueprints, activateBlueprint, researchBlueprint, getActiveBlueprintResearch } from '../services/api.ts'
+import type { Blueprint, PlayerBlueprint, ActiveBlueprintResearch } from '../types'
 
 export function useBlueprints() {
   const [allBlueprints, setAllBlueprints] = useState<Blueprint[]>([])
   const [myBlueprints, setMyBlueprints] = useState<PlayerBlueprint[]>([])
+  const [activeResearch, setActiveResearch] = useState<ActiveBlueprintResearch | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const refresh = useCallback(async () => {
     try {
-      const [all, mine] = await Promise.all([listBlueprints(), listMyBlueprints()])
+      const [all, mine, active] = await Promise.all([
+        listBlueprints(),
+        listMyBlueprints(),
+        getActiveBlueprintResearch()
+      ])
       setAllBlueprints(all)
       setMyBlueprints(mine)
+      setActiveResearch(active)
       setError(null)
     } catch {
       setError('Failed to load blueprints')
@@ -50,5 +56,15 @@ export function useBlueprints() {
     return myBlueprints.some(bp => bp.blueprint_type === 'module' && bp.module_type_id === moduleTypeId && bp.is_activated)
   }, [myBlueprints])
 
-  return { allBlueprints, myBlueprints, loading, error, activate, hasActivated, hasOwned, hasHullBlueprint, hasModuleBlueprint, refresh }
+  const research = useCallback(async (id: number) => {
+    try {
+      await researchBlueprint(id)
+      await refresh()
+    } catch {
+      setError('Failed to start research')
+      throw new Error('Failed to start research')
+    }
+  }, [refresh])
+
+  return { allBlueprints, myBlueprints, activeResearch, loading, error, activate, research, hasActivated, hasOwned, hasHullBlueprint, hasModuleBlueprint, refresh }
 }

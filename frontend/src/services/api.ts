@@ -17,6 +17,7 @@ import type {
   BuildShipResponse,
   Blueprint,
   PlayerBlueprint,
+  ActiveBlueprintResearch,
   Fleet,
   CreateFleetRequest,
   AssignStackRequest,
@@ -37,6 +38,15 @@ import type {
   CancelResearchResponse,
   SpeedupResearchResponse,
   ActiveResearch,
+  RecyclingJob,
+  StartRecycleResponse,
+  CollectRecycleResponse,
+  AvailableShip,
+  ChatMessage,
+  SendMessageResponse,
+  PvPSearchResult,
+  AttackPlanetRequest,
+  AttackPlanetResponse,
 } from '../types'
 
 const api = axios.create({
@@ -126,6 +136,11 @@ export async function getResources(planetId: string): Promise<ResourcesResponse>
 
 export async function collectResources(planetId: string): Promise<CollectResponse> {
   const { data } = await api.post<CollectResponse>(`/planets/${planetId}/resources/collect`)
+  return data
+}
+
+export async function collectWarehouse(): Promise<CollectResponse> {
+  const { data } = await api.post<CollectResponse>('/resources/collect-warehouse')
   return data
 }
 
@@ -219,6 +234,11 @@ export async function activateBlueprint(id: number): Promise<void> {
 
 export async function researchBlueprint(id: number): Promise<void> {
   await api.post(`/blueprints/${id}/research`)
+}
+
+export async function getActiveBlueprintResearch(): Promise<ActiveBlueprintResearch | null> {
+  const { data } = await api.get<ActiveBlueprintResearch | null>('/blueprint-research/active')
+  return data
 }
 
 // ============ Phase 2: Fleets ============
@@ -351,6 +371,85 @@ export async function speedupResearch(techTypeId: number, speedupMinutes: number
     tech_type_id: techTypeId,
     speedup_minutes: speedupMinutes,
   })
+  return data
+}
+
+// ============ Recycling Plant ============
+
+export async function listRecyclingJobs(): Promise<RecyclingJob[]> {
+  const { data } = await api.get<RecyclingJob[]>('/recycling-plant/jobs')
+  return data
+}
+
+export async function startRecycle(shipInstanceId: string): Promise<StartRecycleResponse> {
+  const { data } = await api.post<StartRecycleResponse>('/recycling-plant/recycle', {
+    ship_instance_id: shipInstanceId,
+  })
+  return data
+}
+
+export async function collectRecycle(jobId: string): Promise<CollectRecycleResponse> {
+  const { data } = await api.post<CollectRecycleResponse>(`/recycling-plant/collect/${jobId}`)
+  return data
+}
+
+export async function cancelRecycle(jobId: string): Promise<void> {
+  await api.delete(`/recycling-plant/jobs/${jobId}`)
+}
+
+export async function listAvailableShipsForRecycling(): Promise<AvailableShip[]> {
+  // Get all ship instances not in fleets
+  const { data } = await api.get<AvailableShip[]>('/ship-instances/available')
+  return data
+}
+
+// Combat Reports
+export interface CombatReport {
+  id: string
+  attacker_id: string
+  defender_id: string
+  combat_type: string
+  result: string
+  total_rounds: number
+  loot_json?: string
+  rounds_json?: string
+  he3_consumed: number
+  created_at: string
+}
+
+export async function listCombatReports(): Promise<CombatReport[]> {
+  const { data } = await api.get<CombatReport[]>('/combat-reports')
+  return data
+}
+
+export async function getCombatReport(id: string): Promise<CombatReport> {
+  const { data } = await api.get<CombatReport>(`/combat-reports/${id}`)
+  return data
+}
+
+// ============ Chat System ============
+
+export async function getChatMessages(channel: 'world' | 'alliance' = 'world', before?: string): Promise<ChatMessage[]> {
+  const params = new URLSearchParams({ channel })
+  if (before) params.append('before', before)
+  const { data } = await api.get<ChatMessage[]>(`/chat/messages?${params.toString()}`)
+  return data
+}
+
+export async function sendChatMessage(message: string, channel: 'world' | 'alliance' = 'world'): Promise<SendMessageResponse> {
+  const { data } = await api.post<SendMessageResponse>('/chat/send', { message, channel })
+  return data
+}
+
+// ============ PvP Combat ============
+
+export async function searchPlanets(query: string): Promise<PvPSearchResult[]> {
+  const { data} = await api.get<PvPSearchResult[]>(`/pvp/search?query=${encodeURIComponent(query)}`)
+  return data
+}
+
+export async function attackPlanet(req: AttackPlanetRequest): Promise<AttackPlanetResponse> {
+  const { data } = await api.post<AttackPlanetResponse>('/pvp/attack', req)
   return data
 }
 

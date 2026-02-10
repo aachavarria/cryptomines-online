@@ -268,3 +268,47 @@ func ResearchBlueprint(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(resp)
 }
+
+// GetActiveBlueprintResearch handles GET /api/blueprint-research/active
+// Returns the active blueprint research for the player.
+func GetActiveBlueprintResearch(w http.ResponseWriter, r *http.Request) {
+	playerID := middleware.GetPlayerID(r)
+
+	type activeResearchResponse struct {
+		ID               string `json:"id"`
+		PlayerBlueprintID string `json:"player_blueprint_id"`
+		TargetLevel      int    `json:"target_level"`
+		IsResearching    bool   `json:"is_researching"`
+		ResearchFinishAt string `json:"research_finish_at"`
+		BlueprintID      int    `json:"blueprint_id"`
+		BlueprintName    string `json:"blueprint_name"`
+		BlueprintType    string `json:"blueprint_type"`
+	}
+
+	var resp activeResearchResponse
+	err := database.DB.QueryRow(
+		`SELECT br.id, br.player_blueprint_id, br.target_level, br.is_researching,
+		        br.research_finish_at::text, pb.blueprint_id, b.name, b.blueprint_type
+		 FROM blueprint_research br
+		 JOIN player_blueprints pb ON br.player_blueprint_id = pb.id
+		 JOIN blueprints b ON pb.blueprint_id = b.id
+		 WHERE br.player_id = $1 AND br.is_researching = true
+		 LIMIT 1`, playerID,
+	).Scan(&resp.ID, &resp.PlayerBlueprintID, &resp.TargetLevel, &resp.IsResearching,
+		&resp.ResearchFinishAt, &resp.BlueprintID, &resp.BlueprintName, &resp.BlueprintType)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			// No active research, return null
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte("null"))
+			return
+		}
+		log.Printf("Failed to get active blueprint research: %v", err)
+		http.Error(w, `{"error":"internal server error"}`, http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(resp)
+}

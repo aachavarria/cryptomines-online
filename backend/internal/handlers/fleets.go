@@ -3,10 +3,12 @@ package handlers
 import (
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 
 	"github.com/cryptomines-online/backend/internal/database"
+	"github.com/cryptomines-online/backend/internal/errs"
 	"github.com/cryptomines-online/backend/internal/middleware"
 	"github.com/cryptomines-online/backend/internal/models"
 )
@@ -120,7 +122,7 @@ func CreateFleet(w http.ResponseWriter, r *http.Request) {
 
 	// Verify planet ownership
 	if req.PlanetID != "" && !verifyPlanetOwnership(req.PlanetID, playerID) {
-		http.Error(w, `{"error":"planet not found"}`, http.StatusNotFound)
+		errs.NotFound(fmt.Sprintf("Planet %s not found or does not belong to you", req.PlanetID)).WriteJSON(w, http.StatusNotFound)
 		return
 	}
 

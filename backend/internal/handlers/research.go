@@ -3,12 +3,14 @@ package handlers
 import (
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"log"
 	"math"
 	"net/http"
 	"time"
 
 	"github.com/cryptomines-online/backend/internal/database"
+	"github.com/cryptomines-online/backend/internal/errs"
 	"github.com/cryptomines-online/backend/internal/middleware"
 	"github.com/cryptomines-online/backend/internal/models"
 	"github.com/cryptomines-online/backend/internal/services"
@@ -200,7 +202,13 @@ func StartResearch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if activeCount > 0 {
-		http.Error(w, `{"error":"already researching in this tree"}`, http.StatusConflict)
+		errs.Conflict(
+			fmt.Sprintf("Already researching a technology in the %s tree", tt.Tree),
+			map[string]interface{}{
+				"tree": tt.Tree,
+				"hint": "Wait for current research to complete or cancel it first",
+			},
+		).WriteJSON(w, http.StatusConflict)
 		return
 	}
 
@@ -221,7 +229,10 @@ func StartResearch(w http.ResponseWriter, r *http.Request) {
 	// Check max level
 	targetLevel := currentLevel + 1
 	if targetLevel > tt.MaxLevel {
-		http.Error(w, `{"error":"technology is already at max level"}`, http.StatusConflict)
+		errs.MaxLevelReached(
+			fmt.Sprintf("%s is already at max level %d", tt.DisplayName, tt.MaxLevel),
+			tt.MaxLevel,
+		).WriteJSON(w, http.StatusConflict)
 		return
 	}
 
@@ -247,7 +258,18 @@ func StartResearch(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if prereqLevel < prereq.Level {
-			http.Error(w, `{"error":"prerequisite not met: `+prereq.Tech+`"}`, http.StatusConflict)
+			// Get prerequisite display name
+			var prereqDisplayName string
+			database.DB.QueryRow(`SELECT display_name FROM tech_types WHERE name = $1`, prereq.Tech).Scan(&prereqDisplayName)
+			if prereqDisplayName == "" {
+				prereqDisplayName = prereq.Tech
+			}
+			errs.PrerequisiteNotMet(
+				fmt.Sprintf("%s requires %s level %d (current: %d)", tt.DisplayName, prereqDisplayName, prereq.Level, prereqLevel),
+				prereqDisplayName,
+				prereqLevel,
+				prereq.Level,
+			).WriteJSON(w, http.StatusConflict)
 			return
 		}
 	}
@@ -266,24 +288,41 @@ func StartResearch(w http.ResponseWriter, r *http.Request) {
 		effectiveTime = 1
 	}
 
-	// Deduct resources from homeworld
-	var res resourceState
-	err = tx.QueryRow(
-		`UPDATE resources
-		 SET metal = metal - $1, he3 = he3 - $2, gold = gold - $3, updated_at = now()
-		 WHERE planet_id = (
-		     SELECT id FROM planets WHERE player_id = $4 AND is_homeworld = true LIMIT 1
-		 ) AND metal >= $1 AND he3 >= $2 AND gold >= $3
-		 RETURNING metal, he3, gold`,
-		metalCost, he3Cost, goldCost, playerID,
-	).Scan(&res.Metal, &res.He3, &res.Gold)
+	// Get homeworld ID
+	var homeworldID string
+	err = tx.QueryRow(`SELECT id FROM planets WHERE player_id = $1 AND is_homeworld = true LIMIT 1`, playerID).Scan(&homeworldID)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			http.Error(w, `{"error":"insufficient resources"}`, http.StatusConflict)
+		log.Printf("Failed to get homeworld: %v", err)
+		errs.InternalError("Failed to find homeworld").WriteJSON(w, http.StatusInternalServerError)
+		return
+	}
+
+	// Deduct resources from homeworld with detailed error
+	var res resourceState
+	res.Metal, res.He3, res.Gold, err = checkAndDeductResources(
+		tx, homeworldID,
+		metalCost, he3Cost, goldCost,
+		fmt.Sprintf("%s level %d", tt.DisplayName, targetLevel),
+	)
+	if err != nil {
+		if err.Error() == fmt.Sprintf("insufficient resources for %s level %d", tt.DisplayName, targetLevel) {
+			errs.InsufficientResources(
+				fmt.Sprintf("Not enough resources to research %s level %d", tt.DisplayName, targetLevel),
+				map[string]int64{
+					"metal": metalCost,
+					"he3":   he3Cost,
+					"gold":  goldCost,
+				},
+				map[string]int64{
+					"metal": res.Metal,
+					"he3":   res.He3,
+					"gold":  res.Gold,
+				},
+			).WriteJSON(w, http.StatusConflict)
 			return
 		}
 		log.Printf("Failed to deduct resources: %v", err)
-		http.Error(w, `{"error":"internal server error"}`, http.StatusInternalServerError)
+		errs.InternalError("Failed to deduct resources").WriteJSON(w, http.StatusInternalServerError)
 		return
 	}
 

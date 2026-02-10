@@ -8,9 +8,11 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/cryptomines-online/backend/internal/combat"
 	"github.com/cryptomines-online/backend/internal/database"
 	"github.com/cryptomines-online/backend/internal/middleware"
 	"github.com/cryptomines-online/backend/internal/models"
+	"github.com/cryptomines-online/backend/internal/services"
 )
 
 type instanceWithBlueprints struct {
@@ -202,46 +204,136 @@ func AttemptInstance(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Simplified combat resolution for Phase 2
-	// In Phase 2, player always wins normal instances (combat engine is future work)
-	// But we still apply the reward formulas from GDD 8.10.4
-	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
+	// Combat resolution using real combat engine
+	// Load player fleets and combine into single combat fleet
+	var allStacks []*combat.FleetStack
+	var totalHe3Consumed int64
+	for _, fid := range req.FleetIDs {
+		playerFleet, err := combat.LoadPlayerFleet(fid, playerID)
+		if err != nil {
+			log.Printf("Failed to load player fleet %s: %v", fid, err)
+			http.Error(w, `{"error":"failed to load player fleet"}`, http.StatusInternalServerError)
+			return
+		}
+		allStacks = append(allStacks, playerFleet.Stacks...)
+	}
 
-	result := "attacker_win"
-	totalRounds := rng.Intn(30) + 5
+	// Create combined attacker fleet
+	attackerFleet := &combat.Fleet{
+		PlayerID:       playerID,
+		FleetID:        "combined",
+		CommanderBonus: nil, // TODO: Support commander in multi-fleet
+		TechBonuses:    &combat.TechBonuses{},
+		Stacks:         allStacks,
+		Formation:      "phalanx",
+		Targeting:      "max_attack",
+		Side:           "attacker",
+	}
 
-	// GDD 8.10.4: Resource rewards
-	instanceNum := inst.Difficulty
-	metalReward := int64(instanceNum)*500 + int64(rng.Intn(instanceNum*200+1))
-	he3Reward := int64(instanceNum)*400 + int64(rng.Intn(instanceNum*150+1))
-	goldReward := int64(instanceNum)*600 + int64(rng.Intn(instanceNum*250+1))
+	// Load tech bonuses for combined fleet
+	techBonuses, err := services.GetPlayerTechBonuses(playerID)
+	if err == nil {
+		attackerFleet.TechBonuses = &combat.TechBonuses{
+			BallisticDamage:     techBonuses.BallisticDamage,
+			BallisticCritRate:   techBonuses.BallisticCritRate,
+			BallisticCritDamage: techBonuses.BallisticCritDamage,
+			BallisticHitRate:    techBonuses.BallisticHitRate,
+			DirectionalDamage:   techBonuses.DirectionalDamage,
+			DirectionalCritRate: techBonuses.DirectionalCritRate,
+			DirectionalAccuracy: techBonuses.DirectionalAccuracy,
+			MissileDamage:       techBonuses.MissileDamage,
+			MissileHitRate:      techBonuses.MissileHitRate,
+			BaseShield:          techBonuses.BaseShield,
+			BaseStructure:       techBonuses.BaseStructure,
+			BaseAgility:         techBonuses.BaseAgility,
+			BaseDefense:         techBonuses.BaseDefense,
+		}
+	}
 
-	// Blueprint roll: 10% chance
+	// Load instance enemy fleet
+	defenderFleet, err := combat.LoadInstanceFleet(instanceID)
+	if err != nil {
+		log.Printf("Failed to load instance fleet: %v", err)
+		http.Error(w, `{"error":"failed to load instance fleet"}`, http.StatusInternalServerError)
+		return
+	}
+
+	// Execute combat
+	engine := combat.NewCombatEngine(time.Now().UnixNano())
+	combatResult, err := engine.ExecuteCombat(attackerFleet, defenderFleet)
+	if err != nil {
+		log.Printf("Combat execution failed: %v", err)
+		http.Error(w, `{"error":"combat execution failed"}`, http.StatusInternalServerError)
+		return
+	}
+
+	// Determine result string for database
+	var result string
+	if combatResult.Winner == "attacker" {
+		result = "attacker_win"
+	} else if combatResult.Winner == "defender" {
+		result = "defender_win"
+	} else {
+		result = "draw"
+	}
+	totalRounds := combatResult.TotalRounds
+
+	// Apply casualties to player fleet stacks (combat engine modifies stacks in-place)
+	shipsDestroyed := make(map[string]int)
+	for _, stack := range attackerFleet.Stacks {
+		destroyed := stack.ShipCount - stack.CurrentShips
+		if destroyed > 0 {
+			shipsDestroyed[stack.ID] = destroyed
+			// Update database fleet_stacks
+			database.DB.Exec(
+				`UPDATE fleet_stacks SET ship_count = $1 WHERE id = $2`,
+				stack.CurrentShips, stack.ID,
+			)
+		}
+	}
+
+	// Calculate He3 consumption (simplified: 1 He3 per ship lost)
+	totalHe3Consumed = int64(combatResult.AttackerCasualties)
+
+	// Calculate rewards (only on victory)
+	var metalReward, he3Reward, goldReward int64
 	var blueprintDrop *int
-	if rng.Float64() < 0.10 {
-		bpRows, err := database.DB.Query(
-			`SELECT blueprint_id FROM instance_blueprints WHERE instance_id = $1`, inst.ID,
-		)
-		if err == nil {
-			defer bpRows.Close()
-			bpIDs := []int{}
-			for bpRows.Next() {
-				var bpID int
-				if bpRows.Scan(&bpID) == nil {
-					bpIDs = append(bpIDs, bpID)
-				}
-			}
-			if len(bpIDs) > 0 {
-				chosenBP := bpIDs[rng.Intn(len(bpIDs))]
-				blueprintDrop = &chosenBP
 
-				// Award unactivated blueprint to player (ignore if already has it)
-				database.DB.Exec(
-					`INSERT INTO player_blueprints (player_id, blueprint_id, is_activated, research_level)
-					 VALUES ($1, $2, false, 1)
-					 ON CONFLICT (player_id, blueprint_id) DO NOTHING`,
-					playerID, chosenBP,
-				)
+	if result == "attacker_win" {
+		rng := rand.New(rand.NewSource(time.Now().UnixNano()))
+
+		// GDD 8.10.4: Resource rewards
+		instanceNum := inst.Difficulty
+		metalReward = int64(instanceNum)*500 + int64(rng.Intn(instanceNum*200+1))
+		he3Reward = int64(instanceNum)*400 + int64(rng.Intn(instanceNum*150+1))
+		goldReward = int64(instanceNum)*600 + int64(rng.Intn(instanceNum*250+1))
+
+		// Blueprint roll: 10% chance
+		if rng.Float64() < 0.10 {
+			bpRows, err := database.DB.Query(
+				`SELECT blueprint_id FROM instance_blueprints WHERE instance_id = $1`, inst.ID,
+			)
+			if err == nil {
+				defer bpRows.Close()
+				bpIDs := []int{}
+				for bpRows.Next() {
+					var bpID int
+					if bpRows.Scan(&bpID) == nil {
+						bpIDs = append(bpIDs, bpID)
+					}
+				}
+				if len(bpIDs) > 0 {
+					chosenBP := bpIDs[rng.Intn(len(bpIDs))]
+					blueprintDrop = &chosenBP
+
+					// Award unactivated blueprint to player (ignore if already has it)
+					database.DB.Exec(
+						`INSERT INTO player_blueprints (player_id, blueprint_id, is_activated, research_level)
+						 VALUES ($1, $2, false, 1)
+						 ON CONFLICT (player_id, blueprint_id) DO NOTHING`,
+						playerID, chosenBP,
+					)
+				}
 			}
 		}
 	}
@@ -275,9 +367,9 @@ func AttemptInstance(w http.ResponseWriter, r *http.Request) {
 	var reportID string
 	err = tx.QueryRow(
 		`INSERT INTO combat_reports (attacker_id, defender_id, combat_type, result, total_rounds, loot_json, he3_consumed)
-		 VALUES ($1, $1, 'instance_normal', $2, $3, $4, 0)
+		 VALUES ($1, $1, 'instance_normal', $2, $3, $4, $5)
 		 RETURNING id`,
-		playerID, result, totalRounds, string(lootJSON),
+		playerID, result, totalRounds, string(lootJSON), totalHe3Consumed,
 	).Scan(&reportID)
 	if err != nil {
 		log.Printf("Failed to create combat report: %v", err)
@@ -285,13 +377,16 @@ func AttemptInstance(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Update instance progress
+	// Update instance progress (completed only on victory)
+	isCompleted := result == "attacker_win"
 	tx.Exec(
 		`INSERT INTO instance_progress (player_id, instance_id, completed, attempts, last_attempt_at)
-		 VALUES ($1, $2, true, 1, now())
+		 VALUES ($1, $2, $3, 1, now())
 		 ON CONFLICT (player_id, instance_id) DO UPDATE
-		 SET completed = true, attempts = instance_progress.attempts + 1, last_attempt_at = now()`,
-		playerID, inst.ID,
+		 SET completed = CASE WHEN $3 = true THEN true ELSE instance_progress.completed END,
+		     attempts = instance_progress.attempts + 1,
+		     last_attempt_at = now()`,
+		playerID, inst.ID, isCompleted,
 	)
 
 	if err := tx.Commit(); err != nil {

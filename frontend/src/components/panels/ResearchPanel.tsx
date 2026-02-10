@@ -61,6 +61,32 @@ export default function ResearchPanel({ onClose }: ResearchPanelProps) {
   // Check which tree has active research
   const activeTreeKey = active?.tree || null
 
+  // Calculate active bonuses across all trees
+  const activeBonuses = useMemo(() => {
+    const bonusMap = new Map<string, { total: number; unit: string; label: string }>()
+
+    Object.values(trees).forEach(treeTechs => {
+      treeTechs.forEach(tech => {
+        if (tech.current_level > 0 && tech.effects?.type) {
+          const key = tech.effects.type
+          const perLevel = tech.effects.per_level ?? 0
+          const total = perLevel * tech.current_level
+          const unit = tech.effects.unit === 'percent' ? '%' : (tech.effects.unit || '')
+          const label = tech.effects.type.replace(/_/g, ' ')
+
+          const existing = bonusMap.get(key)
+          if (existing) {
+            existing.total += total
+          } else {
+            bonusMap.set(key, { total, unit, label })
+          }
+        }
+      })
+    })
+
+    return Array.from(bonusMap.values())
+  }, [trees])
+
   async function handleStartResearch(tech: TechWithProgress) {
     setConfirmTech(tech)
   }
@@ -141,6 +167,23 @@ export default function ResearchPanel({ onClose }: ResearchPanelProps) {
           <div className="quest-reward-flash">{toast}</div>
         )}
 
+        {/* Active Bonuses Summary */}
+        {activeBonuses.length > 0 && (
+          <div className="research-bonuses-summary">
+            <div className="research-bonuses-title">ACTIVE BONUSES</div>
+            <div className="research-bonuses-grid">
+              {activeBonuses.map((bonus, i) => (
+                <div key={i} className="research-bonus-item">
+                  <span className="research-bonus-label">{bonus.label}</span>
+                  <span className="research-bonus-value">
+                    +{bonus.total}{bonus.unit}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Body */}
         <div className="research-body">
           {loading ? (
@@ -210,6 +253,8 @@ function TechCard({
   active: { tech_type_id: number } | null
   onResearch: (tech: TechWithProgress) => void
 }) {
+  const [showTooltip, setShowTooltip] = useState(false)
+
   const isMaxed = tech.current_level >= tech.max_level
   const isResearching = tech.is_researching
   const isLocked = getCardState(tech) === 'locked'
@@ -234,7 +279,11 @@ function TechCard({
   const hasActiveElsewhere = active !== null && active.tech_type_id !== tech.id
 
   return (
-    <div className={`tech-card ${stateClass}`}>
+    <div
+      className={`tech-card ${stateClass}`}
+      onMouseEnter={() => setShowTooltip(true)}
+      onMouseLeave={() => setShowTooltip(false)}
+    >
       <div className="tech-card-header">
         <span className="tech-card-name">{tech.display_name}</span>
         {isMaxed ? (
@@ -287,6 +336,63 @@ function TechCard({
       {isLocked && (
         <div className="tech-card-prereq">
           {getPrereqText(tech)}
+        </div>
+      )}
+
+      {/* Tooltip */}
+      {showTooltip && (
+        <TechTooltip tech={tech} effectText={effectText} nextEffectText={nextEffectText} />
+      )}
+    </div>
+  )
+}
+
+// ============ Tech Tooltip ============
+
+function TechTooltip({
+  tech,
+  effectText,
+  nextEffectText,
+}: {
+  tech: TechWithProgress
+  effectText: string
+  nextEffectText: string | null
+}) {
+  return (
+    <div className="tech-tooltip">
+      <div className="tech-tooltip-header">
+        <span className="tech-tooltip-name">{tech.display_name}</span>
+        <span className="tech-tooltip-level">
+          Lv {tech.current_level}/{tech.max_level}
+        </span>
+      </div>
+
+      {tech.description && (
+        <div className="tech-tooltip-desc">{tech.description}</div>
+      )}
+
+      {tech.current_level > 0 && effectText && (
+        <div className="tech-tooltip-row">
+          <span className="tech-tooltip-label">Current Bonus:</span>
+          <span className="tech-tooltip-value active">{effectText}</span>
+        </div>
+      )}
+
+      {nextEffectText && tech.current_level < tech.max_level && (
+        <div className="tech-tooltip-row">
+          <span className="tech-tooltip-label">Next Level:</span>
+          <span className="tech-tooltip-value next">{nextEffectText}</span>
+        </div>
+      )}
+
+      {tech.prerequisites.length > 0 && (
+        <div className="tech-tooltip-prereqs">
+          <div className="tech-tooltip-label">Prerequisites:</div>
+          {tech.prerequisites.map((p, i) => (
+            <div key={i} className="tech-tooltip-prereq">
+              • {p.tech.replace(/_/g, ' ')} Lv {p.level}
+            </div>
+          ))}
         </div>
       )}
     </div>

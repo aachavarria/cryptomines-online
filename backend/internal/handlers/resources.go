@@ -28,12 +28,14 @@ func GetResources(w http.ResponseWriter, r *http.Request) {
 	var res models.Resource
 	err := database.DB.QueryRow(
 		`SELECT id, planet_id, metal, he3, gold, metal_per_hour, he3_per_hour,
-		        gold_per_hour, storage_capacity, last_collected_at, updated_at
+		        gold_per_hour, storage_capacity, warehouse_metal, warehouse_he3,
+		        warehouse_gold, last_warehouse_update, last_collected_at, updated_at
 		 FROM resources WHERE planet_id = $1`, planetID,
 	).Scan(
 		&res.ID, &res.PlanetID, &res.Metal, &res.He3, &res.Gold,
 		&res.MetalPerHour, &res.He3PerHour, &res.GoldPerHour,
-		&res.StorageCapacity, &res.LastCollectedAt, &res.UpdatedAt,
+		&res.StorageCapacity, &res.WarehouseMetal, &res.WarehouseHe3,
+		&res.WarehouseGold, &res.LastWarehouseUpdate, &res.LastCollectedAt, &res.UpdatedAt,
 	)
 	if err != nil {
 		log.Printf("Failed to get resources: %v", err)
@@ -101,12 +103,14 @@ func CollectResources(w http.ResponseWriter, r *http.Request) {
 	var res models.Resource
 	err = tx.QueryRow(
 		`SELECT id, planet_id, metal, he3, gold, metal_per_hour, he3_per_hour,
-		        gold_per_hour, storage_capacity, last_collected_at, updated_at
+		        gold_per_hour, storage_capacity, warehouse_metal, warehouse_he3,
+		        warehouse_gold, last_warehouse_update, last_collected_at, updated_at
 		 FROM resources WHERE planet_id = $1 FOR UPDATE`, planetID,
 	).Scan(
 		&res.ID, &res.PlanetID, &res.Metal, &res.He3, &res.Gold,
 		&res.MetalPerHour, &res.He3PerHour, &res.GoldPerHour,
-		&res.StorageCapacity, &res.LastCollectedAt, &res.UpdatedAt,
+		&res.StorageCapacity, &res.WarehouseMetal, &res.WarehouseHe3,
+		&res.WarehouseGold, &res.LastWarehouseUpdate, &res.LastCollectedAt, &res.UpdatedAt,
 	)
 	if err != nil {
 		log.Printf("Failed to get resources: %v", err)
@@ -136,12 +140,14 @@ func CollectResources(w http.ResponseWriter, r *http.Request) {
 		 SET metal = $1, he3 = $2, gold = $3, last_collected_at = $4, updated_at = $4
 		 WHERE planet_id = $5
 		 RETURNING id, planet_id, metal, he3, gold, metal_per_hour, he3_per_hour,
-		           gold_per_hour, storage_capacity, last_collected_at, updated_at`,
+		           gold_per_hour, storage_capacity, warehouse_metal, warehouse_he3,
+		           warehouse_gold, last_warehouse_update, last_collected_at, updated_at`,
 		newMetal, newHe3, newGold, now, planetID,
 	).Scan(
 		&res.ID, &res.PlanetID, &res.Metal, &res.He3, &res.Gold,
 		&res.MetalPerHour, &res.He3PerHour, &res.GoldPerHour,
-		&res.StorageCapacity, &res.LastCollectedAt, &res.UpdatedAt,
+		&res.StorageCapacity, &res.WarehouseMetal, &res.WarehouseHe3,
+		&res.WarehouseGold, &res.LastWarehouseUpdate, &res.LastCollectedAt, &res.UpdatedAt,
 	)
 	if err != nil {
 		log.Printf("Failed to update resources: %v", err)
@@ -161,6 +167,116 @@ func CollectResources(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(collectResponse{
 		Collected: collectAmounts{Metal: actualMetal, He3: actualHe3, Gold: actualGold},
+		Resources: res,
+	})
+}
+
+// CollectWarehouse handles POST /api/resources/collect-warehouse
+// Transfers warehouse resources to player's inventory
+func CollectWarehouse(w http.ResponseWriter, r *http.Request) {
+	playerID := middleware.GetPlayerID(r)
+
+	// Get player's planet
+	var planetID string
+	err := database.DB.QueryRow(`
+		SELECT id FROM planets WHERE player_id = $1 LIMIT 1
+	`, playerID).Scan(&planetID)
+	if err != nil {
+		log.Printf("Failed to get player planet: %v", err)
+		http.Error(w, `{"error":"planet not found"}`, http.StatusNotFound)
+		return
+	}
+
+	// Apply completed upgrades first
+	applyCompletedUpgrades(planetID)
+
+	tx, err := database.DB.Begin()
+	if err != nil {
+		log.Printf("Failed to begin transaction: %v", err)
+		http.Error(w, `{"error":"internal server error"}`, http.StatusInternalServerError)
+		return
+	}
+	defer tx.Rollback()
+
+	// Get current resources with lock
+	var res models.Resource
+	err = tx.QueryRow(`
+		SELECT id, planet_id, metal, he3, gold, metal_per_hour, he3_per_hour,
+		       gold_per_hour, storage_capacity, warehouse_metal, warehouse_he3,
+		       warehouse_gold, last_warehouse_update, last_collected_at, updated_at
+		FROM resources WHERE planet_id = $1 FOR UPDATE
+	`, planetID).Scan(
+		&res.ID, &res.PlanetID, &res.Metal, &res.He3, &res.Gold,
+		&res.MetalPerHour, &res.He3PerHour, &res.GoldPerHour,
+		&res.StorageCapacity, &res.WarehouseMetal, &res.WarehouseHe3,
+		&res.WarehouseGold, &res.LastWarehouseUpdate, &res.LastCollectedAt, &res.UpdatedAt,
+	)
+	if err != nil {
+		log.Printf("Failed to get resources: %v", err)
+		http.Error(w, `{"error":"resources not found"}`, http.StatusNotFound)
+		return
+	}
+
+	// Calculate how much can be collected (cap at storage capacity)
+	availableSpaceMetal := res.StorageCapacity - res.Metal
+	availableSpaceHe3 := res.StorageCapacity - res.He3
+	availableSpaceGold := res.StorageCapacity - res.Gold
+
+	// Determine actual collection amounts
+	collectedMetal := min64(res.WarehouseMetal, availableSpaceMetal)
+	collectedHe3 := min64(res.WarehouseHe3, availableSpaceHe3)
+	collectedGold := min64(res.WarehouseGold, availableSpaceGold)
+
+	// Check if there's anything to collect
+	if collectedMetal == 0 && collectedHe3 == 0 && collectedGold == 0 {
+		http.Error(w, `{"error":"no resources to collect or storage full"}`, http.StatusBadRequest)
+		return
+	}
+
+	// Calculate new balances
+	newMetal := res.Metal + collectedMetal
+	newHe3 := res.He3 + collectedHe3
+	newGold := res.Gold + collectedGold
+
+	newWarehouseMetal := res.WarehouseMetal - collectedMetal
+	newWarehouseHe3 := res.WarehouseHe3 - collectedHe3
+	newWarehouseGold := res.WarehouseGold - collectedGold
+
+	// Update resources - transfer warehouse to inventory
+	now := time.Now()
+	err = tx.QueryRow(`
+		UPDATE resources
+		SET metal = $1, he3 = $2, gold = $3,
+		    warehouse_metal = $4, warehouse_he3 = $5, warehouse_gold = $6,
+		    updated_at = $7
+		WHERE planet_id = $8
+		RETURNING id, planet_id, metal, he3, gold, metal_per_hour, he3_per_hour,
+		          gold_per_hour, storage_capacity, warehouse_metal, warehouse_he3,
+		          warehouse_gold, last_warehouse_update, last_collected_at, updated_at
+	`, newMetal, newHe3, newGold, newWarehouseMetal, newWarehouseHe3, newWarehouseGold, now, planetID).Scan(
+		&res.ID, &res.PlanetID, &res.Metal, &res.He3, &res.Gold,
+		&res.MetalPerHour, &res.He3PerHour, &res.GoldPerHour,
+		&res.StorageCapacity, &res.WarehouseMetal, &res.WarehouseHe3,
+		&res.WarehouseGold, &res.LastWarehouseUpdate, &res.LastCollectedAt, &res.UpdatedAt,
+	)
+	if err != nil {
+		log.Printf("Failed to update resources: %v", err)
+		http.Error(w, `{"error":"internal server error"}`, http.StatusInternalServerError)
+		return
+	}
+
+	if err := tx.Commit(); err != nil {
+		log.Printf("Failed to commit: %v", err)
+		http.Error(w, `{"error":"internal server error"}`, http.StatusInternalServerError)
+		return
+	}
+
+	// Update quest progress for collecting warehouse
+	services.UpdateQuestProgress(playerID, "collect_warehouse", "warehouse", 1)
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(collectResponse{
+		Collected: collectAmounts{Metal: collectedMetal, He3: collectedHe3, Gold: collectedGold},
 		Resources: res,
 	})
 }
@@ -247,6 +363,24 @@ func recalculateProductionRates(planetID string) {
 	var metalPerHour, he3PerHour, goldPerHour int64
 	var storageCapacity int64
 
+	// Get player ID for tech bonuses
+	var playerID string
+	err := database.DB.QueryRow(`
+		SELECT player_id FROM planets WHERE id = $1
+	`, planetID).Scan(&playerID)
+	if err != nil {
+		log.Printf("Failed to get player ID for production rates: %v", err)
+		return
+	}
+
+	// Get tech bonuses
+	techBonuses, err := services.GetPlayerTechBonuses(playerID)
+	if err != nil {
+		log.Printf("Failed to get tech bonuses: %v", err)
+		// Continue without bonuses rather than failing
+		techBonuses = &services.TechBonuses{}
+	}
+
 	// Sum up production from all resource-producing buildings
 	rows, err := database.DB.Query(
 		`SELECT bt.name, b.level, bt.base_production_per_hour, bt.production_multiplier
@@ -283,6 +417,14 @@ func recalculateProductionRates(planetID string) {
 			}
 		}
 	}
+
+	// Apply tech production bonuses
+	metalPerHour = int64(float64(metalPerHour) * (1.0 + techBonuses.MetalOutput/100.0))
+	he3PerHour = int64(float64(he3PerHour) * (1.0 + techBonuses.He3Output/100.0))
+	goldPerHour = int64(float64(goldPerHour) * (1.0 + techBonuses.GoldOutput/100.0))
+
+	// Apply warehouse capacity bonus (flat addition)
+	storageCapacity += techBonuses.WarehouseCapacity
 
 	// Use a reasonable default if no warehouse exists
 	if storageCapacity == 0 {

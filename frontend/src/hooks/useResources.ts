@@ -1,5 +1,5 @@
 import { useEffect, useCallback } from 'react'
-import { getResources, collectResources, listBuildings } from '../services/api.ts'
+import { getResources, collectResources, collectWarehouse, listBuildings } from '../services/api.ts'
 import { useGameContext } from '../contexts/GameContext.tsx'
 
 export function useResources() {
@@ -45,5 +45,31 @@ export function useResources() {
     }
   }, [planetId, dispatch])
 
-  return { resources: state.resources, collect, refreshResources: fetchResources }
+  const collectWarehouseResources = useCallback(async () => {
+    if (!planetId) return null
+    try {
+      const result = await collectWarehouse()
+      dispatch({
+        type: 'SET_RESOURCES',
+        payload: {
+          ...result.resources,
+          warehouse_metal: 0,
+          warehouse_he3: 0,
+          warehouse_gold: 0,
+        },
+      })
+      return result.collected
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to collect warehouse'
+      dispatch({ type: 'SET_ERROR', payload: message })
+      return null
+    }
+  }, [planetId, dispatch])
+
+  return {
+    resources: state.resources,
+    collect,
+    collectWarehouse: collectWarehouseResources,
+    refreshResources: fetchResources,
+  }
 }

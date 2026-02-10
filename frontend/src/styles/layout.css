@@ -123,6 +123,37 @@
   color: var(--accent-success);
 }
 
+/* Warehouse Badge */
+.warehouse-badge {
+  font-size: var(--font-xs);
+  font-weight: 700;
+  color: var(--accent-success);
+  background: rgba(34, 204, 136, 0.15);
+  padding: 1px 5px;
+  border-radius: 3px;
+  margin-left: 4px;
+  font-variant-numeric: tabular-nums;
+  border: 1px solid rgba(34, 204, 136, 0.3);
+}
+
+.warehouse-badge.warehouse-full {
+  color: var(--accent-danger);
+  background: rgba(255, 68, 68, 0.15);
+  border-color: rgba(255, 68, 68, 0.4);
+  animation: warehousePulse 2s ease-in-out infinite;
+}
+
+@keyframes warehousePulse {
+  0%, 100% {
+    box-shadow: 0 0 4px rgba(255, 68, 68, 0.3);
+    opacity: 0.9;
+  }
+  50% {
+    box-shadow: 0 0 12px rgba(255, 68, 68, 0.6);
+    opacity: 1;
+  }
+}
+
 .hud-storage {
   display: flex;
   align-items: center;

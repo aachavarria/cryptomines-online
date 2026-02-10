@@ -304,6 +304,106 @@ func ClaimQuest(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Process item rewards (add to inventory instead of direct unlock)
+	if len(qt.RewardItemJSON) > 0 && string(qt.RewardItemJSON) != "[]" {
+		var items []map[string]interface{}
+		if err := json.Unmarshal(qt.RewardItemJSON, &items); err != nil {
+			log.Printf("Failed to parse reward items: %v", err)
+		} else {
+			for _, item := range items {
+				itemType, hasType := item["type"].(string)
+				if !hasType {
+					continue
+				}
+
+				if itemType == "item" {
+					// Regular item (resource pack, boost, battle item)
+					itemKey, _ := item["item_key"].(string)
+					quantity := 1
+					if qty, ok := item["quantity"].(float64); ok {
+						quantity = int(qty)
+					}
+
+					_, err = tx.Exec(`
+						INSERT INTO player_inventory (player_id, item_key, quantity)
+						VALUES ($1, $2, $3)
+						ON CONFLICT (player_id, item_key)
+						DO UPDATE SET quantity = player_inventory.quantity + EXCLUDED.quantity, updated_at = now()
+					`, playerID, itemKey, quantity)
+					if err != nil {
+						log.Printf("Failed to add item to inventory: %v", err)
+					}
+
+				} else if itemType == "blueprint" {
+					// Blueprint item (add to inventory, NOT direct unlock)
+					blueprintKey, _ := item["blueprint_key"].(string)
+
+					// Get blueprint ID
+					var blueprintID int
+					err = tx.QueryRow(`
+						SELECT id FROM blueprints
+						WHERE blueprint_type = 'hull' AND hull_type_id = (
+							SELECT id FROM hull_types WHERE name = $1
+						)
+						LIMIT 1
+					`, blueprintKey).Scan(&blueprintID)
+					if err != nil {
+						log.Printf("Failed to find blueprint %s: %v", blueprintKey, err)
+						continue
+					}
+
+					// Create dynamic blueprint item in item_types (if not exists)
+					blueprintItemKey := "blueprint_" + blueprintKey
+					_, err = tx.Exec(`
+						INSERT INTO item_types (item_key, display_name, category, description, blueprint_id)
+						VALUES ($1, $2, 'blueprint', $3, $4)
+						ON CONFLICT (item_key) DO NOTHING
+					`, blueprintItemKey, "Blueprint: "+blueprintKey, "Unlock "+blueprintKey+" blueprint", blueprintID)
+					if err != nil {
+						log.Printf("Failed to create blueprint item type: %v", err)
+					}
+
+					// Add to inventory
+					_, err = tx.Exec(`
+						INSERT INTO player_inventory (player_id, item_key, quantity)
+						VALUES ($1, $2, 1)
+						ON CONFLICT (player_id, item_key)
+						DO UPDATE SET quantity = player_inventory.quantity + 1, updated_at = now()
+					`, playerID, blueprintItemKey)
+					if err != nil {
+						log.Printf("Failed to add blueprint item to inventory: %v", err)
+					}
+
+				} else if itemType == "commander" {
+					// Commander card item (add to inventory, NOT direct unlock)
+					commanderKey, _ := item["commander_key"].(string)
+
+					// Create dynamic commander item in item_types (if not exists)
+					commanderItemKey := "commander_" + commanderKey
+					_, err = tx.Exec(`
+						INSERT INTO item_types (item_key, display_name, category, description, commander_type)
+						VALUES ($1, $2, 'commander', $3, $4)
+						ON CONFLICT (item_key) DO NOTHING
+					`, commanderItemKey, "Commander: "+commanderKey, "Unlock "+commanderKey+" commander", commanderKey)
+					if err != nil {
+						log.Printf("Failed to create commander item type: %v", err)
+					}
+
+					// Add to inventory
+					_, err = tx.Exec(`
+						INSERT INTO player_inventory (player_id, item_key, quantity)
+						VALUES ($1, $2, 1)
+						ON CONFLICT (player_id, item_key)
+						DO UPDATE SET quantity = player_inventory.quantity + 1, updated_at = now()
+					`, playerID, commanderItemKey)
+					if err != nil {
+						log.Printf("Failed to add commander item to inventory: %v", err)
+					}
+				}
+			}
+		}
+	}
+
 	// Unlock next quest in chain (for main and side quests)
 	var nextQuestKey *string
 	err = tx.QueryRow(

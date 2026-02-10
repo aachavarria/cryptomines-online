@@ -153,6 +153,18 @@ func CreateShipDesign(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check hull tier is unlocked via blueprint research
+	canUseHull, err := services.CanUseHullTier(playerID, req.HullTypeID)
+	if err != nil {
+		log.Printf("Failed to check hull tier: %v", err)
+		http.Error(w, `{"error":"internal server error"}`, http.StatusInternalServerError)
+		return
+	}
+	if !canUseHull {
+		http.Error(w, `{"error":"hull tier not unlocked - research blueprint to unlock"}`, http.StatusForbidden)
+		return
+	}
+
 	// Validate modules
 	if len(req.Modules) == 0 {
 		http.Error(w, `{"error":"design must have at least one module"}`, http.StatusBadRequest)
@@ -190,6 +202,18 @@ func CreateShipDesign(w http.ResponseWriter, r *http.Request) {
 		}
 		if !moduleBlueprintExists {
 			http.Error(w, `{"error":"module blueprint not owned or not activated: `+mt.Name+`"}`, http.StatusConflict)
+			return
+		}
+
+		// Check module tier is unlocked via blueprint research
+		canUseModule, err := services.CanUseModuleTier(playerID, mod.ModuleTypeID)
+		if err != nil {
+			log.Printf("Failed to check module tier: %v", err)
+			http.Error(w, `{"error":"internal server error"}`, http.StatusInternalServerError)
+			return
+		}
+		if !canUseModule {
+			http.Error(w, `{"error":"module tier not unlocked - research blueprint to unlock"}`, http.StatusForbidden)
 			return
 		}
 
@@ -333,6 +357,38 @@ func UpdateShipDesign(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, `{"error":"hull type not found"}`, http.StatusBadRequest)
 		return
+	}
+
+	// Check hull tier is unlocked via blueprint research
+	canUseHull, err := services.CanUseHullTier(playerID, req.HullTypeID)
+	if err != nil {
+		log.Printf("Failed to check hull tier: %v", err)
+		http.Error(w, `{"error":"internal server error"}`, http.StatusInternalServerError)
+		return
+	}
+	if !canUseHull {
+		http.Error(w, `{"error":"hull tier not unlocked - research blueprint to unlock"}`, http.StatusForbidden)
+		return
+	}
+
+	// Validate modules
+	if len(req.Modules) == 0 {
+		http.Error(w, `{"error":"design must have at least one module"}`, http.StatusBadRequest)
+		return
+	}
+
+	// Check each module tier is unlocked
+	for _, mod := range req.Modules {
+		canUseModule, err := services.CanUseModuleTier(playerID, mod.ModuleTypeID)
+		if err != nil {
+			log.Printf("Failed to check module tier: %v", err)
+			http.Error(w, `{"error":"internal server error"}`, http.StatusInternalServerError)
+			return
+		}
+		if !canUseModule {
+			http.Error(w, `{"error":"module tier not unlocked - research blueprint to unlock"}`, http.StatusForbidden)
+			return
+		}
 	}
 
 	// Calculate stats

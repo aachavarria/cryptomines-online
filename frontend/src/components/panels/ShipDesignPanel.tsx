@@ -4,7 +4,9 @@ import { Canvas } from '@react-three/fiber'
 import { OrbitControls, useGLTF, Environment } from '@react-three/drei'
 import { useShipDesigns } from '../../hooks/useShipDesigns.ts'
 import { useBlueprints } from '../../hooks/useBlueprints.ts'
+import LoadingButton from '../common/LoadingButton.tsx'
 import type { HullType, ModuleType, ShipDesignModule, ShipDesign } from '../../types'
+import '../../styles/common.css'
 
 const HULL_CLASS_COLORS: Record<string, string> = {
   frigate: '#44aaff',
@@ -28,6 +30,18 @@ const CATEGORY_LABELS: Record<string, string> = {
   ballistic: 'BAL', directional: 'DIR', missile: 'MSL', ship_based: 'SHP', planetary: 'PLN',
   structure: 'STR', shield: 'SHD', air_defense: 'ADF',
   electronic: 'ELC', storage: 'STO', transmission: 'TRN',
+}
+
+// --- Tier helpers ---
+
+const TIER_LABELS: Record<number, string> = {
+  1: 'I',
+  2: 'II',
+  3: 'III',
+}
+
+function getTierLabel(tier: number): string {
+  return TIER_LABELS[tier] || `T${tier}`
 }
 
 // --- Stat helpers (matches backend ship_formulas.go) ---
@@ -86,11 +100,13 @@ interface DesignEditorProps {
   moduleTypes: ModuleType[]
   hasHullBlueprint: (id: number) => boolean
   hasModuleBlueprint: (id: number) => boolean
+  getHullBlueprintResearchLevel: (hullTypeId: number) => number
+  getModuleBlueprintResearchLevel: (moduleTypeId: number) => number
   onSave: (name: string, hullTypeId: number, modules: ShipDesignModule[]) => Promise<void>
   onClose: () => void
 }
 
-function DesignEditor({ hullTypes, moduleTypes, hasHullBlueprint, hasModuleBlueprint, onSave, onClose }: DesignEditorProps) {
+function DesignEditor({ hullTypes, moduleTypes, hasHullBlueprint, hasModuleBlueprint, getHullBlueprintResearchLevel, getModuleBlueprintResearchLevel, onSave, onClose }: DesignEditorProps) {
   const [name, setName] = useState('')
   const [selectedHull, setSelectedHull] = useState<number | null>(null)
   const [modules, setModules] = useState<ShipDesignModule[]>([])
@@ -100,16 +116,23 @@ function DesignEditor({ hullTypes, moduleTypes, hasHullBlueprint, hasModuleBluep
   const [moduleSubCategory, setModuleSubCategory] = useState<string | null>(null)
 
   const hull = hullTypes.find(h => h.id === selectedHull)
-  const filteredHulls = hullTypes.filter(h => h.hull_class === hullClassFilter)
+  const filteredHulls = hullTypes.filter(h => {
+    if (h.hull_class !== hullClassFilter) return false
+    const researchLevel = getHullBlueprintResearchLevel(h.id)
+    // Show hull if research_level >= tier (research_level 0 means no blueprint)
+    return researchLevel >= h.tier
+  })
 
   const groupCategories = MODULE_GROUPS[moduleGroup]?.categories || []
   const filteredModules = useMemo(() => {
     return moduleTypes.filter(mt => {
       if (!groupCategories.includes(mt.category)) return false
       if (moduleSubCategory && mt.category !== moduleSubCategory) return false
-      return true
+      const researchLevel = getModuleBlueprintResearchLevel(mt.id)
+      // Show module if research_level >= tier
+      return researchLevel >= mt.tier
     })
-  }, [moduleTypes, groupCategories, moduleSubCategory])
+  }, [moduleTypes, groupCategories, moduleSubCategory, getModuleBlueprintResearchLevel])
 
   const volumeUsed = useMemo(() => {
     return modules.reduce((sum, m) => {
@@ -243,28 +266,32 @@ function DesignEditor({ hullTypes, moduleTypes, hasHullBlueprint, hasModuleBluep
             <div className="de-hull-list">
               {filteredHulls.map(h => {
                 const hasBp = hasHullBlueprint(h.id)
+                const researchLevel = getHullBlueprintResearchLevel(h.id)
+                const tierUnlocked = researchLevel >= h.tier
                 return (
                   <button
                     key={h.id}
-                    className={`de-hull-card ${selectedHull === h.id ? 'selected' : ''} ${!hasBp ? 'locked' : ''}`}
-                    onClick={() => { if (hasBp) { setSelectedHull(h.id); setModules([]) } }}
-                    disabled={!hasBp}
+                    className={`de-hull-card ${selectedHull === h.id ? 'selected' : ''} ${!tierUnlocked ? 'locked' : ''}`}
+                    onClick={() => { if (tierUnlocked) { setSelectedHull(h.id); setModules([]) } }}
+                    disabled={!tierUnlocked}
+                    title={!tierUnlocked ? `Tier ${getTierLabel(h.tier)} locked - Research blueprint to level ${h.tier}` : ''}
                   >
                     <div className="de-hull-top">
                       <span className="de-hull-name">{h.display_name}</span>
-                      <span className="de-hull-tier">T{h.tier}</span>
+                      <span className={`de-hull-tier tier-${h.tier}`}>{getTierLabel(h.tier)}</span>
                     </div>
                     <div className="de-hull-stats">
                       <span>SH:{h.base_shield}</span>
                       <span>ST:{h.base_structure}</span>
                       <span>Slots:{h.installation_slots}</span>
                     </div>
-                    {!hasBp && <div className="de-hull-lock">No Blueprint</div>}
+                    {!hasBp && <div className="de-hull-lock">🔒 No Blueprint</div>}
+                    {hasBp && !tierUnlocked && <div className="de-hull-lock">🔒 Tier {getTierLabel(h.tier)} Locked</div>}
                   </button>
                 )
               })}
               {filteredHulls.length === 0 && (
-                <div className="de-empty">No hulls of this class available</div>
+                <div className="de-empty">No hulls of this class unlocked</div>
               )}
             </div>
           </div>
@@ -331,13 +358,14 @@ function DesignEditor({ hullTypes, moduleTypes, hasHullBlueprint, hasModuleBluep
                 {/* Action buttons */}
                 <div className="de-actions">
                   <button className="p2-btn p2-btn-secondary" onClick={onClose}>Cancel</button>
-                  <button
+                  <LoadingButton
                     className="p2-btn p2-btn-primary"
-                    disabled={!isValid || saving}
+                    disabled={!isValid}
+                    loading={saving}
                     onClick={handleSave}
                   >
-                    {saving ? 'Saving...' : 'Save Design'}
-                  </button>
+                    Save Design
+                  </LoadingButton>
                 </div>
               </>
             ) : (
@@ -386,28 +414,35 @@ function DesignEditor({ hullTypes, moduleTypes, hasHullBlueprint, hasModuleBluep
             {/* Module list */}
             <div className="de-module-catalog">
               {filteredModules.length === 0 ? (
-                <div className="de-empty">No modules in this category</div>
+                <div className="de-empty">No modules unlocked in this category</div>
               ) : (
                 filteredModules.map(mt => {
                   const hasBp = hasModuleBlueprint(mt.id)
+                  const researchLevel = getModuleBlueprintResearchLevel(mt.id)
+                  const tierUnlocked = researchLevel >= mt.tier
                   const installed = modules.find(m => m.module_type_id === mt.id)
                   const atMax = mt.max_per_ship > 0 && (installed?.quantity || 0) >= mt.max_per_ship
                   return (
                     <button
                       key={mt.id}
-                      className={`de-catalog-module ${!hasBp ? 'locked' : ''} ${installed ? 'installed' : ''} ${atMax ? 'at-max' : ''}`}
-                      onClick={() => { if (hasBp && hull && !atMax) addModule(mt.id) }}
-                      disabled={!hasBp || !hull || atMax}
+                      className={`de-catalog-module ${!tierUnlocked ? 'locked' : ''} ${installed ? 'installed' : ''} ${atMax ? 'at-max' : ''}`}
+                      onClick={() => { if (tierUnlocked && hull && !atMax) addModule(mt.id) }}
+                      disabled={!tierUnlocked || !hull || atMax}
+                      title={!tierUnlocked ? `Tier ${getTierLabel(mt.tier)} locked - Research blueprint to level ${mt.tier}` : ''}
                     >
                       <span className={`de-mod-cat ${mt.category}`}>{CATEGORY_LABELS[mt.category] || mt.category.slice(0, 3).toUpperCase()}</span>
                       <div className="de-catalog-info">
-                        <span className="de-catalog-name">{mt.display_name}</span>
+                        <span className="de-catalog-name">
+                          {mt.display_name}
+                          <span className={`de-mod-tier tier-${mt.tier}`}>{getTierLabel(mt.tier)}</span>
+                        </span>
                         <span className="de-catalog-stat">{getModuleStat(mt)}</span>
                       </div>
                       <div className="de-catalog-right">
                         <span className="de-catalog-vol">v{mt.volume}</span>
                         {installed && <span className="de-catalog-qty">x{installed.quantity}</span>}
-                        {!hasBp && <span className="de-catalog-lock">Locked</span>}
+                        {!hasBp && <span className="de-catalog-lock">🔒 No BP</span>}
+                        {hasBp && !tierUnlocked && <span className="de-catalog-lock">🔒 Tier {getTierLabel(mt.tier)}</span>}
                       </div>
                     </button>
                   )
@@ -479,11 +514,23 @@ function DesignEditor({ hullTypes, moduleTypes, hasHullBlueprint, hasModuleBluep
 
 export default function ShipDesignPanel() {
   const { designs, hullTypes, moduleTypes, loading, error, create, remove } = useShipDesigns()
-  const { hasHullBlueprint, hasModuleBlueprint } = useBlueprints()
+  const { hasHullBlueprint, hasModuleBlueprint, myBlueprints } = useBlueprints()
   const [showEditor, setShowEditor] = useState(false)
 
   if (loading) {
     return <div className="p2-panel-loading"><div className="loading-spinner" /><span>Loading Designs...</span></div>
+  }
+
+  // Helper to get blueprint research level for a hull type
+  function getHullBlueprintResearchLevel(hullTypeId: number): number {
+    const bp = myBlueprints.find(bp => bp.blueprint_type === 'hull' && bp.hull_type_id === hullTypeId && bp.is_activated)
+    return bp?.research_level ?? 0
+  }
+
+  // Helper to get blueprint research level for a module type
+  function getModuleBlueprintResearchLevel(moduleTypeId: number): number {
+    const bp = myBlueprints.find(bp => bp.blueprint_type === 'module' && bp.module_type_id === moduleTypeId && bp.is_activated)
+    return bp?.research_level ?? 0
   }
 
   async function handleSave(name: string, hullTypeId: number, modules: ShipDesignModule[]) {
@@ -529,6 +576,8 @@ export default function ShipDesignPanel() {
           moduleTypes={moduleTypes}
           hasHullBlueprint={hasHullBlueprint}
           hasModuleBlueprint={hasModuleBlueprint}
+          getHullBlueprintResearchLevel={getHullBlueprintResearchLevel}
+          getModuleBlueprintResearchLevel={getModuleBlueprintResearchLevel}
           onSave={handleSave}
           onClose={() => setShowEditor(false)}
         />

@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { useQuests } from '../../hooks/useQuests.ts'
 import QuestPanel from '../panels/QuestPanel.tsx'
 import ResearchPanel from '../panels/ResearchPanel.tsx'
+import ChatPanel from '../panels/ChatPanel.tsx'
 
 interface NavItemConfig {
   id: string
@@ -17,6 +18,7 @@ const NAV_ITEMS: NavItemConfig[] = [
   { id: 'research', icon: '\u{1F52C}', label: 'Research', route: null, locked: false },
   { id: 'fleet', icon: '\u{1F680}', label: 'Military', route: '/military', locked: false },
   { id: 'quest', icon: '\u{1F4DC}', label: 'Quests', route: null, locked: false },
+  { id: 'chat', icon: '\u{1F4AC}', label: 'Chat', route: null, locked: false },
   { id: 'commander', icon: '\u{1F464}', label: 'Cmdr', route: null, locked: true },
   { id: 'galaxy', icon: '\u{1F5FA}', label: 'Galaxy', route: null, locked: true },
   { id: 'corp', icon: '\u{1F6E1}', label: 'Corp', route: null, locked: true },
@@ -26,6 +28,7 @@ export default function SideNav() {
   const [tooltip, setTooltip] = useState<string | null>(null)
   const [questOpen, setQuestOpen] = useState(false)
   const [researchOpen, setResearchOpen] = useState(false)
+  const [chatOpen, setChatOpen] = useState(false)
   const navigate = useNavigate()
   const location = useLocation()
   const { claimableCount } = useQuests()
@@ -34,6 +37,7 @@ export default function SideNav() {
     if (item.id === 'base') return location.pathname.startsWith('/planet')
     if (item.id === 'quest') return questOpen
     if (item.id === 'research') return researchOpen
+    if (item.id === 'chat') return chatOpen
     if (item.route) return location.pathname === item.route
     return false
   }
@@ -43,11 +47,19 @@ export default function SideNav() {
     if (item.id === 'quest') {
       setQuestOpen(prev => !prev)
       setResearchOpen(false)
+      setChatOpen(false)
       return
     }
     if (item.id === 'research') {
       setResearchOpen(prev => !prev)
       setQuestOpen(false)
+      setChatOpen(false)
+      return
+    }
+    if (item.id === 'chat') {
+      setChatOpen(prev => !prev)
+      setQuestOpen(false)
+      setResearchOpen(false)
       return
     }
     if (item.id === 'base') {
@@ -89,6 +101,7 @@ export default function SideNav() {
 
       {questOpen && <QuestPanel onClose={() => setQuestOpen(false)} />}
       {researchOpen && <ResearchPanel onClose={() => setResearchOpen(false)} />}
+      {chatOpen && <ChatPanel />}
     </>
   )
 }

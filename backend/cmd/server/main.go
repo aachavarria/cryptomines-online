@@ -8,6 +8,7 @@ import (
 	"github.com/cryptomines-online/backend/internal/database"
 	"github.com/cryptomines-online/backend/internal/handlers"
 	"github.com/cryptomines-online/backend/internal/middleware"
+	"github.com/cryptomines-online/backend/internal/workers"
 	"github.com/joho/godotenv"
 )
 
@@ -20,11 +21,14 @@ func main() {
 		log.Fatalf("Failed to initialize database: %v", err)
 	}
 
+	// Start background workers
+	go workers.StartBlueprintWorker()
+	go workers.StartResourceWorker()
+
 	mux := http.NewServeMux()
 
 	// Public routes
 	mux.HandleFunc("GET /api/health", handlers.Health)
-	mux.HandleFunc("POST /api/auth/guest", handlers.GuestAuth)
 	mux.HandleFunc("GET /api/building-types", handlers.ListBuildingTypes)
 
 	// Public reference data (Phase 2)
@@ -46,6 +50,7 @@ func main() {
 	protected.HandleFunc("PUT /api/planets/{id}/buildings/{buildingId}/move", handlers.MoveBuilding)
 	protected.HandleFunc("GET /api/planets/{id}/resources", handlers.GetResources)
 	protected.HandleFunc("POST /api/planets/{id}/resources/collect", handlers.CollectResources)
+	protected.HandleFunc("POST /api/resources/collect-warehouse", handlers.CollectWarehouse)
 
 	// Phase 2 - Ship Factory
 	protected.HandleFunc("GET /api/ship-factory", handlers.GetShipFactory)
@@ -64,6 +69,7 @@ func main() {
 	protected.HandleFunc("GET /api/blueprints/mine", handlers.ListMyBlueprints)
 	protected.HandleFunc("POST /api/blueprints/{id}/activate", handlers.ActivateBlueprint)
 	protected.HandleFunc("POST /api/blueprints/{id}/research", handlers.ResearchBlueprint)
+	protected.HandleFunc("GET /api/blueprint-research/active", handlers.GetActiveBlueprintResearch)
 
 	// Phase 2 - Fleets
 	protected.HandleFunc("GET /api/fleets", handlers.ListFleets)
@@ -101,6 +107,37 @@ func main() {
 	protected.HandleFunc("POST /api/research/cancel", handlers.CancelResearch)
 	protected.HandleFunc("POST /api/research/speedup", handlers.SpeedupResearch)
 	protected.HandleFunc("GET /api/research/active", handlers.GetActiveResearch)
+
+	// Inventory
+	protected.HandleFunc("GET /api/inventory", handlers.GetInventory)
+	protected.HandleFunc("POST /api/inventory/{id}/use", handlers.UseItem)
+
+	// Commanders
+	protected.HandleFunc("POST /api/commanders/recruit", handlers.RecruitCommander)
+	protected.HandleFunc("GET /api/commanders", handlers.ListCommanders)
+	protected.HandleFunc("POST /api/commanders/merge", handlers.MergeCommanders)
+	protected.HandleFunc("POST /api/fleets/{id}/assign-commander", handlers.AssignCommander)
+	protected.HandleFunc("POST /api/fleets/{id}/unassign-commander", handlers.UnassignCommander)
+	protected.HandleFunc("DELETE /api/commanders/{id}", handlers.DismissCommander)
+
+	// Combat Reports
+	protected.HandleFunc("GET /api/combat-reports", handlers.ListCombatReports)
+	protected.HandleFunc("GET /api/combat-reports/{id}", handlers.GetCombatReport)
+
+	// Recycling Plant
+	protected.HandleFunc("POST /api/recycling-plant/recycle", handlers.StartRecycle)
+	protected.HandleFunc("GET /api/recycling-plant/jobs", handlers.ListRecyclingJobs)
+	protected.HandleFunc("POST /api/recycling-plant/collect/{id}", handlers.CollectRecycle)
+	protected.HandleFunc("DELETE /api/recycling-plant/jobs/{id}", handlers.CancelRecycle)
+	protected.HandleFunc("GET /api/ship-instances/available", handlers.ListAvailableShips)
+
+	// PvP Combat
+	protected.HandleFunc("POST /api/pvp/attack", handlers.AttackPlanet)
+	protected.HandleFunc("GET /api/pvp/search", handlers.SearchPlanets)
+
+	// World Chat
+	protected.HandleFunc("POST /api/chat/send", handlers.SendChatMessage)
+	protected.HandleFunc("GET /api/chat/messages", handlers.GetChatMessages)
 
 	mux.Handle("/api/", middleware.Auth(protected))
 
