@@ -89,10 +89,10 @@ type FleetStack struct {
 
 // Commander bonuses
 type CommanderBonus struct {
-	Accuracy      int
-	Dodge         int
-	Speed         int
-	Electron      int
+	Accuracy       int
+	Dodge          int
+	Speed          int
+	Electron       int
 	EffectiveStack float64 // Percentage bonus to effective stacks
 }
 
@@ -146,15 +146,17 @@ type CombatRound struct {
 
 // Attack represents a single attack action
 type Attack struct {
-	AttackerStackID string
-	DefenderStackID string
-	AttackerSide    string
-	DefenderSide    string
-	Hit             bool
-	Damage          int
-	ShieldDamage    int
-	StructureDamage int
-	ShipsDestroyed  int
+	AttackerStackID   string
+	DefenderStackID   string
+	AttackerSide      string
+	DefenderSide      string
+	Hit               bool
+	CriticalHit       bool
+	SuccessiveStrike  bool
+	Damage            int
+	ShieldDamage      int
+	StructureDamage   int
+	ShipsDestroyed    int
 }
 
 // CombatResult is the final outcome of combat
@@ -187,6 +189,7 @@ func (ce *CombatEngine) ExecuteCombat(attacker, defender *Fleet) (*CombatResult,
 	}
 
 	state.log(fmt.Sprintf("Combat started: %s vs %s", attacker.PlayerID, defender.PlayerID))
+	state.log(fmt.Sprintf("Attacker formation: %s | Defender formation: %s", attacker.Formation, defender.Formation))
 
 	// Phase 1: Calculate effective stacks (pre-combat, once)
 	ce.phase1CalculateEffectiveStacks(state)
@@ -218,42 +221,86 @@ func (ce *CombatEngine) ExecuteCombat(attacker, defender *Fleet) (*CombatResult,
 				continue
 			}
 
-			// Phase 4: Calculate hit chance
-			hitChance := ce.phase4CalculateHitChance(stack, target)
-			hit := ce.rng.Float64() < hitChance
+			// Get fleet to access commander bonuses
+			attackerFleet := ce.getFleetForStack(state, stack)
 
-			attack := &Attack{
-				AttackerStackID: stack.ID,
-				DefenderStackID: target.ID,
-				AttackerSide:    ce.getSide(state, stack),
-				DefenderSide:    ce.getSide(state, target),
-				Hit:             hit,
+			// Check for successive strike (Speed stat: Speed/500 chance to attack twice)
+			attackCount := 1
+			successiveStrike := false
+			if attackerFleet != nil && attackerFleet.CommanderBonus != nil {
+				successiveChance := float64(attackerFleet.CommanderBonus.Speed) / 500.0
+				if ce.rng.Float64() < successiveChance {
+					attackCount = 2
+					successiveStrike = true
+				}
 			}
 
-			if !hit {
-				state.log(fmt.Sprintf("Stack %s missed target %s", stack.ID, target.ID))
+			// Execute attack(s) - can be 1 or 2 if successive strike triggers
+			for attackNum := 0; attackNum < attackCount; attackNum++ {
+				// Phase 4: Calculate hit chance
+				hitChance := ce.phase4CalculateHitChance(stack, target)
+				hit := ce.rng.Float64() < hitChance
+
+				attack := &Attack{
+					AttackerStackID:  stack.ID,
+					DefenderStackID:  target.ID,
+					AttackerSide:     ce.getSide(state, stack),
+					DefenderSide:     ce.getSide(state, target),
+					Hit:              hit,
+					SuccessiveStrike: successiveStrike && attackNum > 0,
+				}
+
+				if !hit {
+					state.log(fmt.Sprintf("Stack %s missed target %s", stack.ID, target.ID))
+					round.Attacks = append(round.Attacks, attack)
+					continue
+				}
+
+				// Phase 5: Calculate damage with formation bonuses
+				defenderFleet := ce.getFleetForStack(state, target)
+				damage := ce.phase5CalculateDamageWithFormation(stack, target, attackerFleet, defenderFleet)
+
+				// Check for critical hit (Electron stat: 5% + Electron/200 chance for 1.5x damage)
+				criticalHit := false
+				if attackerFleet != nil && attackerFleet.CommanderBonus != nil {
+					critChance := 0.05 + (float64(attackerFleet.CommanderBonus.Electron) / 200.0)
+					if ce.rng.Float64() < critChance {
+						damage = int(math.Round(float64(damage) * 1.5))
+						criticalHit = true
+					}
+				}
+
+				attack.Damage = damage
+				attack.CriticalHit = criticalHit
+
+				// Phase 6: Apply damage
+				shieldDamage, structureDamage := ce.phase6ApplyDamage(target, damage)
+				attack.ShieldDamage = shieldDamage
+				attack.StructureDamage = structureDamage
+
+				// Phase 7: Calculate casualties
+				destroyed := ce.phase7CalculateCasualties(target)
+				attack.ShipsDestroyed = destroyed
+				round.Casualties[target.ID] += destroyed
+
+				critMsg := ""
+				if criticalHit {
+					critMsg = " [CRIT]"
+				}
+				strikeMsg := ""
+				if successiveStrike && attackNum > 0 {
+					strikeMsg = " [SUCCESSIVE STRIKE]"
+				}
+				state.log(fmt.Sprintf("Stack %s hit %s for %d dmg%s%s (%d shield, %d structure), %d ships destroyed",
+					stack.ID, target.ID, damage, critMsg, strikeMsg, shieldDamage, structureDamage, destroyed))
+
 				round.Attacks = append(round.Attacks, attack)
-				continue
+
+				// Check if target destroyed before second attack
+				if target.CurrentShips <= 0 {
+					break
+				}
 			}
-
-			// Phase 5: Calculate damage
-			damage := ce.phase5CalculateDamage(stack, target)
-			attack.Damage = damage
-
-			// Phase 6: Apply damage
-			shieldDamage, structureDamage := ce.phase6ApplyDamage(target, damage)
-			attack.ShieldDamage = shieldDamage
-			attack.StructureDamage = structureDamage
-
-			// Phase 7: Calculate casualties
-			destroyed := ce.phase7CalculateCasualties(target)
-			attack.ShipsDestroyed = destroyed
-			round.Casualties[target.ID] = destroyed
-
-			state.log(fmt.Sprintf("Stack %s hit %s for %d dmg (%d shield, %d structure), %d ships destroyed",
-				stack.ID, target.ID, damage, shieldDamage, structureDamage, destroyed))
-
-			round.Attacks = append(round.Attacks, attack)
 		}
 
 		state.RoundLogs = append(state.RoundLogs, round)
@@ -398,7 +445,7 @@ func (ce *CombatEngine) phase4CalculateHitChance(attacker, defender *FleetStack)
 	return hitChance
 }
 
-// Phase 5: Calculate damage (weapon damage * type advantage * armor effectiveness)
+// Phase 5: Calculate damage (weapon damage * type advantage * armor effectiveness * position modifier * formation bonus)
 func (ce *CombatEngine) phase5CalculateDamage(attacker, defender *FleetStack) int {
 	baseDamage := float64(attacker.EffectiveAttack * attacker.EffectiveStacks)
 
@@ -410,7 +457,70 @@ func (ce *CombatEngine) phase5CalculateDamage(attacker, defender *FleetStack) in
 	armorEffectiveness := ce.getArmorEffectiveness(attacker.DamageType, defender.ArmorType)
 	baseDamage *= armorEffectiveness
 
+	// Apply position-based attack modifier (GO2 formula)
+	positionModifier := ce.getPositionAttackModifier(attacker)
+	baseDamage *= positionModifier
+
 	return int(math.Round(baseDamage))
+}
+
+// Phase 5 with formation bonuses (called from combat loop with fleet context)
+func (ce *CombatEngine) phase5CalculateDamageWithFormation(attacker, defender *FleetStack, attackerFleet, defenderFleet *Fleet) int {
+	baseDamage := ce.phase5CalculateDamage(attacker, defender)
+
+	// Apply attacker formation attack bonus
+	if attackerFleet != nil {
+		attackBonus, _ := ce.getFormationBonuses(attackerFleet.Formation)
+		baseDamage = int(math.Round(float64(baseDamage) * attackBonus))
+	}
+
+	// Apply defender formation defense bonus (reduces incoming damage)
+	if defenderFleet != nil {
+		_, defenseBonus := ce.getFormationBonuses(defenderFleet.Formation)
+		// Defense bonus reduces damage: if defense is 1.10 (110%), damage is reduced by ~9%
+		baseDamage = int(math.Round(float64(baseDamage) / defenseBonus))
+	}
+
+	return baseDamage
+}
+
+// Position-based attack modifier (GO2 formula: Front 100%, Middle 90%, Back 75%)
+// Based on grid row position in 3x3 formation
+func (ce *CombatEngine) getPositionAttackModifier(attacker *FleetStack) float64 {
+	// GridRow: 0 = Front (top), 1 = Middle, 2 = Back (bottom)
+	switch attacker.GridRow {
+	case 0:
+		return 1.00 // Front rank: 100% attack power
+	case 1:
+		return 0.90 // Middle rank: 90% attack power
+	case 2:
+		return 0.75 // Back rank: 75% attack power
+	default:
+		return 1.00 // Default to 100% if invalid position
+	}
+}
+
+// Formation bonuses (GO2 formula: 7 formations with attack/defense modifiers)
+// Returns (attackBonus, defenseBonus) as multipliers
+func (ce *CombatEngine) getFormationBonuses(formation string) (attackBonus float64, defenseBonus float64) {
+	switch formation {
+	case "phalanx":
+		return 1.00, 1.10 // 0% attack, +10% defense (balanced defensive)
+	case "diamond":
+		return 1.05, 1.05 // +5% attack, +5% defense (balanced)
+	case "battle_line":
+		return 1.10, 1.00 // +10% attack, 0% defense (aggressive)
+	case "skirmish":
+		return 1.15, 0.90 // +15% attack, -10% defense (high risk/reward)
+	case "tee_forward":
+		return 1.08, 1.02 // +8% attack, +2% defense (offensive focus)
+	case "enfilade":
+		return 1.12, 0.95 // +12% attack, -5% defense (flanking bonus)
+	case "tee_reverse":
+		return 0.95, 1.15 // -5% attack, +15% defense (defensive focus)
+	default:
+		return 1.00, 1.00 // No formation bonuses
+	}
 }
 
 // Armor effectiveness matrix
@@ -558,6 +668,13 @@ func (ce *CombatEngine) isAttackerStack(state *CombatState, stack *FleetStack) b
 		}
 	}
 	return false
+}
+
+func (ce *CombatEngine) getFleetForStack(state *CombatState, stack *FleetStack) *Fleet {
+	if ce.isAttackerStack(state, stack) {
+		return state.Attacker
+	}
+	return state.Defender
 }
 
 func (ce *CombatEngine) getSide(state *CombatState, stack *FleetStack) string {
