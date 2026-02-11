@@ -340,8 +340,13 @@ func useBlueprint(tx *sql.Tx, playerID, itemKey string) (string, error) {
 		return "", fmt.Errorf("failed to unlock blueprint: %w", err)
 	}
 
-	// Update quest progress
-	services.UpdateQuestProgress(playerID, "unlock_blueprint", "blueprint", 1)
+	// Get blueprint name for quest tracking (matches ActivateBlueprint behavior)
+	var blueprintName string
+	err = tx.QueryRow(`SELECT name FROM blueprints WHERE id = $1`, blueprintID).Scan(&blueprintName)
+	if err == nil {
+		// Update quest progress for using/activating a blueprint
+		services.UpdateQuestProgress(playerID, "use_blueprint", blueprintName, 1)
+	}
 
 	effectMsg := fmt.Sprintf("Blueprint unlocked: %s", displayName)
 	return effectMsg, nil
