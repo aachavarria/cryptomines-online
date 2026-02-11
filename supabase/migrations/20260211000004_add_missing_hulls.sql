@@ -106,7 +106,7 @@ INSERT INTO hull_types (name, display_name, hull_class, tier, armor_type, base_s
 -- Adding blueprints for all new hulls to the blueprints table
 -- ============================================================================
 
-INSERT INTO blueprints (name, blueprint_type, reference_id, acquisition_method, description) VALUES
+INSERT INTO blueprints (name, blueprint_type, hull_type_id, source, description) VALUES
 -- Cruiser Blueprints
 ('Chimera Capra Blueprint', 'hull', (SELECT id FROM hull_types WHERE name = 'chimera_capra_i'), 'instance', 'Unlocks Chimera Capra cruiser line'),
 ('Ultra Gwyar Blueprint',   'hull', (SELECT id FROM hull_types WHERE name = 'ultra_gwyar_i'),   'instance', 'Unlocks Ultra Gwyar cruiser line'),
