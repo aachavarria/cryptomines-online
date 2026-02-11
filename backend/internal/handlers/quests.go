@@ -10,6 +10,7 @@ import (
 	"github.com/cryptomines-online/backend/internal/database"
 	"github.com/cryptomines-online/backend/internal/middleware"
 	"github.com/cryptomines-online/backend/internal/models"
+	"github.com/cryptomines-online/backend/internal/services"
 )
 
 // ListQuests handles GET /api/quests
@@ -644,4 +645,23 @@ func ensureDailyProgress(playerID string) {
 	if err != nil {
 		log.Printf("Failed to ensure daily progress: %v", err)
 	}
+}
+
+// SyncQuests handles POST /api/quests/sync
+// Syncs quest progress with existing buildings/research
+func SyncQuests(w http.ResponseWriter, r *http.Request) {
+	playerID := middleware.GetPlayerID(r)
+
+	err := services.SyncBuildingQuests(playerID)
+	if err != nil {
+		log.Printf("Failed to sync quests for player %s: %v", playerID, err)
+		http.Error(w, `{"error":"failed to sync quests"}`, http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"message": "Quests synced with existing buildings",
+	})
 }

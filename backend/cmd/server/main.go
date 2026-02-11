@@ -99,6 +99,7 @@ func main() {
 	protected.HandleFunc("GET /api/quests/daily", handlers.GetDailyQuests)
 	protected.HandleFunc("POST /api/quests/{id}/claim", handlers.ClaimQuest)
 	protected.HandleFunc("POST /api/quests/daily/claim-tier", handlers.ClaimDailyTier)
+	protected.HandleFunc("POST /api/quests/sync", handlers.SyncQuests)
 
 	// Research
 	protected.HandleFunc("GET /api/research", handlers.ListResearch)
