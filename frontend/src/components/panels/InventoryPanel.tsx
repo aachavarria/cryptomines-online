@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { useGameContext } from '../../contexts/GameContext'
+import { useResources } from '../../hooks/useResources'
 import { getInventory, useItem } from '../../services/api'
 import type { InventoryItem } from '../../types/inventory'
 import './InventoryPanel.css'
@@ -10,7 +10,7 @@ interface InventoryPanelProps {
 }
 
 export default function InventoryPanel({ onClose }: InventoryPanelProps) {
-  const { refreshResources } = useGameContext()
+  const { refreshResources } = useResources()
   const [items, setItems] = useState<InventoryItem[]>([])
   const [loading, setLoading] = useState(false)
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null)
