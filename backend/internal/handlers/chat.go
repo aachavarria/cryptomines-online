@@ -164,10 +164,16 @@ func GetChatMessages(w http.ResponseWriter, r *http.Request) {
 	messages := []chatMessage{}
 	for rows.Next() {
 		var msg chatMessage
-		err := rows.Scan(&msg.ID, &msg.PlayerID, &msg.PlayerName, &msg.Message, &msg.Channel, &msg.CreatedAt)
+		var playerName sql.NullString
+		err := rows.Scan(&msg.ID, &msg.PlayerID, &playerName, &msg.Message, &msg.Channel, &msg.CreatedAt)
 		if err != nil {
 			log.Printf("Failed to scan chat message: %v", err)
 			continue
+		}
+		if playerName.Valid {
+			msg.PlayerName = playerName.String
+		} else {
+			msg.PlayerName = "Unknown Player"
 		}
 		messages = append(messages, msg)
 	}
