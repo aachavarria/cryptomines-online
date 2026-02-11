@@ -134,7 +134,7 @@ export default function SideNav() {
       {questOpen && <QuestPanel onClose={() => setQuestOpen(false)} />}
       {researchOpen && <ResearchPanel onClose={() => setResearchOpen(false)} />}
       {chatOpen && <ChatPanel onClose={() => setChatOpen(false)} />}
-      {inventoryOpen && <InventoryPanel />}
+      {inventoryOpen && <InventoryPanel onClose={() => setInventoryOpen(false)} />}
     </>
   )
 }

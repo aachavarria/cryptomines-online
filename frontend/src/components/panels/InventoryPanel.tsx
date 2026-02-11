@@ -1,10 +1,15 @@
 import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { useGameContext } from '../../contexts/GameContext'
 import { getInventory, useItem } from '../../services/api'
 import type { InventoryItem } from '../../types/inventory'
 import './InventoryPanel.css'
 
-export default function InventoryPanel() {
+interface InventoryPanelProps {
+  onClose: () => void
+}
+
+export default function InventoryPanel({ onClose }: InventoryPanelProps) {
   const { refreshResources } = useGameContext()
   const [items, setItems] = useState<InventoryItem[]>([])
   const [loading, setLoading] = useState(false)
@@ -23,6 +28,15 @@ export default function InventoryPanel() {
   useEffect(() => {
     fetchInventory()
   }, [])
+
+  // ESC to close
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
 
   const handleUse = async (item: InventoryItem) => {
     if (!confirm(`Use ${item.display_name}?\n\n${item.description}`)) return
@@ -67,14 +81,16 @@ export default function InventoryPanel() {
     commander: 'Recruit new commanders'
   }
 
-  return (
-    <div className="inventory-panel">
-      <div className="inventory-header">
-        <h2>Inventory</h2>
-        <div className="inventory-stats">
-          <span>{items.reduce((sum, item) => sum + item.quantity, 0)} items</span>
+  return createPortal(
+    <div className="inventory-backdrop" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
+      <div className="inventory-panel">
+        <div className="inventory-header">
+          <h2>Inventory</h2>
+          <div className="inventory-stats">
+            <span>{items.reduce((sum, item) => sum + item.quantity, 0)} items</span>
+          </div>
+          <button className="close-btn" onClick={onClose}>×</button>
         </div>
-      </div>
 
       {items.length === 0 ? (
         <div className="inventory-empty">
@@ -166,6 +182,8 @@ export default function InventoryPanel() {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </div>,
+    document.body
   )
 }
