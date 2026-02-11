@@ -5,6 +5,7 @@ import QuestPanel from '../panels/QuestPanel.tsx'
 import ResearchPanel from '../panels/ResearchPanel.tsx'
 import ChatPanel from '../panels/ChatPanel.tsx'
 import InventoryPanel from '../panels/InventoryPanel.tsx'
+import CommandersListPanel from '../panels/CommandersListPanel.tsx'
 
 interface NavItemConfig {
   id: string
@@ -21,7 +22,7 @@ const NAV_ITEMS: NavItemConfig[] = [
   { id: 'inventory', icon: '\u{1F4E6}', label: 'Inventory', route: null, locked: false },
   { id: 'quest', icon: '\u{1F4DC}', label: 'Quests', route: null, locked: false },
   { id: 'chat', icon: '\u{1F4AC}', label: 'Chat', route: null, locked: false },
-  { id: 'commander', icon: '\u{1F464}', label: 'Cmdr', route: null, locked: true },
+  { id: 'commander', icon: '\u{1F464}', label: 'Cmdr', route: null, locked: false },
   { id: 'galaxy', icon: '\u{1F5FA}', label: 'Galaxy', route: null, locked: true },
   { id: 'corp', icon: '\u{1F6E1}', label: 'Corp', route: null, locked: true },
 ]
@@ -32,6 +33,7 @@ export default function SideNav() {
   const [researchOpen, setResearchOpen] = useState(false)
   const [chatOpen, setChatOpen] = useState(false)
   const [inventoryOpen, setInventoryOpen] = useState(false)
+  const [commanderOpen, setCommanderOpen] = useState(false)
   const [devMode, setDevMode] = useState(() => {
     return localStorage.getItem('dev_mode') === 'true'
   })
@@ -49,6 +51,7 @@ export default function SideNav() {
     if (item.id === 'research') return researchOpen
     if (item.id === 'chat') return chatOpen
     if (item.id === 'inventory') return inventoryOpen
+    if (item.id === 'commander') return commanderOpen
     if (item.route) return location.pathname === item.route
     return false
   }
@@ -60,6 +63,7 @@ export default function SideNav() {
       setResearchOpen(false)
       setChatOpen(false)
       setInventoryOpen(false)
+      setCommanderOpen(false)
       return
     }
     if (item.id === 'research') {
@@ -67,6 +71,7 @@ export default function SideNav() {
       setQuestOpen(false)
       setChatOpen(false)
       setInventoryOpen(false)
+      setCommanderOpen(false)
       return
     }
     if (item.id === 'chat') {
@@ -74,6 +79,7 @@ export default function SideNav() {
       setQuestOpen(false)
       setResearchOpen(false)
       setInventoryOpen(false)
+      setCommanderOpen(false)
       return
     }
     if (item.id === 'inventory') {
@@ -81,6 +87,15 @@ export default function SideNav() {
       setQuestOpen(false)
       setResearchOpen(false)
       setChatOpen(false)
+      setCommanderOpen(false)
+      return
+    }
+    if (item.id === 'commander') {
+      setCommanderOpen(prev => !prev)
+      setQuestOpen(false)
+      setResearchOpen(false)
+      setChatOpen(false)
+      setInventoryOpen(false)
       return
     }
     if (item.id === 'base') {
@@ -135,6 +150,7 @@ export default function SideNav() {
       {researchOpen && <ResearchPanel onClose={() => setResearchOpen(false)} />}
       {chatOpen && <ChatPanel onClose={() => setChatOpen(false)} />}
       {inventoryOpen && <InventoryPanel onClose={() => setInventoryOpen(false)} />}
+      {commanderOpen && <CommandersListPanel onClose={() => setCommanderOpen(false)} />}
     </>
   )
 }

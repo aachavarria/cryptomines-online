@@ -14,7 +14,7 @@ export default function Inventory() {
         <h1>Inventory</h1>
       </div>
       <div className="page-content">
-        <InventoryPanel />
+        <InventoryPanel onClose={() => navigate(-1)} />
       </div>
     </div>
   )
