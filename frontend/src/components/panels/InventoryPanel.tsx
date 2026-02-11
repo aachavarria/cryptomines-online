@@ -39,20 +39,18 @@ export default function InventoryPanel({ onClose }: InventoryPanelProps) {
   }, [onClose])
 
   const handleUse = async (item: InventoryItem) => {
-    if (!confirm(`Use ${item.display_name}?\n\n${item.description}`)) return
-
     setLoading(true)
     try {
       const result = await useItem(item.id)
 
-      // Show success notification
-      alert(`✓ ${result.effect}`)
-
       // Refresh inventory + resources
       await fetchInventory()
       await refreshResources()
+
+      // Close selected item panel to show the effect took place
+      setSelectedItem(null)
     } catch (err: any) {
-      alert(`✗ Failed to use item: ${err.message || 'Unknown error'}`)
+      console.error('Failed to use item:', err)
     } finally {
       setLoading(false)
     }

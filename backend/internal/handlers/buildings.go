@@ -24,10 +24,10 @@ func applyDevMode(r *http.Request, seconds int) int {
 }
 
 // getConstructionSlots calculates the number of construction slots available to a player.
-// Base: 1 slot, +1 per level of Concurrent Construction tech.
+// Base: 1 slot, +1 per level of Concurrent Construction tech, + active buffs from items.
 func getConstructionSlots(playerID string) int {
 	baseSlots := 1
-	
+
 	// Get Concurrent Construction tech level
 	var techLevel int
 	err := database.DB.QueryRow(`
@@ -36,13 +36,24 @@ func getConstructionSlots(playerID string) int {
 		LEFT JOIN technologies t ON t.tech_type = tt.id AND t.player_id = $1
 		WHERE tt.name = 'concurrent_construction'
 	`, playerID).Scan(&techLevel)
-	
+
 	if err != nil {
 		log.Printf("Failed to get construction slots: %v", err)
 		return baseSlots
 	}
-	
-	return baseSlots + techLevel
+
+	// Check for active construction_slots buff (from Construction Card items)
+	var buffSlots int
+	err = database.DB.QueryRow(`
+		SELECT COALESCE(buff_value, 0)
+		FROM active_buffs
+		WHERE player_id = $1 AND buff_type = 'construction_slots' AND expires_at > now()
+	`, playerID).Scan(&buffSlots)
+	if err != nil && err != sql.ErrNoRows {
+		log.Printf("Failed to get construction slots buff: %v", err)
+	}
+
+	return baseSlots + techLevel + buffSlots
 }
 
 // ListBuildings handles GET /api/planets/{id}/buildings
