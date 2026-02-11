@@ -353,7 +353,7 @@ func ClaimQuest(w http.ResponseWriter, r *http.Request) {
 						continue
 					}
 
-					// Get blueprint ID
+					// Get blueprint ID (try hull first, then module)
 					var blueprintID int
 					err = tx.QueryRow(`
 						SELECT id FROM blueprints
@@ -362,6 +362,18 @@ func ClaimQuest(w http.ResponseWriter, r *http.Request) {
 						)
 						LIMIT 1
 					`, blueprintKey).Scan(&blueprintID)
+
+					// If not found as hull, try module
+					if err == sql.ErrNoRows {
+						err = tx.QueryRow(`
+							SELECT id FROM blueprints
+							WHERE blueprint_type = 'module' AND module_type_id = (
+								SELECT id FROM module_types WHERE name = $1 AND tier = 0
+							)
+							LIMIT 1
+						`, blueprintKey).Scan(&blueprintID)
+					}
+
 					if err != nil {
 						log.Printf("Failed to find blueprint %s: %v", blueprintKey, err)
 						continue
