@@ -214,8 +214,8 @@ func useResourcePack(tx *sql.Tx, playerID, itemKey string) (string, *models.Reso
 	err = tx.QueryRow(updateQuery, resourceAmount, planetID).Scan(
 		&res.ID, &res.PlanetID, &res.Metal, &res.He3, &res.Gold,
 		&res.MetalPerHour, &res.He3PerHour, &res.GoldPerHour,
-		&res.StorageCapacity, &res.WarehouseMetal, &res.WarehouseHe3,
-		&res.WarehouseGold, &res.LastWarehouseUpdate, &res.LastCollectedAt, &res.UpdatedAt,
+		&res.StorageCapacity, &res.LastCollectedAt, &res.UpdatedAt,
+		&res.WarehouseMetal, &res.WarehouseHe3, &res.WarehouseGold, &res.LastWarehouseUpdate,
 	)
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to grant resources: %w", err)
