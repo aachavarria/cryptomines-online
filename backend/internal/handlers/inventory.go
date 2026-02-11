@@ -333,8 +333,8 @@ func useBlueprint(tx *sql.Tx, playerID, itemKey string) (string, error) {
 
 	// Insert into player_blueprints with is_activated = true, research_level = 1
 	_, err = tx.Exec(`
-		INSERT INTO player_blueprints (player_id, blueprint_id, is_activated, research_level, activated_at)
-		VALUES ($1, $2, true, 1, now())
+		INSERT INTO player_blueprints (player_id, blueprint_id, is_activated, research_level)
+		VALUES ($1, $2, true, 1)
 	`, playerID, blueprintID)
 	if err != nil {
 		return "", fmt.Errorf("failed to unlock blueprint: %w", err)
