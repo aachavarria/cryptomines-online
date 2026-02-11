@@ -32,6 +32,7 @@ export function useResources() {
         type: 'SET_RESOURCES',
         payload: {
           ...result.resources,
+          warehouse_capacity: state.resources?.warehouse_capacity || 0,
           pending_metal: 0,
           pending_he3: 0,
           pending_gold: 0,
@@ -43,7 +44,7 @@ export function useResources() {
     } catch {
       dispatch({ type: 'SET_ERROR', payload: 'Failed to collect resources' })
     }
-  }, [planetId, dispatch])
+  }, [planetId, dispatch, state.resources])
 
   const collectWarehouseResources = useCallback(async () => {
     if (!planetId) return null
@@ -53,9 +54,10 @@ export function useResources() {
         type: 'SET_RESOURCES',
         payload: {
           ...result.resources,
-          warehouse_metal: 0,
-          warehouse_he3: 0,
-          warehouse_gold: 0,
+          warehouse_capacity: state.resources?.warehouse_capacity || 0,
+          pending_metal: state.resources?.pending_metal || 0,
+          pending_he3: state.resources?.pending_he3 || 0,
+          pending_gold: state.resources?.pending_gold || 0,
         },
       })
       return result.collected
@@ -64,7 +66,7 @@ export function useResources() {
       dispatch({ type: 'SET_ERROR', payload: message })
       return null
     }
-  }, [planetId, dispatch])
+  }, [planetId, dispatch, state.resources])
 
   return {
     resources: state.resources,

@@ -48,14 +48,17 @@ type ModuleType struct {
 }
 
 type Blueprint struct {
-	ID            int     `json:"id"`
-	Name          string  `json:"name"`
-	BlueprintType string  `json:"blueprint_type"`
-	HullTypeID    *int    `json:"hull_type_id"`
-	ModuleTypeID  *int    `json:"module_type_id"`
-	Source        string  `json:"source"`
-	ResearchLevel int     `json:"research_level"`
-	Description   string  `json:"description"`
+	ID             int    `json:"id"`
+	Name           string `json:"name"`
+	DisplayName    string `json:"display_name"`
+	BlueprintType  string `json:"blueprint_type"`
+	HullTypeID     *int   `json:"hull_type_id"`
+	ModuleTypeID   *int   `json:"module_type_id"`
+	HullClass      string `json:"hull_class,omitempty"`
+	ModuleCategory string `json:"module_category,omitempty"`
+	Source         string `json:"source"`
+	ResearchLevel  int    `json:"research_level"`
+	Description    string `json:"description"`
 }
 
 type PlayerBlueprint struct {

@@ -118,8 +118,10 @@ function DesignEditor({ hullTypes, moduleTypes, hasHullBlueprint, hasModuleBluep
   const hull = hullTypes.find(h => h.id === selectedHull)
   const filteredHulls = hullTypes.filter(h => {
     if (h.hull_class !== hullClassFilter) return false
+    // Player must have the blueprint activated
+    if (!hasHullBlueprint(h.id)) return false
     const researchLevel = getHullBlueprintResearchLevel(h.id)
-    // Show hull if research_level >= tier (research_level 0 means no blueprint)
+    // Show hull if research_level >= tier
     return researchLevel >= h.tier
   })
 
@@ -128,11 +130,13 @@ function DesignEditor({ hullTypes, moduleTypes, hasHullBlueprint, hasModuleBluep
     return moduleTypes.filter(mt => {
       if (!groupCategories.includes(mt.category)) return false
       if (moduleSubCategory && mt.category !== moduleSubCategory) return false
+      // Player must have the blueprint activated
+      if (!hasModuleBlueprint(mt.id)) return false
       const researchLevel = getModuleBlueprintResearchLevel(mt.id)
       // Show module if research_level >= tier
       return researchLevel >= mt.tier
     })
-  }, [moduleTypes, groupCategories, moduleSubCategory, getModuleBlueprintResearchLevel])
+  }, [moduleTypes, groupCategories, moduleSubCategory, hasModuleBlueprint, getModuleBlueprintResearchLevel])
 
   const volumeUsed = useMemo(() => {
     return modules.reduce((sum, m) => {

@@ -12,6 +12,19 @@ import (
 	"github.com/cryptomines-online/backend/internal/services"
 )
 
+// enrichResourceWithWarehouseCapacity calculates and sets warehouse_capacity based on tech bonuses
+func enrichResourceWithWarehouseCapacity(playerID string, res *models.Resource) {
+	techBonuses, err := services.GetPlayerTechBonuses(playerID)
+	if err != nil {
+		log.Printf("Failed to get tech bonuses for warehouse capacity: %v", err)
+		res.WarehouseCapacity = 0
+		return
+	}
+
+	// Base warehouse capacity is 0, bonuses add to it
+	res.WarehouseCapacity = techBonuses.WarehouseCapacity
+}
+
 // GetResources handles GET /api/planets/{id}/resources
 func GetResources(w http.ResponseWriter, r *http.Request) {
 	playerID := middleware.GetPlayerID(r)
@@ -42,6 +55,9 @@ func GetResources(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, `{"error":"resources not found"}`, http.StatusNotFound)
 		return
 	}
+
+	// Enrich with warehouse capacity from tech bonuses
+	enrichResourceWithWarehouseCapacity(playerID, &res)
 
 	// Calculate pending accumulated resources (not yet collected)
 	elapsed := time.Since(res.LastCollectedAt).Hours()
@@ -164,6 +180,9 @@ func CollectResources(w http.ResponseWriter, r *http.Request) {
 	// Update quest progress for harvesting resources
 	services.UpdateQuestProgress(playerID, "harvest_resources", "resource_warehouse", 1)
 
+	// Enrich with warehouse capacity before returning
+	enrichResourceWithWarehouseCapacity(playerID, &res)
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(collectResponse{
 		Collected: collectAmounts{Metal: actualMetal, He3: actualHe3, Gold: actualGold},
@@ -273,6 +292,9 @@ func CollectWarehouse(w http.ResponseWriter, r *http.Request) {
 
 	// Update quest progress for collecting warehouse
 	services.UpdateQuestProgress(playerID, "collect_warehouse", "warehouse", 1)
+
+	// Enrich with warehouse capacity before returning
+	enrichResourceWithWarehouseCapacity(playerID, &res)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(collectResponse{

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useShipFactory } from '../../hooks/useShipFactory.ts'
 import { useShipDesigns } from '../../hooks/useShipDesigns.ts'
+import { useShipInventory } from '../../hooks/useShipInventory.ts'
 import { useCountdown, formatDuration, formatNumber } from '../../hooks/useCountdown.ts'
 import type { ProductionSlot, ShipDesign } from '../../types'
 
@@ -125,6 +126,7 @@ function BuildModal({ slot, designs, speedBonus, onBuild, onClose }: BuildModalP
 export default function ShipFactoryPanel() {
   const { factory, slots, loading, error, build, cancel } = useShipFactory()
   const { designs } = useShipDesigns()
+  const { ships, loading: shipsLoading } = useShipInventory()
   const [buildSlot, setBuildSlot] = useState<number | null>(null)
 
   if (loading) {
@@ -165,6 +167,21 @@ export default function ShipFactoryPanel() {
         </div>
       </div>
 
+      <div className="p2-section">
+        <div className="p2-section-title">Ship Inventory</div>
+        {shipsLoading ? (
+          <div className="p2-panel-loading"><div className="loading-spinner" /><span>Loading ships...</span></div>
+        ) : ships.length === 0 ? (
+          <div className="p2-empty-state">No ships constructed yet. Start building ships above.</div>
+        ) : (
+          <div className="sf-inventory">
+            {ships.map(ship => (
+              <ShipInventoryCard key={ship.id} ship={ship} />
+            ))}
+          </div>
+        )}
+      </div>
+
       {buildSlot !== null && (
         <BuildModal
           slot={buildSlot}
@@ -203,6 +220,32 @@ function SlotCard({ slot, onBuild, onCancel }: {
     <div className="sf-slot sf-slot-empty">
       <div className="sf-slot-number">Slot {slot.slot}</div>
       <button className="p2-btn p2-btn-primary p2-btn-sm" onClick={onBuild}>Build</button>
+    </div>
+  )
+}
+
+function ShipInventoryCard({ ship }: { ship: import('../../types').AvailableShip }) {
+  const hullClassColors: Record<string, string> = {
+    frigate: '#44aaff',
+    cruiser: '#cc8844',
+    battleship: '#aa4444',
+  }
+
+  const hullColor = hullClassColors[ship.hull_class] || '#888'
+
+  return (
+    <div className="sf-inv-card">
+      <div className="sf-inv-class" style={{ color: hullColor, borderColor: hullColor }}>
+        {ship.hull_class.charAt(0).toUpperCase()}
+      </div>
+      <div className="sf-inv-info">
+        <div className="sf-inv-name">{ship.design_name}</div>
+        <div className="sf-inv-hull">{ship.hull_class.charAt(0).toUpperCase() + ship.hull_class.slice(1)}</div>
+      </div>
+      <div className="sf-inv-qty">
+        <div className="sf-inv-qty-label">Qty</div>
+        <div className="sf-inv-qty-value">{formatNumber(ship.quantity)}</div>
+      </div>
     </div>
   )
 }

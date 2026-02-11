@@ -3,6 +3,7 @@ package handlers
 import (
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"strings"
@@ -149,7 +150,7 @@ func GetChatMessages(w http.ResponseWriter, r *http.Request) {
 		args = append(args, before)
 	}
 
-	query += ` ORDER BY cm.created_at DESC LIMIT $` + string(rune(len(args)+1))
+	query += fmt.Sprintf(` ORDER BY cm.created_at DESC LIMIT $%d`, len(args)+1)
 	args = append(args, limit)
 
 	rows, err := database.DB.Query(query, args...)

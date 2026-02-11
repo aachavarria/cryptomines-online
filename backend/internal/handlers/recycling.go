@@ -12,6 +12,14 @@ import (
 	"github.com/cryptomines-online/backend/internal/models"
 )
 
+// applyDevModeRecycling checks if dev-mode is enabled and returns 5 seconds if true, otherwise returns the original seconds
+func applyDevModeRecycling(r *http.Request, seconds int) int {
+	if r.Header.Get("X-Dev-Mode") == "true" {
+		return 5
+	}
+	return seconds
+}
+
 type availableShip struct {
 	ID         string `json:"id"`
 	DesignName string `json:"design_name"`
@@ -23,12 +31,12 @@ type startRecycleRequest struct {
 }
 
 type startRecycleResponse struct {
-	JobID          string    `json:"job_id"`
-	MetalGained    int64     `json:"metal_gained"`
-	He3Gained      int64     `json:"he3_gained"`
-	GoldGained     int64     `json:"gold_gained"`
-	DurationSeconds int      `json:"duration_seconds"`
-	CompletedAt    time.Time `json:"completed_at"`
+	JobID           string    `json:"job_id"`
+	MetalGained     int64     `json:"metal_gained"`
+	He3Gained       int64     `json:"he3_gained"`
+	GoldGained      int64     `json:"gold_gained"`
+	DurationSeconds int       `json:"duration_seconds"`
+	CompletedAt     time.Time `json:"completed_at"`
 }
 
 // StartRecycle handles POST /api/recycling-plant/recycle
@@ -129,7 +137,8 @@ func StartRecycle(w http.ResponseWriter, r *http.Request) {
 		durationSeconds = 3600 // Max 1 hour
 	}
 
-	completedAt := time.Now().Add(time.Duration(durationSeconds) * time.Second)
+	effectiveRecycleTime := applyDevModeRecycling(r, durationSeconds)
+	completedAt := time.Now().Add(time.Duration(effectiveRecycleTime) * time.Second)
 
 	// Create recycling job and delete ship instance
 	tx, err := database.DB.Begin()
@@ -173,12 +182,12 @@ func StartRecycle(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(startRecycleResponse{
-		JobID:          jobID,
-		MetalGained:    totalMetal,
-		He3Gained:      totalHe3,
-		GoldGained:     totalGold,
+		JobID:           jobID,
+		MetalGained:     totalMetal,
+		He3Gained:       totalHe3,
+		GoldGained:      totalGold,
 		DurationSeconds: durationSeconds,
-		CompletedAt:    completedAt,
+		CompletedAt:     completedAt,
 	})
 }
 
@@ -291,9 +300,9 @@ func CollectRecycle(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"success":      true,
-		"metal_gained":  metalGained,
-		"he3_gained":    he3Gained,
-		"gold_gained":   goldGained,
+		"metal_gained": metalGained,
+		"he3_gained":   he3Gained,
+		"gold_gained":  goldGained,
 	})
 }
 
@@ -307,13 +316,13 @@ func ListAvailableShips(w http.ResponseWriter, r *http.Request) {
 		SELECT
 			s.ship_design_id as id,
 			sd.name as design_name,
-			ht.classification as hull_class,
+			ht.hull_class,
 			s.quantity
 		FROM ships s
 		JOIN ship_designs sd ON s.ship_design_id = sd.id
 		JOIN hull_types ht ON sd.hull_type_id = ht.id
 		WHERE s.player_id = $1 AND s.quantity > 0
-		ORDER BY ht.classification, sd.name
+		ORDER BY ht.hull_class, sd.name
 	`, playerID)
 
 	if err != nil {

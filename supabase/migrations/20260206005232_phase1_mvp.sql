@@ -759,7 +759,7 @@ INSERT INTO building_types (name, display_name, category, base, base_cost_metal,
 ('metal_collector',       'Metal Collector',       'resource',  'ground', 85,   106,  85,   40,  1.7500, 1.7500, 1080, 1.1340, 24, 8,  'civic_center', 1,  'Produces Metal'),
 ('he3_extractor',         'He3 Extractor',         'resource',  'ground', 95,   80,   95,   40,  1.7500, 1.7500, 1180, 1.1340, 24, 8,  'civic_center', 1,  'Produces He3 (Helium-3)'),
 ('residential_area',      'Residential Area',      'resource',  'ground', 78,   72,   65,   40,  1.7500, 1.7500, 1300, 1.1340, 24, 8,  'civic_center', 1,  'Produces Gold (highest output)'),
-('resource_warehouse',    'Resource Warehouse',    'resource',  'ground', 380,  370,  480,  35,  1.7500, 1.7500, 0,    1.0000, 24, 4,  'civic_center', 1,  'Stores all resources; increases capacity'),
+('resource_warehouse',    'Resource Warehouse',    'resource',  'ground', 380,  370,  480,  35,  1.7500, 1.7500, 0,    1.0000, 24, 1,  'civic_center', 1,  'Stores all resources; increases capacity'),
 -- Ground Base: Core / Administrative Buildings
 ('civic_center',          'Civic Center',          'core',      'ground', 550,  480,  600,  300, 3.0300, 2.8700, 0,    1.0000, 12, 1,  NULL,           0,  'Main hub; determines max level of all other buildings'),
 ('technology_center',     'Technology Center',     'core',      'ground', 450,  420,  650,  100, 3.0300, 2.8700, 0,    1.0000, 12, 1,  'civic_center', 1,  'Research facility (7 science trees); 3% research time reduction per level'),

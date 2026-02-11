@@ -66,9 +66,9 @@ func ListQuests(w http.ResponseWriter, r *http.Request) {
 	}
 
 	type response struct {
-		MainQuests       []models.PlayerQuestWithType  `json:"main_quests"`
-		SideQuests       []models.PlayerQuestWithType  `json:"side_quests"`
-		CurrentMainQuest *models.PlayerQuestWithType    `json:"current_main_quest"`
+		MainQuests       []models.PlayerQuestWithType `json:"main_quests"`
+		SideQuests       []models.PlayerQuestWithType `json:"side_quests"`
+		CurrentMainQuest *models.PlayerQuestWithType  `json:"current_main_quest"`
 	}
 
 	if mainQuests == nil {
@@ -211,10 +211,10 @@ func GetDailyQuests(w http.ResponseWriter, r *http.Request) {
 	}
 
 	type response struct {
-		Date        string           `json:"date"`
-		DailyPoints int              `json:"daily_points"`
+		Date        string            `json:"date"`
+		DailyPoints int               `json:"daily_points"`
 		Quests      []dailyQuestEntry `json:"quests"`
-		TierRewards []tierReward     `json:"tier_rewards"`
+		TierRewards []tierReward      `json:"tier_rewards"`
 	}
 
 	if quests == nil {
@@ -319,9 +319,20 @@ func ClaimQuest(w http.ResponseWriter, r *http.Request) {
 				if itemType == "item" {
 					// Regular item (resource pack, boost, battle item)
 					itemKey, _ := item["item_key"].(string)
+					if itemKey == "" {
+						continue
+					}
 					quantity := 1
 					if qty, ok := item["quantity"].(float64); ok {
 						quantity = int(qty)
+					}
+
+					// Verify item_key exists in item_types before inserting
+					var exists bool
+					err = tx.QueryRow(`SELECT EXISTS(SELECT 1 FROM item_types WHERE item_key = $1)`, itemKey).Scan(&exists)
+					if err != nil || !exists {
+						log.Printf("Item key %s does not exist in item_types, skipping", itemKey)
+						continue
 					}
 
 					_, err = tx.Exec(`
@@ -337,6 +348,9 @@ func ClaimQuest(w http.ResponseWriter, r *http.Request) {
 				} else if itemType == "blueprint" {
 					// Blueprint item (add to inventory, NOT direct unlock)
 					blueprintKey, _ := item["blueprint_key"].(string)
+					if blueprintKey == "" {
+						continue
+					}
 
 					// Get blueprint ID
 					var blueprintID int
@@ -361,9 +375,10 @@ func ClaimQuest(w http.ResponseWriter, r *http.Request) {
 					`, blueprintItemKey, "Blueprint: "+blueprintKey, "Unlock "+blueprintKey+" blueprint", blueprintID)
 					if err != nil {
 						log.Printf("Failed to create blueprint item type: %v", err)
+						continue
 					}
 
-					// Add to inventory
+					// Add to inventory (item_type now guaranteed to exist)
 					_, err = tx.Exec(`
 						INSERT INTO player_inventory (player_id, item_key, quantity)
 						VALUES ($1, $2, 1)
@@ -377,6 +392,9 @@ func ClaimQuest(w http.ResponseWriter, r *http.Request) {
 				} else if itemType == "commander" {
 					// Commander card item (add to inventory, NOT direct unlock)
 					commanderKey, _ := item["commander_key"].(string)
+					if commanderKey == "" {
+						continue
+					}
 
 					// Create dynamic commander item in item_types (if not exists)
 					commanderItemKey := "commander_" + commanderKey
@@ -387,9 +405,10 @@ func ClaimQuest(w http.ResponseWriter, r *http.Request) {
 					`, commanderItemKey, "Commander: "+commanderKey, "Unlock "+commanderKey+" commander", commanderKey)
 					if err != nil {
 						log.Printf("Failed to create commander item type: %v", err)
+						continue
 					}
 
-					// Add to inventory
+					// Add to inventory (item_type now guaranteed to exist)
 					_, err = tx.Exec(`
 						INSERT INTO player_inventory (player_id, item_key, quantity)
 						VALUES ($1, $2, 1)
@@ -432,9 +451,9 @@ func ClaimQuest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	type response struct {
-		QuestKey          string          `json:"quest_key"`
-		Rewards           rewardResponse  `json:"rewards"`
-		NextQuestUnlocked *string         `json:"next_quest_unlocked"`
+		QuestKey          string         `json:"quest_key"`
+		Rewards           rewardResponse `json:"rewards"`
+		NextQuestUnlocked *string        `json:"next_quest_unlocked"`
 	}
 
 	w.Header().Set("Content-Type", "application/json")

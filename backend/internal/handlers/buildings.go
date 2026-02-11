@@ -15,6 +15,14 @@ import (
 	"github.com/cryptomines-online/backend/internal/services"
 )
 
+// applyDevMode checks if dev-mode is enabled and returns 5 seconds if true, otherwise returns the original seconds
+func applyDevMode(r *http.Request, seconds int) int {
+	if r.Header.Get("X-Dev-Mode") == "true" {
+		return 5
+	}
+	return seconds
+}
+
 // getConstructionSlots calculates the number of construction slots available to a player.
 // Base: 1 slot, +1 per level of Concurrent Construction tech.
 func getConstructionSlots(playerID string) int {
@@ -288,7 +296,8 @@ func ConstructBuilding(w http.ResponseWriter, r *http.Request) {
 
 	// Create building (starts at level 0, upgrading to level 1)
 	// applyCompletedUpgrades does level+1 when done, so 0->1 for initial construction
-	finishAt := time.Now().Add(time.Duration(levelCost.BuildTimeSeconds) * time.Second)
+	effectiveTime := applyDevMode(r, levelCost.BuildTimeSeconds)
+	finishAt := time.Now().Add(time.Duration(effectiveTime) * time.Second)
 	var building models.Building
 	err = tx.QueryRow(
 		`INSERT INTO buildings (planet_id, building_type, grid_col, grid_row, level, is_upgrading, upgrade_finish_at)
@@ -502,7 +511,8 @@ func UpgradeBuilding(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Start upgrade
-	finishAt := time.Now().Add(time.Duration(levelCost.BuildTimeSeconds) * time.Second)
+	effectiveUpgradeTime := applyDevMode(r, levelCost.BuildTimeSeconds)
+	finishAt := time.Now().Add(time.Duration(effectiveUpgradeTime) * time.Second)
 	err = tx.QueryRow(
 		`UPDATE buildings
 		 SET is_upgrading = true, upgrade_finish_at = $1, updated_at = now()

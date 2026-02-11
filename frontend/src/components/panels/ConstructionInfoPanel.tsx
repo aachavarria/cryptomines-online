@@ -1,12 +1,24 @@
 import { useGameContext, gridToWorld } from '../../contexts/GameContext.tsx'
 import { useCountdown } from '../../hooks/useCountdown.ts'
+import { useResearch } from '../../hooks/useResearch.ts'
 import type { BuildingWithType } from '../../types/index.ts'
 
 export default function ConstructionInfoPanel() {
   const { state, focusCamera } = useGameContext()
+  const { trees } = useResearch()
 
   const upgradingBuildings = state.buildings.filter(b => b.is_upgrading)
-  const maxSlots = 2 // Backend maxConstructionSlots = 2
+
+  // Calculate max construction slots: base 1 + concurrent_construction tech level
+  const getConcurrentConstructionLevel = () => {
+    for (const tree of Object.values(trees)) {
+      const tech = tree.find(t => t.name === 'concurrent_construction')
+      if (tech) return tech.current_level
+    }
+    return 0
+  }
+
+  const maxSlots = 1 + getConcurrentConstructionLevel()
 
   if (upgradingBuildings.length === 0) return null
 

@@ -16,6 +16,14 @@ import (
 	"github.com/cryptomines-online/backend/internal/services"
 )
 
+// applyDevMode checks if dev-mode is enabled and returns 5 seconds if true, otherwise returns the original seconds
+func applyDevModeResearch(r *http.Request, seconds int) int {
+	if r.Header.Get("X-Dev-Mode") == "true" {
+		return 5
+	}
+	return seconds
+}
+
 // techResearchResponse is a single tech with player progress for API responses.
 type techResearchResponse struct {
 	ID                int             `json:"id"`
@@ -212,6 +220,19 @@ func StartResearch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check if player has a Technology Center built
+	techCenterLevel := getTechCenterLevel(tx, playerID)
+	if techCenterLevel < 1 {
+		errs.Conflict(
+			"You must build a Technology Center before you can conduct research",
+			map[string]interface{}{
+				"required_building": "Technology Center",
+				"hint":              "Build a Technology Center on your homeworld to unlock research",
+			},
+		).WriteJSON(w, http.StatusConflict)
+		return
+	}
+
 	// Get current level for this tech (or 0 if not started)
 	var currentLevel int
 	var techID *string
@@ -281,12 +302,14 @@ func StartResearch(w http.ResponseWriter, r *http.Request) {
 
 	// Calculate research time (with Tech Center bonus)
 	baseTime := calcLevelTime(tt.BaseTimeSeconds, tt.TimeMultiplier, targetLevel)
-	techCenterLevel := getTechCenterLevel(tx, playerID)
+	// techCenterLevel already retrieved earlier for validation
 	reduction := float64(techCenterLevel) * 0.03
 	effectiveTime := int(math.Round(float64(baseTime) * (1.0 - reduction)))
 	if effectiveTime < 1 {
 		effectiveTime = 1
 	}
+	// Apply dev-mode if enabled
+	effectiveTime = applyDevModeResearch(r, effectiveTime)
 
 	// Get homeworld ID
 	var homeworldID string
