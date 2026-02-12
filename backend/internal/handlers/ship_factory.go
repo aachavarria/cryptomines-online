@@ -16,6 +16,14 @@ import (
 	"github.com/cryptomines-online/backend/internal/services"
 )
 
+// applyDevModeShipFactory checks if dev-mode is enabled and returns 5 seconds if true, otherwise returns the original seconds
+func applyDevModeShipFactory(r *http.Request, seconds int) int {
+	if r.Header.Get("X-Dev-Mode") == "true" {
+		return 5
+	}
+	return seconds
+}
+
 const maxBuildQuantity = 2000000
 
 // getShipProductionSlots calculates the total number of ship production slots available.
@@ -376,7 +384,8 @@ func BuildShips(w http.ResponseWriter, r *http.Request) {
 
 	// Calculate batch build time (GDD 8.10.2)
 	batchTimeSec := services.ShipBuildTime(design.BuildTimeSeconds, totalSpeedBonus, req.Quantity)
-	finishAt := time.Now().Add(time.Duration(batchTimeSec) * time.Second)
+	effectiveBatchTime := applyDevModeShipFactory(r, batchTimeSec)
+	finishAt := time.Now().Add(time.Duration(effectiveBatchTime) * time.Second)
 
 	// Upsert ships row: if player already has ships of this design, update; otherwise insert
 	var ship models.Ship

@@ -302,3 +302,65 @@
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+
+/* Dev Mode Toggle */
+.dev-mode-toggle {
+  margin-top: auto;
+  padding: var(--space-sm);
+  border-top: 1px solid var(--border-frame);
+  width: 100%;
+}
+
+.dev-mode-toggle label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+}
+
+.dev-mode-toggle input[type="checkbox"] {
+  width: 32px;
+  height: 18px;
+  appearance: none;
+  background: var(--bg-panel-light);
+  border: 1px solid var(--border-frame);
+  border-radius: 12px;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.2s;
+}
+
+.dev-mode-toggle input[type="checkbox"]::before {
+  content: '';
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--text-dim);
+  top: 2px;
+  left: 2px;
+  transition: all 0.2s;
+}
+
+.dev-mode-toggle input[type="checkbox"]:checked {
+  background: var(--accent-primary);
+  border-color: var(--accent-primary);
+}
+
+.dev-mode-toggle input[type="checkbox"]:checked::before {
+  background: #fff;
+  left: 16px;
+}
+
+.dev-mode-label {
+  font-size: 8px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-dim);
+}
+
+.dev-mode-toggle input[type="checkbox"]:checked + .dev-mode-label {
+  color: var(--accent-primary);
+}

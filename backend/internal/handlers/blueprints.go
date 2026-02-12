@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/cryptomines-online/backend/internal/database"
+	"github.com/cryptomines-online/backend/internal/errs"
 	"github.com/cryptomines-online/backend/internal/middleware"
 	"github.com/cryptomines-online/backend/internal/models"
 	"github.com/cryptomines-online/backend/internal/services"
@@ -16,9 +17,15 @@ import (
 // Lists all blueprints in the game (hull + module).
 func ListBlueprints(w http.ResponseWriter, r *http.Request) {
 	rows, err := database.DB.Query(
-		`SELECT id, name, blueprint_type, hull_type_id, module_type_id,
-		        source, research_level, description
-		 FROM blueprints ORDER BY blueprint_type, name`,
+		`SELECT b.id, b.name,
+		        COALESCE(ht.display_name, mt.display_name, b.name) as display_name,
+		        b.blueprint_type, b.hull_type_id, b.module_type_id,
+		        b.source, b.research_level, b.description,
+		        ht.hull_class, mt.category as module_category
+		 FROM blueprints b
+		 LEFT JOIN hull_types ht ON b.hull_type_id = ht.id
+		 LEFT JOIN module_types mt ON b.module_type_id = mt.id
+		 ORDER BY b.blueprint_type, b.name`,
 	)
 	if err != nil {
 		log.Printf("Failed to list blueprints: %v", err)
@@ -30,13 +37,20 @@ func ListBlueprints(w http.ResponseWriter, r *http.Request) {
 	blueprints := []models.Blueprint{}
 	for rows.Next() {
 		var b models.Blueprint
+		var hullClass, moduleCategory sql.NullString
 		err := rows.Scan(
-			&b.ID, &b.Name, &b.BlueprintType, &b.HullTypeID, &b.ModuleTypeID,
-			&b.Source, &b.ResearchLevel, &b.Description,
+			&b.ID, &b.Name, &b.DisplayName, &b.BlueprintType, &b.HullTypeID, &b.ModuleTypeID,
+			&b.Source, &b.ResearchLevel, &b.Description, &hullClass, &moduleCategory,
 		)
 		if err != nil {
 			log.Printf("Failed to scan blueprint: %v", err)
 			continue
+		}
+		if hullClass.Valid {
+			b.HullClass = hullClass.String
+		}
+		if moduleCategory.Valid {
+			b.ModuleCategory = moduleCategory.String
 		}
 		blueprints = append(blueprints, b)
 	}
@@ -198,7 +212,13 @@ func ResearchBlueprint(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if wrcLevel < 1 {
-		http.Error(w, `{"error":"weapon research center required"}`, http.StatusConflict)
+		errs.Conflict(
+			"You must build a Weapon Research Center before you can research blueprints",
+			map[string]interface{}{
+				"required_building": "Weapon Research Center",
+				"hint":              "Build a Weapon Research Center on your homeworld to unlock blueprint research",
+			},
+		).WriteJSON(w, http.StatusConflict)
 		return
 	}
 

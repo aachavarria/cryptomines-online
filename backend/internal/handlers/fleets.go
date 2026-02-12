@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 
 	"github.com/cryptomines-online/backend/internal/database"
 	"github.com/cryptomines-online/backend/internal/errs"
@@ -23,6 +24,32 @@ var validFormations = map[string]bool{
 var validTargeting = map[string]bool{
 	"max_attack": true, "min_attack": true, "max_durability": true,
 	"min_durability": true, "closest": true, "by_commander_rank": true,
+}
+
+// Map frontend display values to backend internal values
+var formationMapping = map[string]string{
+	"phalanx":    "phalanx",
+	"diamond":    "diamond",
+	"arrow":      "battle_line",
+	"defensive":  "tee_forward",
+	"spread":     "skirmish",
+	"battle_line": "battle_line",
+	"skirmish":   "skirmish",
+	"tee_forward": "tee_forward",
+	"enfilade":   "enfilade",
+	"tee_reverse": "tee_reverse",
+}
+
+var targetingMapping = map[string]string{
+	"weakest first":   "min_attack",
+	"strongest first": "max_attack",
+	"random":          "closest",
+	"closest":         "closest",
+	"max_attack":      "max_attack",
+	"min_attack":      "min_attack",
+	"max_durability":  "max_durability",
+	"min_durability":  "min_durability",
+	"by_commander_rank": "by_commander_rank",
 }
 
 type createFleetRequest struct {
@@ -115,10 +142,14 @@ func CreateFleet(w http.ResponseWriter, r *http.Request) {
 	if req.Formation == "" {
 		req.Formation = "phalanx"
 	}
-	if !validFormations[req.Formation] {
+	// Normalize formation to lowercase and map to internal value
+	formationLower := strings.ToLower(req.Formation)
+	mappedFormation, ok := formationMapping[formationLower]
+	if !ok {
 		http.Error(w, `{"error":"invalid formation"}`, http.StatusBadRequest)
 		return
 	}
+	req.Formation = mappedFormation
 
 	// Verify planet ownership
 	if req.PlanetID != "" && !verifyPlanetOwnership(req.PlanetID, playerID) {
@@ -177,13 +208,23 @@ func UpdateFleet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.Formation != nil && !validFormations[*req.Formation] {
-		http.Error(w, `{"error":"invalid formation"}`, http.StatusBadRequest)
-		return
+	if req.Formation != nil {
+		formationLower := strings.ToLower(*req.Formation)
+		mappedFormation, ok := formationMapping[formationLower]
+		if !ok {
+			http.Error(w, `{"error":"invalid formation"}`, http.StatusBadRequest)
+			return
+		}
+		req.Formation = &mappedFormation
 	}
-	if req.TargetingCommand != nil && !validTargeting[*req.TargetingCommand] {
-		http.Error(w, `{"error":"invalid targeting command"}`, http.StatusBadRequest)
-		return
+	if req.TargetingCommand != nil {
+		targetingLower := strings.ToLower(*req.TargetingCommand)
+		mappedTargeting, ok := targetingMapping[targetingLower]
+		if !ok {
+			http.Error(w, `{"error":"invalid targeting command"}`, http.StatusBadRequest)
+			return
+		}
+		req.TargetingCommand = &mappedTargeting
 	}
 
 	// Build dynamic update

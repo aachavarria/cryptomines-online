@@ -2,23 +2,60 @@
 /* Chat System Styles */
 /* ========================================= */
 
+/* Backdrop */
+.chat-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  z-index: 400;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 .chat-panel {
-  max-width: 800px;
+  width: 800px;
+  max-width: 95vw;
+  max-height: 85vh;
   height: 600px;
   display: flex;
   flex-direction: column;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-glow);
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 0 40px rgba(74, 144, 217, 0.2);
 }
 
 .chat-panel .panel-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  padding: var(--space-md) var(--space-lg);
+  border-bottom: 1px solid var(--border-frame);
+}
+
+.chat-panel .panel-header h2 {
+  flex: 1;
+  margin: 0;
 }
 
 /* Channel Tabs */
 .chat-channel-tabs {
   display: flex;
-  gap: var(--space-xs);
+  gap: 2px;
+  padding: var(--space-sm) var(--space-lg);
+  border-bottom: 1px solid var(--border-frame);
 }
 
 .chat-tab {

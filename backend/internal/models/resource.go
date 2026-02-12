@@ -15,6 +15,7 @@ type Resource struct {
 	WarehouseMetal       int64     `json:"warehouse_metal"`
 	WarehouseHe3         int64     `json:"warehouse_he3"`
 	WarehouseGold        int64     `json:"warehouse_gold"`
+	WarehouseCapacity    int64     `json:"warehouse_capacity"`
 	LastWarehouseUpdate  time.Time `json:"last_warehouse_update"`
 	LastCollectedAt      time.Time `json:"last_collected_at"`
 	UpdatedAt            time.Time `json:"updated_at"`

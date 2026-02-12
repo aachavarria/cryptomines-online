@@ -54,12 +54,19 @@ const api = axios.create({
   baseURL: '/api',
 })
 
-// Request interceptor to add auth token
+// Request interceptor to add auth token and dev-mode header
 api.interceptors.request.use(async (config) => {
   const { data: { session } } = await import('../lib/supabase').then(m => m.supabase.auth.getSession())
   if (session?.access_token) {
     config.headers.Authorization = `Bearer ${session.access_token}`
   }
+
+  // Add dev-mode header if enabled
+  const devMode = localStorage.getItem('dev_mode') === 'true'
+  if (devMode) {
+    config.headers['X-Dev-Mode'] = 'true'
+  }
+
   return config
 })
 

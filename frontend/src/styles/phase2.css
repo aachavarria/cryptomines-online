@@ -475,6 +475,81 @@
   font-weight: 600;
 }
 
+/* Ship Inventory */
+.sf-inventory {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: var(--space-sm);
+}
+
+.sf-inv-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-md);
+  background: var(--bg-panel-light);
+  border: 1px solid var(--border-frame);
+  border-radius: 6px;
+  transition: border-color 0.15s;
+}
+
+.sf-inv-card:hover {
+  border-color: var(--border-active);
+}
+
+.sf-inv-class {
+  width: 40px;
+  height: 40px;
+  border: 2px solid;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: var(--font-lg);
+  flex-shrink: 0;
+}
+
+.sf-inv-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.sf-inv-name {
+  font-size: var(--font-base);
+  font-weight: 600;
+  color: var(--text-bright);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sf-inv-hull {
+  font-size: var(--font-sm);
+  color: var(--text-label);
+  margin-top: 2px;
+}
+
+.sf-inv-qty {
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.sf-inv-qty-label {
+  font-size: var(--font-xs);
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.sf-inv-qty-value {
+  font-size: var(--font-lg);
+  font-weight: 700;
+  color: var(--text-bright);
+  font-variant-numeric: tabular-nums;
+  margin-top: 2px;
+}
+
 /* Build Summary */
 .p2-build-summary {
   background: var(--bg-panel-light);

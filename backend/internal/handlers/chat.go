@@ -3,6 +3,7 @@ package handlers
 import (
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"strings"
@@ -149,7 +150,7 @@ func GetChatMessages(w http.ResponseWriter, r *http.Request) {
 		args = append(args, before)
 	}
 
-	query += ` ORDER BY cm.created_at DESC LIMIT $` + string(rune(len(args)+1))
+	query += fmt.Sprintf(` ORDER BY cm.created_at DESC LIMIT $%d`, len(args)+1)
 	args = append(args, limit)
 
 	rows, err := database.DB.Query(query, args...)
@@ -163,10 +164,16 @@ func GetChatMessages(w http.ResponseWriter, r *http.Request) {
 	messages := []chatMessage{}
 	for rows.Next() {
 		var msg chatMessage
-		err := rows.Scan(&msg.ID, &msg.PlayerID, &msg.PlayerName, &msg.Message, &msg.Channel, &msg.CreatedAt)
+		var playerName sql.NullString
+		err := rows.Scan(&msg.ID, &msg.PlayerID, &playerName, &msg.Message, &msg.Channel, &msg.CreatedAt)
 		if err != nil {
 			log.Printf("Failed to scan chat message: %v", err)
 			continue
+		}
+		if playerName.Valid {
+			msg.PlayerName = playerName.String
+		} else {
+			msg.PlayerName = "Unknown Player"
 		}
 		messages = append(messages, msg)
 	}

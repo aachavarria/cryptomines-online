@@ -1,10 +1,15 @@
 import { useState, useRef, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { useChat } from '../../hooks/useChat.ts'
 import LoadingButton from '../common/LoadingButton.tsx'
 import '../../styles/chat.css'
 import '../../styles/common.css'
 
-export default function ChatPanel() {
+interface ChatPanelProps {
+  onClose: () => void
+}
+
+export default function ChatPanel({ onClose }: ChatPanelProps) {
   const [channel, setChannel] = useState<'world' | 'alliance'>('world')
   const [inputMessage, setInputMessage] = useState('')
   const { messages, loading, sending, rateLimitCooldown, sendMessage, loadOlderMessages } =
@@ -12,6 +17,15 @@ export default function ChatPanel() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const messagesContainerRef = useRef<HTMLDivElement>(null)
   const [isAtBottom, setIsAtBottom] = useState(true)
+
+  // ESC to close
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
 
   // Auto-scroll to bottom when new messages arrive (if user is at bottom)
   useEffect(() => {
@@ -57,10 +71,13 @@ export default function ChatPanel() {
     return date.toLocaleDateString()
   }
 
-  return (
-    <div className="panel chat-panel">
-      <div className="panel-header">
-        <h2>World Chat</h2>
+  return createPortal(
+    <div className="chat-backdrop" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
+      <div className="panel chat-panel">
+        <div className="panel-header">
+          <h2>World Chat</h2>
+          <button className="p2-modal-close" onClick={onClose}>X</button>
+        </div>
         <div className="chat-channel-tabs">
           <button
             className={`chat-tab ${channel === 'world' ? 'active' : ''}`}
@@ -75,7 +92,6 @@ export default function ChatPanel() {
             Alliance
           </button>
         </div>
-      </div>
 
       <div className="panel-content chat-content">
         {/* Load Older Button */}
@@ -153,6 +169,8 @@ export default function ChatPanel() {
           </LoadingButton>
         </div>
       </div>
-    </div>
+      </div>
+    </div>,
+    document.body,
   )
 }

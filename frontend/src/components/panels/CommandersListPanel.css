@@ -1,7 +1,43 @@
+/* Backdrop */
+.commanders-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  z-index: 400;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 0.2s ease-out;
+  font-family: 'Rajdhani', 'Segoe UI', system-ui, sans-serif;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes modalIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
 .commanders-list-panel {
-  padding: 20px;
+  width: 90vw;
   max-width: 1200px;
-  margin: 0 auto;
+  max-height: 85vh;
+  background: #1a1a2e;
+  border: 1px solid rgba(74, 144, 217, 0.4);
+  border-radius: 8px;
+  overflow-y: auto;
+  box-shadow: 0 0 40px rgba(74, 144, 217, 0.2);
+  animation: modalIn 0.2s ease-out;
+  padding: 20px;
 }
 
 .commanders-list-panel.loading {
@@ -23,6 +59,26 @@
   color: #00ffff;
   margin: 0;
   font-size: 28px;
+}
+
+.panel-header .close-btn {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 32px;
+  cursor: pointer;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s;
+  line-height: 1;
+}
+
+.panel-header .close-btn:hover {
+  color: #ff4444;
 }
 
 .commander-count {

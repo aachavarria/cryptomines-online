@@ -1,11 +1,16 @@
 import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { getInventory, useItem } from '../../services/api'
 import { useResources } from '../../hooks/useResources'
 import LoadingButton from '../common/LoadingButton'
 import type { InventoryItem } from '../../types/inventory'
 import './InventoryPanel.css'
 
-export default function InventoryPanel() {
+interface InventoryPanelProps {
+  onClose: () => void
+}
+
+export default function InventoryPanel({ onClose }: InventoryPanelProps) {
   const { refreshResources } = useResources()
   const [items, setItems] = useState<InventoryItem[]>([])
   const [loading, setLoading] = useState(false)
@@ -27,19 +32,25 @@ export default function InventoryPanel() {
     fetchInventory()
   }, [])
 
-  const handleUse = async (item: InventoryItem) => {
-    if (!confirm(`Use ${item.display_name}?\n\n${item.description}`)) return
+  // ESC to close
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
 
+  const handleUse = async (item: InventoryItem) => {
     setLoading(true)
     try {
       const result = await useItem(item.id)
 
-      // Show success notification
-      alert(`✓ ${result.effect}`)
-
       // Refresh inventory + resources
       await fetchInventory()
       await refreshResources()
+      // Close selected item panel to show the effect took place
+      setSelectedItem(null)
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error'
       setError(`Failed to use item: ${message}`)
@@ -71,14 +82,16 @@ export default function InventoryPanel() {
     commander: 'Recruit new commanders'
   }
 
-  return (
-    <div className="inventory-panel">
-      <div className="inventory-header">
-        <h2>Inventory</h2>
-        <div className="inventory-stats">
-          <span>{items.reduce((sum, item) => sum + item.quantity, 0)} items</span>
+  return createPortal(
+    <div className="inventory-backdrop" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
+      <div className="inventory-panel">
+        <div className="inventory-header">
+          <h2>Inventory</h2>
+          <div className="inventory-stats">
+            <span>{items.reduce((sum, item) => sum + item.quantity, 0)} items</span>
+          </div>
+          <button className="close-btn" onClick={onClose}>×</button>
         </div>
-      </div>
 
       {error && <div className="p2-error-msg">{error}</div>}
 
@@ -172,6 +185,8 @@ export default function InventoryPanel() {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </div>,
+    document.body
   )
 }

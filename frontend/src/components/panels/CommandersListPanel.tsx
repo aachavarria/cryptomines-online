@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { useCommanders } from '../../hooks/useCommanders'
 import { dismissCommander, type Commander } from '../../services/api'
 import './CommandersListPanel.css'
@@ -6,11 +7,24 @@ import './CommandersListPanel.css'
 type FilterRarity = 'all' | 'common' | 'skill' | 'super'
 type SortBy = 'star_rank' | 'accuracy' | 'dodge' | 'speed' | 'electron' | 'name'
 
-export default function CommandersListPanel() {
+interface CommandersListPanelProps {
+  onClose: () => void
+}
+
+export default function CommandersListPanel({ onClose }: CommandersListPanelProps) {
   const { commanders, loading, refresh } = useCommanders()
   const [filterRarity, setFilterRarity] = useState<FilterRarity>('all')
   const [sortBy, setSortBy] = useState<SortBy>('star_rank')
   const [selectedCommander, setSelectedCommander] = useState<Commander | null>(null)
+
+  // ESC to close
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
 
   // Filter and sort commanders
   const filteredCommanders = commanders
@@ -47,15 +61,22 @@ export default function CommandersListPanel() {
   }
 
   if (loading) {
-    return <div className="commanders-list-panel loading">Loading commanders...</div>
+    return createPortal(
+      <div className="commanders-backdrop">
+        <div className="commanders-list-panel loading">Loading commanders...</div>
+      </div>,
+      document.body
+    )
   }
 
-  return (
-    <div className="commanders-list-panel">
-      <div className="panel-header">
-        <h2>My Commanders</h2>
-        <div className="commander-count">{commanders.length} / 60</div>
-      </div>
+  return createPortal(
+    <div className="commanders-backdrop" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
+      <div className="commanders-list-panel">
+        <div className="panel-header">
+          <h2>My Commanders</h2>
+          <div className="commander-count">{commanders.length} / 60</div>
+          <button className="close-btn" onClick={onClose}>×</button>
+        </div>
 
       <div className="controls">
         <div className="filters">
@@ -207,7 +228,9 @@ export default function CommandersListPanel() {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </div>,
+    document.body
   )
 }
 

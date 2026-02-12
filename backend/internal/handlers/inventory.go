@@ -214,8 +214,8 @@ func useResourcePack(tx *sql.Tx, playerID, itemKey string) (string, *models.Reso
 	err = tx.QueryRow(updateQuery, resourceAmount, planetID).Scan(
 		&res.ID, &res.PlanetID, &res.Metal, &res.He3, &res.Gold,
 		&res.MetalPerHour, &res.He3PerHour, &res.GoldPerHour,
-		&res.StorageCapacity, &res.WarehouseMetal, &res.WarehouseHe3,
-		&res.WarehouseGold, &res.LastWarehouseUpdate, &res.LastCollectedAt, &res.UpdatedAt,
+		&res.StorageCapacity, &res.LastCollectedAt, &res.UpdatedAt,
+		&res.WarehouseMetal, &res.WarehouseHe3, &res.WarehouseGold, &res.LastWarehouseUpdate,
 	)
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to grant resources: %w", err)
@@ -333,15 +333,20 @@ func useBlueprint(tx *sql.Tx, playerID, itemKey string) (string, error) {
 
 	// Insert into player_blueprints with is_activated = true, research_level = 1
 	_, err = tx.Exec(`
-		INSERT INTO player_blueprints (player_id, blueprint_id, is_activated, research_level, activated_at)
-		VALUES ($1, $2, true, 1, now())
+		INSERT INTO player_blueprints (player_id, blueprint_id, is_activated, research_level)
+		VALUES ($1, $2, true, 1)
 	`, playerID, blueprintID)
 	if err != nil {
 		return "", fmt.Errorf("failed to unlock blueprint: %w", err)
 	}
 
-	// Update quest progress
-	services.UpdateQuestProgress(playerID, "unlock_blueprint", "blueprint", 1)
+	// Get blueprint name for quest tracking (matches ActivateBlueprint behavior)
+	var blueprintName string
+	err = tx.QueryRow(`SELECT name FROM blueprints WHERE id = $1`, blueprintID).Scan(&blueprintName)
+	if err == nil {
+		// Update quest progress for using/activating a blueprint
+		services.UpdateQuestProgress(playerID, "use_blueprint", blueprintName, 1)
+	}
 
 	effectMsg := fmt.Sprintf("Blueprint unlocked: %s", displayName)
 	return effectMsg, nil
