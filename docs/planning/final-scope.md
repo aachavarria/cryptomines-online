@@ -201,7 +201,7 @@
 ### **Sistemas Completos Cortados:**
 
 1. ❌ **Trading Center** - Player trading, auctions, marketplace
-2. ❌ **Alliance Center / Corps System** - Guilds, corp chat, donations, RBPs, Galactic Wars
+2. ✅ **Alliance Center / Corps System** - Corps, donations, RBPs, Galaxy Map (Phase 4, Feb 13)
 3. ❌ **Decorative Buildings** - 12 aesthetic buildings (Casino, Fountain, etc.)
 4. ❌ **Friends System** - Add friends, friend bonuses
 5. ❌ **Mail System** - Private messaging

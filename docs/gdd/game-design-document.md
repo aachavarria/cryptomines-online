@@ -221,7 +221,7 @@ A building at grid position (col, row) occupies all tiles from (col, row) to (co
 
 #### 2.2.10 Building System Rules
 
-- **Construction Slots**: Limited concurrent construction (default 2); use Construction Cards for additional slots
+- **Construction Slots**: Limited concurrent construction (default 2); use Construction Cards for +3 slots (72 hours)
 - **Mutual Dependencies**: Civic Center <-> Space Station must stay within 1 level of each other
 - **Prerequisite Chain**: Civic Center level gates most building upgrades
 - **Speed Modifiers**: Logistics Construction Science research reduces build times
@@ -971,7 +971,9 @@ Tech-specific bonuses:
 
 Commander cards can be merged in the **Compound Center** to increase Star Rank. This is the **single biggest upgrade in the game** because Star Rank directly increases the Effective Stack (how many ships can attack per round).
 
-[NEEDS RESEARCH: exact Star Rank to Effective Stack bonus table]
+**Gacha Recruitment Rates:** 50% Common / 35% Skill / 15% Super (see Section 8.6.2 for Star Rank bonus table)
+
+**Recycling Plant Recovery:** 70% of total build cost (hull + modules)
 
 #### 2.6.4 Skill Types
 
