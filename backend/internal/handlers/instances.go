@@ -198,7 +198,15 @@ func AttemptInstance(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		stacks := getFleetStacks(fid)
-		if len(stacks) == 0 {
+		// Check fleet has at least one stack with ships (ship_count > 0)
+		hasShips := false
+		for _, s := range stacks {
+			if s.ShipCount > 0 {
+				hasShips = true
+				break
+			}
+		}
+		if !hasShips {
 			http.Error(w, `{"error":"fleet has no ships: `+fid+`"}`, http.StatusConflict)
 			return
 		}

@@ -540,9 +540,16 @@ func MoveFleet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check fleet has at least 1 stack
+	// Check fleet has at least 1 stack with ships
 	stacks := getFleetStacks(fleetID)
-	if len(stacks) == 0 {
+	hasShips := false
+	for _, s := range stacks {
+		if s.ShipCount > 0 {
+			hasShips = true
+			break
+		}
+	}
+	if !hasShips {
 		http.Error(w, `{"error":"fleet has no ships"}`, http.StatusConflict)
 		return
 	}

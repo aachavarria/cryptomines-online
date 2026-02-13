@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   getShipFactory,
   getShipFactorySlots,
@@ -6,21 +6,28 @@ import {
   cancelShipBuild,
 } from '../services/api.ts'
 import type { ShipFactoryStatus, ProductionSlot, BuildShipRequest } from '../types'
+import axios from 'axios'
 
 export function useShipFactory() {
   const [factory, setFactory] = useState<ShipFactoryStatus | null>(null)
   const [slots, setSlots] = useState<ProductionSlot[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const notBuiltRef = useRef(false)
 
   const refresh = useCallback(async () => {
+    if (notBuiltRef.current) return
     try {
       const [f, s] = await Promise.all([getShipFactory(), getShipFactorySlots()])
       setFactory(f)
       setSlots(s)
       setError(null)
-    } catch {
-      setError('Failed to load Ship Factory')
+    } catch (e) {
+      if (axios.isAxiosError(e) && e.response?.status === 404) {
+        notBuiltRef.current = true
+      } else {
+        setError('Failed to load Ship Factory')
+      }
     } finally {
       setLoading(false)
     }

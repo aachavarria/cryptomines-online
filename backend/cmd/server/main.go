@@ -24,6 +24,7 @@ func main() {
 	// Start background workers
 	go workers.StartBlueprintWorker()
 	go workers.StartResourceWorker()
+	go workers.StartCorpWorker()
 
 	mux := http.NewServeMux()
 
@@ -139,6 +140,34 @@ func main() {
 	// World Chat
 	protected.HandleFunc("POST /api/chat/send", handlers.SendChatMessage)
 	protected.HandleFunc("GET /api/chat/messages", handlers.GetChatMessages)
+
+	// Corps & Galaxy
+	protected.HandleFunc("GET /api/corp", handlers.GetCorp)
+	protected.HandleFunc("POST /api/corp", handlers.CreateCorp)
+	protected.HandleFunc("POST /api/corp/join", handlers.JoinCorp)
+	protected.HandleFunc("POST /api/corp/leave", handlers.LeaveCorp)
+	protected.HandleFunc("GET /api/corp/members", handlers.ListCorpMembers)
+	protected.HandleFunc("POST /api/corp/donate", handlers.DonateResources)
+	protected.HandleFunc("PUT /api/corp/members/{id}/role", handlers.UpdateMemberRole)
+	protected.HandleFunc("GET /api/corp/search", handlers.SearchCorps)
+	protected.HandleFunc("POST /api/corp/rbp/{id}/attack", handlers.AttackRBP)
+	protected.HandleFunc("GET /api/galaxy/map", handlers.GetGalaxyMap)
+
+	// Dev Tools (require X-Dev-Mode: true header)
+	protected.HandleFunc("POST /api/dev/reset", handlers.DevResetPlayer)
+	protected.HandleFunc("POST /api/dev/give-resources", handlers.DevGiveResources)
+	protected.HandleFunc("POST /api/dev/give-item", handlers.DevGiveItem)
+	protected.HandleFunc("POST /api/dev/complete-constructions", handlers.DevCompleteConstructions)
+	protected.HandleFunc("POST /api/dev/complete-research", handlers.DevCompleteResearch)
+	protected.HandleFunc("POST /api/dev/complete-ship-builds", handlers.DevCompleteShipBuilds)
+	protected.HandleFunc("POST /api/dev/give-blueprint", handlers.DevGiveBlueprint)
+	protected.HandleFunc("POST /api/dev/give-commander", handlers.DevGiveCommander)
+	protected.HandleFunc("POST /api/dev/give-ships", handlers.DevGiveShips)
+	protected.HandleFunc("POST /api/dev/set-building-level", handlers.DevSetBuildingLevel)
+	protected.HandleFunc("POST /api/dev/complete-recycling", handlers.DevCompleteRecycling)
+	protected.HandleFunc("POST /api/dev/create-corp", handlers.DevCreateCorp)
+	protected.HandleFunc("POST /api/dev/join-corp", handlers.DevJoinCorp)
+	protected.HandleFunc("POST /api/dev/give-corp-wealth", handlers.DevGiveCorpWealth)
 
 	mux.Handle("/api/", middleware.Auth(protected))
 

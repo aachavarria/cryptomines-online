@@ -49,6 +49,17 @@ import type {
   AttackPlanetResponse,
 } from '../types'
 import type { InventoryItem, UseItemResponse } from '../types/inventory'
+import type {
+  Corp,
+  CorpWithBonuses,
+  CorpMember,
+  CreateCorpRequest,
+  DonateRequest,
+  CorpSearchResult,
+  GalaxyMapResponse,
+  AttackRBPRequest,
+  AttackRBPResponse,
+} from '../types/corps'
 
 const api = axios.create({
   baseURL: '/api',
@@ -346,6 +357,11 @@ export async function claimDailyTier(tier: string): Promise<ClaimDailyTierRespon
   return data
 }
 
+export async function syncQuests(): Promise<unknown> {
+  const { data } = await api.post('/quests/sync')
+  return data
+}
+
 // ============ Research ============
 
 export async function getResearch(): Promise<ResearchAllResponse> {
@@ -586,6 +602,61 @@ export const combatReportsAPI = {
       return null
     }
   },
+}
+
+// ============ Corps & Galaxy ============
+
+export async function getCorp(): Promise<CorpWithBonuses> {
+  const { data } = await api.get<CorpWithBonuses>('/corp')
+  return data
+}
+
+export async function createCorp(req: CreateCorpRequest): Promise<Corp> {
+  const { data } = await api.post<Corp>('/corp', req)
+  return data
+}
+
+export async function joinCorp(corpId: string): Promise<{ message: string }> {
+  const { data } = await api.post<{ message: string }>('/corp/join', { corp_id: corpId })
+  return data
+}
+
+export async function leaveCorp(): Promise<{ message: string }> {
+  const { data } = await api.post<{ message: string }>('/corp/leave')
+  return data
+}
+
+export async function listCorpMembers(): Promise<CorpMember[]> {
+  const { data } = await api.get<CorpMember[]>('/corp/members')
+  return data
+}
+
+export async function donateResources(req: DonateRequest): Promise<{ contribution_points: number; wealth: number }> {
+  const { data } = await api.post<{ contribution_points: number; wealth: number }>('/corp/donate', req)
+  return data
+}
+
+export async function updateMemberRole(
+  memberId: string,
+  role: string,
+): Promise<{ message: string }> {
+  const { data } = await api.put<{ message: string }>(`/corp/members/${memberId}/role`, { role })
+  return data
+}
+
+export async function searchCorps(query: string): Promise<CorpSearchResult[]> {
+  const { data } = await api.get<CorpSearchResult[]>(`/corp/search?q=${encodeURIComponent(query)}`)
+  return data
+}
+
+export async function getGalaxyMap(): Promise<GalaxyMapResponse> {
+  const { data } = await api.get<GalaxyMapResponse>('/galaxy/map')
+  return data
+}
+
+export async function attackRBP(rbpPlanetId: string, req: AttackRBPRequest): Promise<AttackRBPResponse> {
+  const { data } = await api.post<AttackRBPResponse>(`/corp/rbp/${rbpPlanetId}/attack`, req)
+  return data
 }
 
 export default api

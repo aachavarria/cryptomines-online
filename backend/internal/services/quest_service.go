@@ -20,6 +20,7 @@ func UpdateQuestProgress(playerID, requirementType, requirementTarget string, in
 	defer tx.Rollback()
 
 	// Find all active quests that match this action
+	// If requirement_target is empty in the quest, match any target for that type
 	rows, err := tx.Query(`
 		SELECT pq.id, pq.progress_value, qt.requirement_value
 		FROM player_quests pq
@@ -27,7 +28,7 @@ func UpdateQuestProgress(playerID, requirementType, requirementTarget string, in
 		WHERE pq.player_id = $1
 		  AND pq.status = 'available'
 		  AND qt.requirement_type = $2
-		  AND qt.requirement_target = $3
+		  AND (qt.requirement_target = $3 OR qt.requirement_target = '')
 		  AND qt.is_active = true
 		FOR UPDATE OF pq
 	`, playerID, requirementType, requirementTarget)
@@ -148,83 +149,57 @@ func CheckAndCompleteQuests(playerID string, questTypeIDs []int) error {
 // SyncBuildingQuests checks all existing buildings and updates quest progress
 // for any "build_building" quests that should already be completed
 func SyncBuildingQuests(playerID string) error {
-	tx, err := database.DB.Begin()
-	if err != nil {
-		log.Printf("Failed to begin transaction for quest sync: %v", err)
-		return err
-	}
-	defer tx.Rollback()
-
-	// Get all buildings the player has at level >= 1
-	rows, err := tx.Query(`
-		SELECT building_type, level
-		FROM player_buildings
-		WHERE player_id = $1 AND level >= 1
+	// Single query: find all quests that should be completed based on existing buildings
+	// This avoids nested queries inside a transaction (Go sql.Tx uses single connection)
+	rows, err := database.DB.Query(`
+		SELECT pq.id, qt.requirement_value
+		FROM player_quests pq
+		JOIN quest_types qt ON pq.quest_type_id = qt.id
+		WHERE pq.player_id = $1
+		  AND pq.status = 'available'
+		  AND qt.requirement_type = 'build_building'
+		  AND qt.is_active = true
+		  AND EXISTS (
+			SELECT 1
+			FROM buildings b
+			JOIN building_types bt ON b.building_type = bt.id
+			JOIN planets p ON b.planet_id = p.id
+			WHERE p.player_id = $1
+			  AND bt.name = qt.requirement_target
+			  AND b.level >= qt.requirement_value
+		  )
 	`, playerID)
 	if err != nil {
-		log.Printf("Failed to query player buildings: %v", err)
+		log.Printf("Failed to query syncable quests: %v", err)
 		return err
 	}
-	defer rows.Close()
 
-	type buildingInfo struct {
-		buildingType string
-		level        int
+	type questUpdate struct {
+		id    string
+		value int
 	}
-	var buildings []buildingInfo
+	var updates []questUpdate
 	for rows.Next() {
-		var b buildingInfo
-		if err := rows.Scan(&b.buildingType, &b.level); err != nil {
+		var u questUpdate
+		if err := rows.Scan(&u.id, &u.value); err != nil {
 			continue
 		}
-		buildings = append(buildings, b)
+		updates = append(updates, u)
 	}
 	rows.Close()
 
-	// For each building, update any "build_building" quests
-	for _, building := range buildings {
-		// Find active quests requiring this building at level 1
-		questRows, err := tx.Query(`
-			SELECT pq.id, pq.progress_value, qt.requirement_value
-			FROM player_quests pq
-			JOIN quest_types qt ON pq.quest_type_id = qt.id
-			WHERE pq.player_id = $1
-			  AND pq.status = 'available'
-			  AND qt.requirement_type = 'build_building'
-			  AND qt.requirement_target = $2
-			  AND qt.requirement_value <= $3
-			  AND qt.is_active = true
-		`, playerID, building.buildingType, building.level)
+	// Apply updates
+	for _, u := range updates {
+		_, err := database.DB.Exec(`
+			UPDATE player_quests
+			SET progress_value = $1, status = 'completed', completed_at = now(), updated_at = now()
+			WHERE id = $2
+		`, u.value, u.id)
 		if err != nil {
-			continue
+			log.Printf("Failed to auto-complete quest %s: %v", u.id, err)
+		} else {
+			log.Printf("Auto-completed quest %s for player %s", u.id, playerID)
 		}
-
-		for questRows.Next() {
-			var questID string
-			var currentProgress, requirementValue int
-			if err := questRows.Scan(&questID, &currentProgress, &requirementValue); err != nil {
-				continue
-			}
-
-			// If progress is less than requirement, complete it
-			if currentProgress < requirementValue {
-				_, err = tx.Exec(`
-					UPDATE player_quests
-					SET progress_value = $1, status = 'completed', completed_at = now(), updated_at = now()
-					WHERE id = $2
-				`, requirementValue, questID)
-				if err == nil {
-					log.Printf("Auto-completed quest %s for player %s (building %s already exists)",
-						questID, playerID, building.buildingType)
-				}
-			}
-		}
-		questRows.Close()
-	}
-
-	if err := tx.Commit(); err != nil {
-		log.Printf("Failed to commit quest sync: %v", err)
-		return err
 	}
 
 	return nil

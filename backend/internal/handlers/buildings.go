@@ -242,6 +242,38 @@ func ConstructBuilding(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Validate grid coordinates (20x20 grid, 0-indexed)
+	if req.GridCol < 0 || req.GridCol > 19 || req.GridRow < 0 || req.GridRow > 19 {
+		http.Error(w, `{"error":"grid coordinates must be between 0 and 19"}`, http.StatusBadRequest)
+		return
+	}
+
+	// Check civic center requirement for initial construction
+	if bt.CivicCenterReqPerLevel && bt.Name != "civic_center" {
+		var ccLevel int
+		err = tx.QueryRow(
+			`SELECT COALESCE(MAX(b.level), 0)
+			 FROM buildings b
+			 JOIN building_types bt2 ON b.building_type = bt2.id
+			 WHERE b.planet_id = $1 AND bt2.name = 'civic_center'`,
+			planetID,
+		).Scan(&ccLevel)
+		if err != nil {
+			log.Printf("Failed to check civic center: %v", err)
+			http.Error(w, `{"error":"internal server error"}`, http.StatusInternalServerError)
+			return
+		}
+		if ccLevel < 1 {
+			errs.PrerequisiteNotMet(
+				fmt.Sprintf("Civic Center must be level 1 to construct %s (current: %d)", bt.DisplayName, ccLevel),
+				"Civic Center",
+				ccLevel,
+				1,
+			).WriteJSON(w, http.StatusConflict)
+			return
+		}
+	}
+
 	// Get cost from lookup table (exact wiki data) or fallback to formula
 	levelCost := services.GetBuildingLevelCost(
 		database.DB, bt.Name, 1,
@@ -296,12 +328,6 @@ func ConstructBuilding(w http.ResponseWriter, r *http.Request) {
 		}
 		log.Printf("Failed to deduct resources: %v", err)
 		errs.InternalError("Failed to deduct resources").WriteJSON(w, http.StatusInternalServerError)
-		return
-	}
-
-	// Validate grid coordinates
-	if req.GridCol < 0 || req.GridRow < 0 {
-		http.Error(w, `{"error":"invalid grid coordinates"}`, http.StatusBadRequest)
 		return
 	}
 
@@ -682,8 +708,8 @@ func MoveBuilding(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.GridCol < 0 || req.GridRow < 0 {
-		http.Error(w, `{"error":"invalid grid coordinates"}`, http.StatusBadRequest)
+	if req.GridCol < 0 || req.GridCol > 19 || req.GridRow < 0 || req.GridRow > 19 {
+		http.Error(w, `{"error":"grid coordinates must be between 0 and 19"}`, http.StatusBadRequest)
 		return
 	}
 

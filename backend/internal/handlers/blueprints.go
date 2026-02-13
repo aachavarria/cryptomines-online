@@ -139,12 +139,16 @@ func ActivateBlueprint(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get blueprint name for quest tracking
-	var blueprintName string
-	err = database.DB.QueryRow(`SELECT name FROM blueprints WHERE id = $1`, blueprintID).Scan(&blueprintName)
+	// Get module/hull name for quest tracking (quest targets use snake_case names from module_types/hull_types)
+	var questTarget string
+	err = database.DB.QueryRow(`
+		SELECT COALESCE(mt.name, ht.name, b.name)
+		FROM blueprints b
+		LEFT JOIN module_types mt ON b.module_type_id = mt.id
+		LEFT JOIN hull_types ht ON b.hull_type_id = ht.id
+		WHERE b.id = $1`, blueprintID).Scan(&questTarget)
 	if err == nil {
-		// Update quest progress for using/activating a blueprint
-		services.UpdateQuestProgress(playerID, "use_blueprint", blueprintName, 1)
+		services.UpdateQuestProgress(playerID, "use_blueprint", questTarget, 1)
 	}
 
 	w.Header().Set("Content-Type", "application/json")

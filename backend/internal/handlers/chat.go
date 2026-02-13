@@ -65,7 +65,7 @@ func SendChatMessage(w http.ResponseWriter, r *http.Request) {
 	if err == nil && lastMessageAt.Valid {
 		if time.Since(lastMessageAt.Time) < 3*time.Second {
 			remaining := 3*time.Second - time.Since(lastMessageAt.Time)
-			http.Error(w, `{"error":"rate limited","remaining_seconds":`+string(rune(int(remaining.Seconds())))+`}`, http.StatusTooManyRequests)
+			http.Error(w, fmt.Sprintf(`{"error":"rate limited","remaining_seconds":%d}`, int(remaining.Seconds())+1), http.StatusTooManyRequests)
 			return
 		}
 	}

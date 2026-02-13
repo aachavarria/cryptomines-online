@@ -6,6 +6,8 @@ import ResearchPanel from '../panels/ResearchPanel.tsx'
 import ChatPanel from '../panels/ChatPanel.tsx'
 import InventoryPanel from '../panels/InventoryPanel.tsx'
 import CommandersListPanel from '../panels/CommandersListPanel.tsx'
+import CorpsPanel from '../panels/CorpsPanel.tsx'
+import GalaxyMapPanel from '../panels/GalaxyMapPanel.tsx'
 
 interface NavItemConfig {
   id: string
@@ -23,8 +25,8 @@ const NAV_ITEMS: NavItemConfig[] = [
   { id: 'quest', icon: '\u{1F4DC}', label: 'Quests', route: null, locked: false },
   { id: 'chat', icon: '\u{1F4AC}', label: 'Chat', route: null, locked: false },
   { id: 'commander', icon: '\u{1F464}', label: 'Cmdr', route: null, locked: false },
-  { id: 'galaxy', icon: '\u{1F5FA}', label: 'Galaxy', route: null, locked: true },
-  { id: 'corp', icon: '\u{1F6E1}', label: 'Corp', route: null, locked: true },
+  { id: 'galaxy', icon: '\u{1F5FA}', label: 'Galaxy', route: null, locked: false },
+  { id: 'corp', icon: '\u{1F6E1}', label: 'Corp', route: null, locked: false },
 ]
 
 export default function SideNav() {
@@ -34,6 +36,8 @@ export default function SideNav() {
   const [chatOpen, setChatOpen] = useState(false)
   const [inventoryOpen, setInventoryOpen] = useState(false)
   const [commanderOpen, setCommanderOpen] = useState(false)
+  const [corpOpen, setCorpOpen] = useState(false)
+  const [galaxyOpen, setGalaxyOpen] = useState(false)
   const [devMode, setDevMode] = useState(() => {
     return localStorage.getItem('dev_mode') === 'true'
   })
@@ -45,6 +49,51 @@ export default function SideNav() {
     localStorage.setItem('dev_mode', devMode.toString())
   }, [devMode])
 
+  // Listen for bridge panel control events (game:panel custom events)
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const { panel, action } = (e as CustomEvent<{ panel: string; action: 'open' | 'close' | 'toggle' }>).detail
+      const setters: Record<string, (v: boolean | ((p: boolean) => boolean)) => void> = {
+        quest: setQuestOpen,
+        research: setResearchOpen,
+        chat: setChatOpen,
+        inventory: setInventoryOpen,
+        commander: setCommanderOpen,
+        corp: setCorpOpen,
+        galaxy: setGalaxyOpen,
+      }
+      const setter = setters[panel]
+      if (!setter) return
+
+      if (action === 'open') {
+        // Close all others first, then open the target
+        Object.entries(setters).forEach(([key, s]) => {
+          s(key === panel)
+        })
+      } else if (action === 'close') {
+        setter(false)
+      } else if (action === 'toggle') {
+        // Close all others, toggle this one
+        Object.entries(setters).forEach(([key, s]) => {
+          if (key !== panel) s(false)
+        })
+        setter(prev => !prev)
+      }
+    }
+    window.addEventListener('game:panel', handler)
+    return () => window.removeEventListener('game:panel', handler)
+  }, [])
+
+  // Listen for bridge navigation events (game:navigate custom events)
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const { path } = (e as CustomEvent<{ path: string }>).detail
+      navigate(path)
+    }
+    window.addEventListener('game:navigate', handler)
+    return () => window.removeEventListener('game:navigate', handler)
+  }, [navigate])
+
   function isActive(item: NavItemConfig): boolean {
     if (item.id === 'base') return location.pathname.startsWith('/planet')
     if (item.id === 'quest') return questOpen
@@ -52,6 +101,8 @@ export default function SideNav() {
     if (item.id === 'chat') return chatOpen
     if (item.id === 'inventory') return inventoryOpen
     if (item.id === 'commander') return commanderOpen
+    if (item.id === 'corp') return corpOpen
+    if (item.id === 'galaxy') return galaxyOpen
     if (item.route) return location.pathname === item.route
     return false
   }
@@ -64,6 +115,8 @@ export default function SideNav() {
       setChatOpen(false)
       setInventoryOpen(false)
       setCommanderOpen(false)
+      setCorpOpen(false)
+      setGalaxyOpen(false)
       return
     }
     if (item.id === 'research') {
@@ -72,6 +125,8 @@ export default function SideNav() {
       setChatOpen(false)
       setInventoryOpen(false)
       setCommanderOpen(false)
+      setCorpOpen(false)
+      setGalaxyOpen(false)
       return
     }
     if (item.id === 'chat') {
@@ -80,6 +135,8 @@ export default function SideNav() {
       setResearchOpen(false)
       setInventoryOpen(false)
       setCommanderOpen(false)
+      setCorpOpen(false)
+      setGalaxyOpen(false)
       return
     }
     if (item.id === 'inventory') {
@@ -88,6 +145,8 @@ export default function SideNav() {
       setResearchOpen(false)
       setChatOpen(false)
       setCommanderOpen(false)
+      setCorpOpen(false)
+      setGalaxyOpen(false)
       return
     }
     if (item.id === 'commander') {
@@ -96,6 +155,28 @@ export default function SideNav() {
       setResearchOpen(false)
       setChatOpen(false)
       setInventoryOpen(false)
+      setCorpOpen(false)
+      setGalaxyOpen(false)
+      return
+    }
+    if (item.id === 'corp') {
+      setCorpOpen(prev => !prev)
+      setQuestOpen(false)
+      setResearchOpen(false)
+      setChatOpen(false)
+      setInventoryOpen(false)
+      setCommanderOpen(false)
+      setGalaxyOpen(false)
+      return
+    }
+    if (item.id === 'galaxy') {
+      setGalaxyOpen(prev => !prev)
+      setQuestOpen(false)
+      setResearchOpen(false)
+      setChatOpen(false)
+      setInventoryOpen(false)
+      setCommanderOpen(false)
+      setCorpOpen(false)
       return
     }
     if (item.id === 'base') {
@@ -151,6 +232,8 @@ export default function SideNav() {
       {chatOpen && <ChatPanel onClose={() => setChatOpen(false)} />}
       {inventoryOpen && <InventoryPanel onClose={() => setInventoryOpen(false)} />}
       {commanderOpen && <CommandersListPanel onClose={() => setCommanderOpen(false)} />}
+      {corpOpen && <CorpsPanel onClose={() => setCorpOpen(false)} />}
+      {galaxyOpen && <GalaxyMapPanel onClose={() => setGalaxyOpen(false)} />}
     </>
   )
 }

@@ -132,7 +132,7 @@ func LoadInstanceFleet(instanceID string) (*Fleet, error) {
 func loadFleetStacks(fleetID string) ([]*FleetStack, error) {
 	rows, err := database.DB.Query(`
 		SELECT fs.id, fs.ship_design_id, fs.grid_row, fs.grid_col, fs.ship_count,
-		       sd.hull_type_id, sd.total_weapon_damage, sd.total_defense, sd.total_speed,
+		       sd.hull_type_id, sd.attack_power, sd.total_defense, sd.total_speed,
 		       sd.total_accuracy, sd.total_dodge, sd.total_shield, sd.total_structure
 		FROM fleet_stacks fs
 		JOIN ship_designs sd ON fs.ship_design_id = sd.id
