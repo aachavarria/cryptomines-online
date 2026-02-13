@@ -25,6 +25,7 @@ func main() {
 	go workers.StartBlueprintWorker()
 	go workers.StartResourceWorker()
 	go workers.StartCorpWorker()
+	go workers.StartPvPWorker()
 
 	mux := http.NewServeMux()
 
@@ -110,9 +111,10 @@ func main() {
 	protected.HandleFunc("POST /api/research/speedup", handlers.SpeedupResearch)
 	protected.HandleFunc("GET /api/research/active", handlers.GetActiveResearch)
 
-	// Inventory
+	// Inventory & Buffs
 	protected.HandleFunc("GET /api/inventory", handlers.GetInventory)
 	protected.HandleFunc("POST /api/inventory/{id}/use", handlers.UseItem)
+	protected.HandleFunc("GET /api/player/buffs", handlers.GetActiveBuffs)
 
 	// Commanders
 	protected.HandleFunc("POST /api/commanders/recruit", handlers.RecruitCommander)
@@ -133,9 +135,13 @@ func main() {
 	protected.HandleFunc("DELETE /api/recycling-plant/jobs/{id}", handlers.CancelRecycle)
 	protected.HandleFunc("GET /api/ship-instances/available", handlers.ListAvailableShips)
 
-	// PvP Combat
+	// PvP Combat (Phase 4.5 — async with travel time)
 	protected.HandleFunc("POST /api/pvp/attack", handlers.AttackPlanet)
 	protected.HandleFunc("GET /api/pvp/search", handlers.SearchPlanets)
+	protected.HandleFunc("GET /api/pvp/pending", handlers.GetPendingAttacks)
+	protected.HandleFunc("POST /api/pvp/cancel/{id}", handlers.CancelAttack)
+	protected.HandleFunc("GET /api/radar/incoming", handlers.GetIncomingAttacks)
+	protected.HandleFunc("GET /api/player/sp", handlers.GetPlayerSP)
 
 	// World Chat
 	protected.HandleFunc("POST /api/chat/send", handlers.SendChatMessage)

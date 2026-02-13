@@ -531,11 +531,14 @@ func DonateResources(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	newDaily := dailyContribution + contributionPts
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"status":            "ok",
-		"contribution_pts":  contributionPts,
-		"daily_contribution": dailyContribution + contributionPts,
+		"status":             "ok",
+		"contribution_pts":   contributionPts,
+		"daily_contribution": newDaily,
+		"daily_max":          200,
+		"daily_remaining":    200 - newDaily,
 	})
 }
 

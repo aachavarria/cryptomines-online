@@ -4,6 +4,35 @@ import { useCommanders } from '../../hooks/useCommanders'
 import { dismissCommander, type Commander } from '../../services/api'
 import './CommandersListPanel.css'
 
+// Expertise grade descriptions per GO2
+function getExpertiseDesc(type: 'weapon' | 'ship', grade: string): string {
+  if (type === 'weapon') {
+    switch (grade) {
+      case 'S': return '+30% damage'
+      case 'A': return '+10% damage'
+      case 'B': return 'No bonus'
+      case 'C': return '-10% damage'
+      case 'D': return '-30% damage'
+      default: return 'Unknown'
+    }
+  }
+  switch (grade) {
+    case 'S': return '+10% dealt, -10% received'
+    case 'A': return '+5% dealt, -10% received'
+    case 'B': return 'No bonus'
+    case 'C': return '-5% dealt, +5% received'
+    case 'D': return '-10% dealt, +10% received'
+    default: return 'Unknown'
+  }
+}
+
+function getExpertiseTooltip(type: 'weapon' | 'ship', grade: string): string {
+  if (type === 'weapon') {
+    return `Weapon Expertise ${grade}: Affects damage dealt by weapons of this type. S=+30%, A=+10%, B=0%, C=-10%, D=-30%`
+  }
+  return `Ship Expertise ${grade}: Affects damage dealt/received by ships of this class. S=+10%/-10%, A=+5%/-10%, B=0%, C=-5%/+5%, D=-10%/+10%`
+}
+
 type FilterRarity = 'all' | 'common' | 'skill' | 'super'
 type SortBy = 'star_rank' | 'accuracy' | 'dodge' | 'speed' | 'electron' | 'name'
 
@@ -207,11 +236,33 @@ export default function CommandersListPanel({ onClose }: CommandersListPanelProp
                 </div>
               </div>
 
+              {(selectedCommander.weapon_expertise || selectedCommander.ship_expertise) && (
+                <div className="expertise-section" style={{ marginTop: '12px', padding: '8px', background: 'rgba(0,0,0,0.3)', borderRadius: '4px' }}>
+                  <h4 style={{ marginBottom: '8px', fontSize: '0.9rem' }}>Expertise</h4>
+                  {selectedCommander.weapon_expertise && (
+                    <div className="stat-row">
+                      <span className="label">Weapon:</span>
+                      <span className="value" title={getExpertiseTooltip('weapon', selectedCommander.weapon_expertise)}>
+                        {selectedCommander.weapon_expertise} ({getExpertiseDesc('weapon', selectedCommander.weapon_expertise)})
+                      </span>
+                    </div>
+                  )}
+                  {selectedCommander.ship_expertise && (
+                    <div className="stat-row">
+                      <span className="label">Ship:</span>
+                      <span className="value" title={getExpertiseTooltip('ship', selectedCommander.ship_expertise)}>
+                        {selectedCommander.ship_expertise} ({getExpertiseDesc('ship', selectedCommander.ship_expertise)})
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div className="deployment-status">
                 {selectedCommander.is_deployed ? (
-                  <span className="deployed">⚔️ Deployed to Fleet</span>
+                  <span className="deployed">Deployed to Fleet</span>
                 ) : (
-                  <span className="available">✓ Available</span>
+                  <span className="available">Available</span>
                 )}
               </div>
             </div>

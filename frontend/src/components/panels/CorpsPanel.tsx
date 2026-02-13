@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useCorp } from '../../hooks/useCorp'
+import { useGameContext } from '../../contexts/GameContext'
 import LoadingButton from '../common/LoadingButton'
 import '../../styles/common.css'
 import '../../styles/chat.css'
@@ -10,6 +11,7 @@ interface CorpsPanelProps {
 }
 
 export default function CorpsPanel({ onClose }: CorpsPanelProps) {
+  const { state } = useGameContext()
   const {
     corpData,
     members,
@@ -400,12 +402,44 @@ export default function CorpsPanel({ onClose }: CorpsPanelProps) {
     }
 
     if (activeTab === 'donate') {
+      const myMember = members.length > 0 ? members.find(m => {
+        // Find current player by checking state.player
+        return state.player && m.player_id === state.player.id
+      }) : null
+      const dailyUsed = myMember?.daily_contribution ?? 0
+      const dailyMax = 200
+      const dailyRemaining = dailyMax - dailyUsed
+      const dailyPct = Math.min(100, (dailyUsed / dailyMax) * 100)
+
       return (
         <div style={{ padding: '20px' }}>
           <h3>Donate Resources</h3>
           <div style={{ marginTop: '16px' }}>
+            <div style={{
+              padding: '12px',
+              background: 'rgba(0,0,0,0.3)',
+              border: '1px solid #333',
+              borderRadius: '4px',
+              marginBottom: '16px',
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', fontSize: '0.85rem' }}>
+                <span>Daily Contribution: {dailyUsed}/{dailyMax} pts</span>
+                <span style={{ color: dailyRemaining <= 0 ? '#f87171' : dailyRemaining < 50 ? '#fbbf24' : '#4ade80' }}>
+                  {dailyRemaining > 0 ? `${dailyRemaining} pts remaining` : 'Limit reached'}
+                </span>
+              </div>
+              <div style={{ height: '6px', background: '#333', borderRadius: '3px', overflow: 'hidden' }}>
+                <div style={{
+                  height: '100%',
+                  width: `${dailyPct}%`,
+                  background: dailyPct >= 95 ? '#f87171' : dailyPct >= 80 ? '#fbbf24' : '#4ade80',
+                  borderRadius: '3px',
+                  transition: 'width 0.3s',
+                }} />
+              </div>
+            </div>
             <p style={{ color: '#aaa', fontSize: '0.9rem', marginBottom: '16px' }}>
-              Donate resources to your corp to earn contribution points and increase corp wealth.
+              Donate resources to your corp to earn contribution points and increase corp wealth. (1 pt per 10,000 resources)
             </p>
             <label style={{ display: 'block', marginBottom: '8px' }}>
               Metal:

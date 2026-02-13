@@ -1,23 +1,34 @@
 import { useState } from 'react'
 import { usePvP } from '../../hooks/usePvP.ts'
 import { useFleets } from '../../hooks/useFleets.ts'
-import { formatNumber } from '../../hooks/useCountdown.ts'
 import LoadingButton from '../common/LoadingButton.tsx'
 import '../../styles/pvp.css'
 import '../../styles/common.css'
+
+function formatCountdown(targetDate: string): string {
+  const diff = Math.max(0, Math.floor((new Date(targetDate).getTime() - Date.now()) / 1000))
+  if (diff === 0) return 'Arrived'
+  const m = Math.floor(diff / 60)
+  const s = diff % 60
+  return `${m}m ${s}s`
+}
 
 export default function PvPPanel() {
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedTarget, setSelectedTarget] = useState<string | null>(null)
   const [selectedFleets, setSelectedFleets] = useState<string[]>([])
-  const { searchResults, searching, attacking, lastBattle, search, attack, clearBattle } = usePvP()
+  const {
+    searchResults, searching, attacking, lastDispatch, pendingAttacks,
+    incoming, playerSP, cooldownSeconds,
+    search, attack, cancel, clearDispatch,
+  } = usePvP()
   const { fleets } = useFleets()
 
   const stationedFleets = fleets.filter((f) => f.status === 'stationed')
+  const travelingAttacks = pendingAttacks.filter(a => a.status === 'traveling')
+  const resolvedAttacks = pendingAttacks.filter(a => a.status === 'resolved').slice(0, 5)
 
-  const handleSearch = () => {
-    search(searchQuery)
-  }
+  const handleSearch = () => search(searchQuery)
 
   const handleAttack = async () => {
     if (!selectedTarget || selectedFleets.length === 0) return
@@ -26,23 +37,83 @@ export default function PvPPanel() {
   }
 
   const toggleFleet = (fleetId: string) => {
-    setSelectedFleets((prev) =>
-      prev.includes(fleetId) ? prev.filter((id) => id !== fleetId) : [...prev, fleetId]
+    setSelectedFleets(prev =>
+      prev.includes(fleetId) ? prev.filter(id => id !== fleetId) : [...prev, fleetId]
     )
   }
 
-  const selectedTargetData = searchResults.find((r) => r.planet_id === selectedTarget)
+  const selectedTargetData = searchResults.find(r => r.planet_id === selectedTarget)
 
   return (
     <div className="panel pvp-panel">
       <div className="panel-header">
         <h2>PvP Combat</h2>
-        <p className="panel-subtitle">Attack other players for resources</p>
+        <div className="pvp-header-info">
+          {playerSP && (
+            <span className="pvp-sp-badge">SP: {playerSP.space_points}/{playerSP.max_space_points}</span>
+          )}
+        </div>
       </div>
 
       <div className="panel-content">
+
+        {/* Incoming Attacks (Radar) */}
+        {incoming && incoming.incoming_attacks.length > 0 && (
+          <div className="pvp-section pvp-incoming">
+            <h3>Incoming Attacks (Radar Lv{incoming.radar_level})</h3>
+            <div className="pvp-incoming-list">
+              {incoming.incoming_attacks.map(inc => (
+                <div key={inc.id} className="pvp-incoming-card">
+                  <span className="pvp-incoming-eta">ETA: {formatCountdown(inc.arrival_at)}</span>
+                  {inc.origin_x !== undefined && (
+                    <span className="pvp-incoming-origin">From: ({inc.origin_x}, {inc.origin_y})</span>
+                  )}
+                  {inc.fleet_count !== undefined && (
+                    <span className="pvp-incoming-strength">{inc.fleet_count} fleet(s)</span>
+                  )}
+                  {inc.attacker_name && (
+                    <span className="pvp-incoming-attacker">{inc.attacker_name}</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Active Attacks in Transit */}
+        {travelingAttacks.length > 0 && (
+          <div className="pvp-section">
+            <h3>Fleets in Transit ({travelingAttacks.length})</h3>
+            <div className="pvp-pending-list">
+              {travelingAttacks.map(pa => (
+                <div key={pa.id} className="pvp-pending-card">
+                  <div className="pvp-pending-info">
+                    <span className="pvp-pending-target">{pa.planet_name} ({pa.defender_name})</span>
+                    <span className="pvp-pending-eta">ETA: {formatCountdown(pa.arrival_at)}</span>
+                    <span className="pvp-pending-fleets">{pa.fleet_ids.length} fleet(s)</span>
+                  </div>
+                  <button className="btn btn-secondary btn-sm" onClick={() => cancel(pa.id)}>
+                    Recall
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Dispatch confirmation */}
+        {lastDispatch && (
+          <div className="pvp-section pvp-dispatch-result">
+            <h3>Fleets Dispatched!</h3>
+            <p>{lastDispatch.fleets_dispatched} fleet(s) en route.</p>
+            <p>Travel time: {Math.floor(lastDispatch.travel_seconds / 60)}m {lastDispatch.travel_seconds % 60}s</p>
+            <p>ETA: {formatCountdown(lastDispatch.arrival_at)}</p>
+            <button className="btn btn-secondary" onClick={clearDispatch}>OK</button>
+          </div>
+        )}
+
         {/* Search Section */}
-        {!selectedTarget && !lastBattle && (
+        {!selectedTarget && !lastDispatch && (
           <div className="pvp-section">
             <h3>Search for Targets</h3>
             <div className="pvp-search">
@@ -63,7 +134,7 @@ export default function PvPPanel() {
               <div className="pvp-results">
                 <h4>Search Results ({searchResults.length})</h4>
                 <div className="pvp-results-list">
-                  {searchResults.map((result) => (
+                  {searchResults.map(result => (
                     <div
                       key={result.planet_id}
                       className="pvp-result-card"
@@ -80,7 +151,7 @@ export default function PvPPanel() {
         )}
 
         {/* Fleet Selection Section */}
-        {selectedTarget && !lastBattle && (
+        {selectedTarget && !lastDispatch && (
           <div className="pvp-section">
             <div className="pvp-target-header">
               <h3>
@@ -96,7 +167,7 @@ export default function PvPPanel() {
               <p className="pvp-empty">No stationed fleets available</p>
             ) : (
               <div className="pvp-fleet-list">
-                {stationedFleets.map((fleet) => (
+                {stationedFleets.map(fleet => (
                   <div
                     key={fleet.id}
                     className={`pvp-fleet-card ${selectedFleets.includes(fleet.id) ? 'selected' : ''}`}
@@ -114,64 +185,40 @@ export default function PvPPanel() {
                 className="btn btn-danger"
                 onClick={handleAttack}
                 loading={attacking}
-                disabled={selectedFleets.length === 0}
+                disabled={selectedFleets.length === 0 || cooldownSeconds > 0 || (playerSP?.space_points ?? 0) < 1}
               >
-                Attack with {selectedFleets.length} Fleet(s)
+                {cooldownSeconds > 0
+                  ? `Cooldown ${Math.floor(cooldownSeconds / 60)}m ${cooldownSeconds % 60}s`
+                  : (playerSP?.space_points ?? 0) < 1
+                    ? 'No SP Available'
+                    : `Dispatch ${selectedFleets.length} Fleet(s) (1 SP)`
+                }
               </LoadingButton>
             </div>
           </div>
         )}
 
-        {/* Battle Results Section */}
-        {lastBattle && (
+        {/* Recent Combat Results */}
+        {resolvedAttacks.length > 0 && (
           <div className="pvp-section">
-            <div className="pvp-result-header">
-              <h3>Battle Report</h3>
-              <button className="btn btn-secondary" onClick={clearBattle}>
-                New Attack
-              </button>
-            </div>
-
-            <div className={`pvp-result-outcome ${lastBattle.result}`}>
-              {lastBattle.result === 'attacker_win' && '🎉 Victory!'}
-              {lastBattle.result === 'defender_win' && '💀 Defeat'}
-              {lastBattle.result === 'draw' && '🤝 Draw'}
-            </div>
-
-            <div className="pvp-result-stats">
-              <div className="pvp-stat">
-                <span className="pvp-stat-label">Rounds:</span>
-                <span className="pvp-stat-value">{lastBattle.total_rounds}</span>
-              </div>
-            </div>
-
-            {lastBattle.loot_gained && (
-              <div className="pvp-loot">
-                <h4>Loot Gained</h4>
-                <div className="pvp-loot-items">
-                  <span>🪙 {formatNumber(lastBattle.loot_gained.metal)} M</span>
-                  <span>⚡ {formatNumber(lastBattle.loot_gained.he3)} H3</span>
-                  <span>💰 {formatNumber(lastBattle.loot_gained.gold)} G</span>
+            <h3>Recent Attacks</h3>
+            <div className="pvp-recent-list">
+              {resolvedAttacks.map(pa => (
+                <div key={pa.id} className="pvp-recent-card">
+                  <span className="pvp-recent-target">{pa.planet_name}</span>
+                  <span className="pvp-recent-status">
+                    {pa.combat_report_id ? 'Resolved' : 'Pending'}
+                  </span>
                 </div>
-              </div>
-            )}
-
-            <div className="pvp-losses">
-              <div className="pvp-losses-col">
-                <h5>Your Losses</h5>
-                <p>Ships: {Object.keys(lastBattle.attacker_losses.ships_destroyed).length}</p>
-                <p>He3: {formatNumber(lastBattle.attacker_losses.he3_consumed)}</p>
-              </div>
-              <div className="pvp-losses-col">
-                <h5>Enemy Losses</h5>
-                <p>Ships: {Object.keys(lastBattle.defender_losses.ships_destroyed).length}</p>
-                <p>He3: {formatNumber(lastBattle.defender_losses.he3_consumed)}</p>
-              </div>
+              ))}
             </div>
+          </div>
+        )}
 
-            <div className="pvp-cooldown-notice">
-              ⏱️ 5-minute attack cooldown active for this target
-            </div>
+        {/* No radar warning */}
+        {incoming && incoming.radar_level === 0 && (
+          <div className="pvp-section pvp-no-radar">
+            <p>Build a Radar to detect incoming attacks!</p>
           </div>
         )}
       </div>

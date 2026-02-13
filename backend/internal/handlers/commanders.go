@@ -104,9 +104,36 @@ func RecruitCommander(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check Command Center cooldown
-	// TODO: Implement cooldown tracking (for now, skip cooldown check)
-	// In full implementation: Track last_recruitment_at, check against cooldown_seconds from command_center_levels
+	// Check Command Center cooldown based on level
+	var ccLevel int
+	err = tx.QueryRow(`
+		SELECT COALESCE(b.level, 0) FROM buildings b
+		JOIN building_types bt ON b.building_type_id = bt.id
+		WHERE b.planet_id = $1 AND bt.name = 'command_center'
+	`, planetID).Scan(&ccLevel)
+	if err != nil || ccLevel == 0 {
+		http.Error(w, `{"error":"command center not built"}`, http.StatusConflict)
+		return
+	}
+
+	// Cooldown per GO2: Lv1=3h, Lv2=2h50m, ... Lv5=2h20m, then continues at 10min/level, min 1h10m at Lv12
+	cooldownMinutes := 180 - (ccLevel-1)*10
+	if cooldownMinutes < 70 {
+		cooldownMinutes = 70 // minimum 1h10m at max Command Center level (Lv12)
+	}
+	cooldownDuration := time.Duration(cooldownMinutes) * time.Minute
+
+	var lastRecruitAt sql.NullTime
+	err = tx.QueryRow(`
+		SELECT MAX(created_at) FROM commanders WHERE player_id = $1
+	`, playerID).Scan(&lastRecruitAt)
+	if err == nil && lastRecruitAt.Valid {
+		if time.Since(lastRecruitAt.Time) < cooldownDuration {
+			remaining := cooldownDuration - time.Since(lastRecruitAt.Time)
+			http.Error(w, fmt.Sprintf(`{"error":"recruitment on cooldown","remaining_seconds":%d}`, int(remaining.Seconds())), http.StatusConflict)
+			return
+		}
+	}
 
 	// Gacha roll: Determine rarity
 	rarity := rollCommanderRarity()

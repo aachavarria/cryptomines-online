@@ -162,6 +162,42 @@
   color: var(--text-normal);
 }
 
+.hud-storage-ok { color: var(--accent-success); }
+.hud-storage-warning { color: #fbbf24; }
+.hud-storage-critical { color: #f87171; font-weight: 600; }
+
+.hud-truce {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  background: rgba(74, 144, 217, 0.2);
+  border: 1px solid #4a90d9;
+  border-radius: 4px;
+  color: #4a90d9;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.hud-buffs {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.hud-buff-badge {
+  padding: 2px 6px;
+  background: rgba(139, 92, 246, 0.2);
+  border: 1px solid #8b5cf6;
+  border-radius: 3px;
+  color: #a78bfa;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
 .hud-collect-btn {
   margin-left: auto;
   background: linear-gradient(135deg, #1a8844, var(--accent-success));
@@ -185,6 +221,31 @@
 }
 
 .hud-collect-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.hud-dev-btn {
+  background: linear-gradient(135deg, #8b5e00, #c98500);
+  color: #fff;
+  border: 1px solid #c98500;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 3px;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-family: 'Rajdhani', sans-serif;
+  white-space: nowrap;
+  margin-left: 4px;
+}
+
+.hud-dev-btn:hover:not(:disabled) {
+  box-shadow: 0 0 8px rgba(201, 133, 0, 0.6);
+}
+
+.hud-dev-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }

@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useCommanders } from '../../hooks/useCommanders'
 import { useResources } from '../../hooks/useResources'
 import { recruitCommander, type RecruitResponse } from '../../services/api'
 import LoadingButton from '../common/LoadingButton.tsx'
+import axios from 'axios'
 import './CommandCenterPanel.css'
 import '../../styles/common.css'
 
@@ -12,7 +13,26 @@ export default function CommandCenterPanel() {
   const [recruiting, setRecruiting] = useState(false)
   const [result, setResult] = useState<RecruitResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [cooldown, setCooldown] = useState(0) // TODO: Implement cooldown tracking
+  const [cooldown, setCooldown] = useState(0)
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  // Countdown timer
+  useEffect(() => {
+    if (cooldown <= 0) {
+      if (timerRef.current) clearInterval(timerRef.current)
+      return
+    }
+    timerRef.current = setInterval(() => {
+      setCooldown(prev => {
+        if (prev <= 1) {
+          if (timerRef.current) clearInterval(timerRef.current)
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+    return () => { if (timerRef.current) clearInterval(timerRef.current) }
+  }, [cooldown > 0]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleRecruit = async () => {
     if (!confirm('Recruit commander for 10,000 Gold?')) return
@@ -29,6 +49,9 @@ export default function CommandCenterPanel() {
       await refreshCommanders()
       await refreshResources()
     } catch (err) {
+      if (axios.isAxiosError(err) && err.response?.data?.remaining_seconds) {
+        setCooldown(err.response.data.remaining_seconds)
+      }
       const message = err instanceof Error ? err.message : 'Unknown error'
       setError(`Recruitment failed: ${message}`)
     } finally {
@@ -57,7 +80,10 @@ export default function CommandCenterPanel() {
           {cooldown > 0 && (
             <div className="cooldown-display">
               <span className="label">Cooldown:</span>
-              <span className="value">{Math.floor(cooldown / 60)}m {cooldown % 60}s</span>
+              <span className="value">
+                {cooldown >= 3600 && `${Math.floor(cooldown / 3600)}h `}
+                {Math.floor((cooldown % 3600) / 60)}m {cooldown % 60}s
+              </span>
             </div>
           )}
 

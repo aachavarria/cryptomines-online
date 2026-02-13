@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import LoadingButton from '../common/LoadingButton'
 import { useBlueprints } from '../../hooks/useBlueprints.ts'
 import { useCountdown, formatDuration, formatNumber } from '../../hooks/useCountdown.ts'
+import { devGiveBlueprint } from '../../services/api.ts'
 import type { Blueprint, PlayerBlueprint } from '../../types'
 
 const BP_TYPE_LABELS: Record<string, string> = {
@@ -16,6 +17,8 @@ export default function BlueprintPanel() {
   const [activating, setActivating] = useState<number | null>(null)
   const [researchingBp, setResearchingBp] = useState<number | null>(null)
   const [confirmResearch, setConfirmResearch] = useState<{ bp: Blueprint; playerBp: PlayerBlueprint } | null>(null)
+  const [devGiving, setDevGiving] = useState<number | null>(null)
+  const isDevMode = localStorage.getItem('dev_mode') === 'true'
 
   // Poll for active research completion
   useEffect(() => {
@@ -43,6 +46,18 @@ export default function BlueprintPanel() {
       await activate(bpId)
     } finally {
       setActivating(null)
+    }
+  }
+
+  async function handleDevGive(bpId: number) {
+    setDevGiving(bpId)
+    try {
+      await devGiveBlueprint(bpId, 1)
+      await refresh()
+    } catch {
+      // dev endpoint failed
+    } finally {
+      setDevGiving(null)
     }
   }
 
@@ -147,7 +162,18 @@ export default function BlueprintPanel() {
 
               <div className="bp-card-status">
                 {!owned ? (
-                  <span className="bp-status-locked">🔒 Not Owned</span>
+                  <>
+                    <span className="bp-status-locked">🔒 Not Owned</span>
+                    {isDevMode && (
+                      <LoadingButton
+                        className="p2-btn p2-btn-dev p2-btn-sm"
+                        onClick={() => handleDevGive(bp.id)}
+                        loading={devGiving === bp.id}
+                      >
+                        DEV Get
+                      </LoadingButton>
+                    )}
+                  </>
                 ) : !activated ? (
                   <LoadingButton
                     className="p2-btn p2-btn-success p2-btn-sm"

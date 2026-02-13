@@ -271,6 +271,11 @@ function FleetCard({ fleet, onEdit, onDisband }: {
   const stackCount = fleet.stacks?.length || 0
   const totalShips = fleet.stacks?.reduce((sum, s) => sum + s.ship_count, 0) || 0
 
+  // Fleet speed = slowest ship design's total_movement (min MOV across stacks)
+  const fleetMOV = fleet.stacks && fleet.stacks.length > 0
+    ? Math.min(...fleet.stacks.filter(s => s.total_movement !== undefined).map(s => s.total_movement ?? 0))
+    : 0
+
   return (
     <div className="fleet-card" onClick={onEdit}>
       <div className="fleet-card-header">
@@ -281,6 +286,7 @@ function FleetCard({ fleet, onEdit, onDisband }: {
         <span>{stackCount}/9 positions</span>
         <span>{formatNumber(totalShips)} ships</span>
         <span>{fleet.formation}</span>
+        {fleetMOV > 0 && <span title="Fleet speed (slowest ship)">MOV: {fleetMOV}</span>}
       </div>
       <div className="fleet-card-actions">
         <button className="p2-btn p2-btn-primary p2-btn-xs" onClick={e => { e.stopPropagation(); onEdit() }}>Edit</button>

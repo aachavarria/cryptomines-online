@@ -231,6 +231,17 @@
   box-shadow: var(--glow-green);
 }
 
+.p2-btn-dev {
+  background: linear-gradient(135deg, #8b5e00, #c98500);
+  color: #fff;
+  border: 1px solid #c98500;
+  margin-left: 4px;
+}
+
+.p2-btn-dev:hover:not(:disabled) {
+  box-shadow: 0 0 8px rgba(201, 133, 0, 0.6);
+}
+
 .p2-btn-danger {
   background: linear-gradient(135deg, #882222, var(--accent-danger));
   color: #fff;

@@ -3,10 +3,17 @@ import { useCombatReports, useCombatReport } from '../../hooks/useCombatReports'
 import { combatReportsAPI, type RoundData } from '../../services/api';
 import './CombatReportsPanel.css';
 
+type ReportFilter = 'all' | 'pvp' | 'instance' | 'rbp'
+
 export const CombatReportsPanel: React.FC = () => {
   const { reports, loading, error } = useCombatReports();
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
+  const [filter, setFilter] = useState<ReportFilter>('all');
   const { report: selectedReport, loading: reportLoading } = useCombatReport(selectedReportId);
+
+  const filteredReports = filter === 'all'
+    ? reports
+    : reports.filter(r => r.combat_type === filter);
 
   if (loading) {
     return <div className="combat-reports-panel">Loading combat reports...</div>;
@@ -36,11 +43,31 @@ export const CombatReportsPanel: React.FC = () => {
   const renderReportList = () => (
     <div className="reports-list">
       <h3>Combat Reports</h3>
-      {reports.length === 0 ? (
-        <p className="no-reports">No combat reports yet</p>
+      <div className="report-filters" style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+        {(['all', 'pvp', 'instance', 'rbp'] as ReportFilter[]).map(f => (
+          <button
+            key={f}
+            className={`report-filter-btn ${filter === f ? 'active' : ''}`}
+            onClick={() => setFilter(f)}
+            style={{
+              padding: '4px 12px',
+              borderRadius: '4px',
+              border: filter === f ? '1px solid #4a90d9' : '1px solid #555',
+              background: filter === f ? 'rgba(74, 144, 217, 0.2)' : 'rgba(0,0,0,0.3)',
+              color: filter === f ? '#4a90d9' : '#aaa',
+              cursor: 'pointer',
+              fontSize: '0.85rem',
+            }}
+          >
+            {f === 'all' ? 'All' : f.toUpperCase()} ({f === 'all' ? reports.length : reports.filter(r => r.combat_type === f).length})
+          </button>
+        ))}
+      </div>
+      {filteredReports.length === 0 ? (
+        <p className="no-reports">No combat reports found</p>
       ) : (
         <div className="reports-grid">
-          {reports.map((report) => {
+          {filteredReports.map((report) => {
             const loot = combatReportsAPI.parseLoot(report);
             return (
               <div

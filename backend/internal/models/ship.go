@@ -141,12 +141,13 @@ type Fleet struct {
 }
 
 type FleetStack struct {
-	ID           string `json:"id"`
-	FleetID      string `json:"fleet_id"`
-	ShipDesignID string `json:"ship_design_id"`
-	GridRow      int    `json:"grid_row"`
-	GridCol      int    `json:"grid_col"`
-	ShipCount    int    `json:"ship_count"`
+	ID            string `json:"id"`
+	FleetID       string `json:"fleet_id"`
+	ShipDesignID  string `json:"ship_design_id"`
+	GridRow       int    `json:"grid_row"`
+	GridCol       int    `json:"grid_col"`
+	ShipCount     int    `json:"ship_count"`
+	TotalMovement int    `json:"total_movement,omitempty"`
 }
 
 type Instance struct {

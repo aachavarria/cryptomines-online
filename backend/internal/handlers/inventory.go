@@ -284,15 +284,46 @@ func useBattleItem(tx *sql.Tx, playerID, itemKey string) (string, error) {
 	switch battleEffect {
 	case "sp_grant":
 		// SP Card: Grant Space Points (cap at max SP)
-		// TODO: Implement SP system (Phase 3+)
-		// For now, just return success message
-		effectMsg = fmt.Sprintf("Granted %d Space Points (SP system not yet implemented)", battleValue)
+		_, err = tx.Exec(`
+			UPDATE players SET space_points = LEAST(space_points + $1, max_space_points)
+			WHERE id = $2
+		`, battleValue, playerID)
+		if err != nil {
+			return "", fmt.Errorf("failed to grant SP: %w", err)
+		}
+		effectMsg = fmt.Sprintf("Granted %d Space Points", battleValue)
 
 	case "protection":
-		// Truce Card: Grant protection from attacks
-		// TODO: Implement protection system (Phase 3+)
-		// For now, just return success message
-		effectMsg = fmt.Sprintf("%d-hour protection activated (PvP system not yet implemented)", battleValue)
+		// Truce Card: Grant protection from attacks for N hours
+		// Cannot use if player has outgoing pending attacks
+		var hasPending bool
+		err = tx.QueryRow(`
+			SELECT EXISTS(SELECT 1 FROM pending_attacks WHERE attacker_id = $1 AND status = 'traveling')
+		`, playerID).Scan(&hasPending)
+		if err == nil && hasPending {
+			return "", fmt.Errorf("cannot activate truce while you have fleets attacking")
+		}
+
+		// Cannot use if incoming attacks are already in transit
+		var hasIncoming bool
+		err = tx.QueryRow(`
+			SELECT EXISTS(SELECT 1 FROM pending_attacks WHERE defender_id = $1 AND status = 'traveling')
+		`, playerID).Scan(&hasIncoming)
+		if err == nil && hasIncoming {
+			return "", fmt.Errorf("cannot activate truce during an imminent attack")
+		}
+
+		// Set protection_until on player's homeworld planet
+		duration := time.Duration(battleValue) * time.Hour
+		protUntil := time.Now().Add(duration)
+		_, err = tx.Exec(`
+			UPDATE planets SET protection_until = $1, updated_at = now()
+			WHERE player_id = $2 AND is_homeworld = true
+		`, protUntil, playerID)
+		if err != nil {
+			return "", fmt.Errorf("failed to activate protection: %w", err)
+		}
+		effectMsg = fmt.Sprintf("%d-hour truce protection activated until %s", battleValue, protUntil.Format("15:04 Jan 2"))
 
 	default:
 		return "", fmt.Errorf("unknown battle effect: %s", battleEffect)
@@ -356,26 +387,134 @@ func useBlueprint(tx *sql.Tx, playerID, itemKey string) (string, error) {
 	return effectMsg, nil
 }
 
-// useCommanderCard unlocks a commander (insert into commanders)
+// useCommanderCard unlocks a commander (insert into commanders or add star rank)
 func useCommanderCard(tx *sql.Tx, playerID, itemKey string) (string, error) {
 	// Get commander card details
-	var commanderType string
+	var commanderTypeName string
 	var displayName string
 	err := tx.QueryRow(`
 		SELECT commander_type, display_name
 		FROM item_types
 		WHERE item_key = $1 AND category = 'commander'
-	`, itemKey).Scan(&commanderType, &displayName)
+	`, itemKey).Scan(&commanderTypeName, &displayName)
 	if err != nil {
 		return "", fmt.Errorf("failed to get commander card details: %w", err)
 	}
 
-	// TODO: Implement commander gacha system (Module 4: Commander System)
-	// For now, just return placeholder message
-	effectMsg := fmt.Sprintf("Commander card used: %s (Commander system not yet implemented)", displayName)
+	// Look up the commander type from reference table
+	var ctID int
+	var ctName, ctRarity string
+	var ctAccuracy, ctDodge, ctSpeed, ctElectron int
+	err = tx.QueryRow(`
+		SELECT id, name, rarity, base_accuracy, base_dodge, base_speed, base_electron
+		FROM commander_types
+		WHERE name = $1
+	`, commanderTypeName).Scan(&ctID, &ctName, &ctRarity, &ctAccuracy, &ctDodge, &ctSpeed, &ctElectron)
+	if err != nil {
+		return "", fmt.Errorf("commander type not found: %s", commanderTypeName)
+	}
+
+	// Check commander count limit
+	var commanderCount int
+	err = tx.QueryRow(`SELECT COUNT(*) FROM commanders WHERE player_id = $1`, playerID).Scan(&commanderCount)
+	if err != nil {
+		return "", fmt.Errorf("failed to count commanders: %w", err)
+	}
+	if commanderCount >= 60 {
+		return "", fmt.Errorf("max commanders reached (60/60)")
+	}
+
+	// Check if player already owns this commander
+	var existingID string
+	err = tx.QueryRow(`SELECT id FROM commanders WHERE player_id = $1 AND name = $2`, playerID, ctName).Scan(&existingID)
+
+	var effectMsg string
+	if err == sql.ErrNoRows {
+		// New commander — insert
+		_, err = tx.Exec(`
+			INSERT INTO commanders (player_id, name, rarity, star_rank, accuracy, dodge, speed, electron, is_deployed)
+			VALUES ($1, $2, $3, 0, $4, $5, $6, $7, false)
+		`, playerID, ctName, ctRarity, ctAccuracy, ctDodge, ctSpeed, ctElectron)
+		if err != nil {
+			return "", fmt.Errorf("failed to create commander: %w", err)
+		}
+		effectMsg = fmt.Sprintf("Commander unlocked: %s (%s)", displayName, ctRarity)
+	} else if err == nil {
+		// Duplicate — increase star rank by 1 (max 15)
+		_, err = tx.Exec(`
+			UPDATE commanders SET star_rank = LEAST(star_rank + 1, 15), updated_at = now()
+			WHERE id = $1
+		`, existingID)
+		if err != nil {
+			return "", fmt.Errorf("failed to upgrade commander: %w", err)
+		}
+		effectMsg = fmt.Sprintf("Duplicate %s! Star rank increased by 1.", displayName)
+	} else {
+		return "", fmt.Errorf("failed to check commander: %w", err)
+	}
 
 	// Update quest progress
 	services.UpdateQuestProgress(playerID, "unlock_commander", "commander", 1)
 
 	return effectMsg, nil
+}
+
+// GetActiveBuffs handles GET /api/player/buffs
+// Returns active buffs with remaining time, cleaning up expired ones
+func GetActiveBuffs(w http.ResponseWriter, r *http.Request) {
+	playerID := middleware.GetPlayerID(r)
+
+	// Clean up expired buffs
+	database.DB.Exec(`DELETE FROM active_buffs WHERE player_id = $1 AND expires_at <= now()`, playerID)
+
+	type ActiveBuff struct {
+		BuffType  string `json:"buff_type"`
+		BuffValue int    `json:"buff_value"`
+		ExpiresAt string `json:"expires_at"`
+	}
+
+	rows, err := database.DB.Query(`
+		SELECT buff_type, buff_value, expires_at
+		FROM active_buffs
+		WHERE player_id = $1 AND expires_at > now()
+		ORDER BY expires_at ASC
+	`, playerID)
+	if err != nil {
+		log.Printf("GetActiveBuffs: query failed: %v", err)
+		http.Error(w, `{"error":"internal server error"}`, http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	buffs := []ActiveBuff{}
+	for rows.Next() {
+		var b ActiveBuff
+		var expiresAt time.Time
+		if err := rows.Scan(&b.BuffType, &b.BuffValue, &expiresAt); err != nil {
+			continue
+		}
+		b.ExpiresAt = expiresAt.Format(time.RFC3339)
+		buffs = append(buffs, b)
+	}
+
+	// Also get truce protection status from planet
+	var protectionUntil sql.NullTime
+	database.DB.QueryRow(`
+		SELECT protection_until FROM planets
+		WHERE player_id = $1 AND is_homeworld = true
+	`, playerID).Scan(&protectionUntil)
+
+	type BuffsResponse struct {
+		Buffs           []ActiveBuff `json:"buffs"`
+		ProtectionUntil *string      `json:"protection_until"`
+	}
+
+	resp := BuffsResponse{Buffs: buffs}
+	if protectionUntil.Valid && protectionUntil.Time.After(time.Now()) {
+		t := protectionUntil.Time.Format(time.RFC3339)
+		resp.ProtectionUntil = &t
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(resp)
 }

@@ -684,9 +684,12 @@ func getOwnedFleet(fleetID, playerID string) (models.Fleet, error) {
 
 func getFleetStacks(fleetID string) []models.FleetStack {
 	rows, err := database.DB.Query(
-		`SELECT id, fleet_id, ship_design_id, grid_row, grid_col, ship_count
-		 FROM fleet_stacks WHERE fleet_id = $1
-		 ORDER BY grid_row, grid_col`, fleetID,
+		`SELECT fs.id, fs.fleet_id, fs.ship_design_id, fs.grid_row, fs.grid_col, fs.ship_count,
+		        COALESCE(sd.total_movement, 0)
+		 FROM fleet_stacks fs
+		 LEFT JOIN ship_designs sd ON sd.id = fs.ship_design_id
+		 WHERE fs.fleet_id = $1
+		 ORDER BY fs.grid_row, fs.grid_col`, fleetID,
 	)
 	if err != nil {
 		log.Printf("Failed to get fleet stacks: %v", err)
@@ -697,7 +700,7 @@ func getFleetStacks(fleetID string) []models.FleetStack {
 	stacks := []models.FleetStack{}
 	for rows.Next() {
 		var s models.FleetStack
-		if err := rows.Scan(&s.ID, &s.FleetID, &s.ShipDesignID, &s.GridRow, &s.GridCol, &s.ShipCount); err != nil {
+		if err := rows.Scan(&s.ID, &s.FleetID, &s.ShipDesignID, &s.GridRow, &s.GridCol, &s.ShipCount, &s.TotalMovement); err != nil {
 			continue
 		}
 		stacks = append(stacks, s)

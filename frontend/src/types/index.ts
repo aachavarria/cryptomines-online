@@ -300,6 +300,7 @@ export interface FleetStack {
   grid_row: number
   grid_col: number
   ship_count: number
+  total_movement?: number
 }
 
 export interface CreateFleetRequest {
@@ -631,13 +632,57 @@ export interface AttackPlanetRequest {
   fleet_ids: string[]
 }
 
-export interface AttackPlanetResponse {
+// Legacy sync response (kept for combat reports)
+export interface AttackPlanetResponseLegacy {
   report_id: string
   result: 'attacker_win' | 'defender_win' | 'draw'
   total_rounds: number
   loot_gained: PvPLoot | null
   attacker_losses: PvPBattleLosses
   defender_losses: PvPBattleLosses
+}
+
+// New async response — fleet dispatched with travel time
+export interface AttackPlanetResponse {
+  pending_attack_id: string
+  travel_seconds: number
+  arrival_at: string
+  fleets_dispatched: number
+}
+
+export interface PendingAttack {
+  id: string
+  defender_id: string
+  defender_planet_id: string
+  fleet_ids: string[]
+  status: 'traveling' | 'resolved' | 'cancelled'
+  travel_seconds: number
+  depart_at: string
+  arrival_at: string
+  return_at: string | null
+  combat_report_id: string | null
+  planet_name: string
+  defender_name: string
+}
+
+export interface IncomingAttack {
+  id: string
+  arrival_at: string
+  origin_x?: number
+  origin_y?: number
+  fleet_count?: number
+  attacker_name?: string
+}
+
+export interface RadarIncomingResponse {
+  radar_level: number
+  detect_advance: number
+  incoming_attacks: IncomingAttack[]
+}
+
+export interface PlayerSP {
+  space_points: number
+  max_space_points: number
 }
 
 // Building types that can be constructed (from seed data)

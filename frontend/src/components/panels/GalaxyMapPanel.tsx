@@ -14,6 +14,7 @@ export default function GalaxyMapPanel({ onClose }: GalaxyMapPanelProps) {
   const [selectedFleets, setSelectedFleets] = useState<string[]>([])
   const [fleets, setFleets] = useState<Fleet[]>([])
   const [myCorpId, setMyCorpId] = useState<string | null>(null)
+  const [lastResult, setLastResult] = useState<{ result: string; rounds: number; conquered: boolean } | null>(null)
 
   // ESC to close
   useEffect(() => {
@@ -40,8 +41,12 @@ export default function GalaxyMapPanel({ onClose }: GalaxyMapPanelProps) {
 
     const response = await attack(selectedZone.rbp_planet_id, { fleet_ids: selectedFleets })
     if (response) {
+      setLastResult({
+        result: response.result,
+        rounds: response.total_rounds,
+        conquered: response.conquered,
+      })
       setSelectedFleets([])
-      selectZone(null)
     }
   }
 
@@ -178,6 +183,30 @@ export default function GalaxyMapPanel({ onClose }: GalaxyMapPanelProps) {
                     <div style={{ marginBottom: '8px', color: '#4a90d9' }}>
                       <strong>Protected Until:</strong>{' '}
                       {new Date(selectedZone.protection_until).toLocaleString()}
+                    </div>
+                  )}
+
+                  {lastResult && (
+                    <div style={{
+                      padding: '12px',
+                      marginTop: '12px',
+                      background: lastResult.result === 'attacker_win' ? 'rgba(74, 222, 128, 0.15)' : 'rgba(248, 113, 113, 0.15)',
+                      border: `1px solid ${lastResult.result === 'attacker_win' ? '#4ade80' : '#f87171'}`,
+                      borderRadius: '4px',
+                    }}>
+                      <div style={{ fontWeight: 'bold', marginBottom: '4px', color: lastResult.result === 'attacker_win' ? '#4ade80' : '#f87171' }}>
+                        {lastResult.result === 'attacker_win' ? 'Victory!' : lastResult.result === 'defender_win' ? 'Defeat' : 'Draw'}
+                      </div>
+                      <div style={{ fontSize: '0.85rem', color: '#aaa' }}>
+                        Combat resolved in {lastResult.rounds} rounds
+                        {lastResult.conquered && <span style={{ color: '#4ade80', marginLeft: '8px' }}>RBP Conquered!</span>}
+                      </div>
+                      <button
+                        style={{ marginTop: '8px', padding: '4px 12px', background: 'rgba(0,0,0,0.3)', border: '1px solid #555', borderRadius: '4px', color: '#aaa', cursor: 'pointer' }}
+                        onClick={() => setLastResult(null)}
+                      >
+                        Dismiss
+                      </button>
                     </div>
                   )}
 

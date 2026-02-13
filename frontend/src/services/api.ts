@@ -47,6 +47,9 @@ import type {
   PvPSearchResult,
   AttackPlanetRequest,
   AttackPlanetResponse,
+  PendingAttack,
+  RadarIncomingResponse,
+  PlayerSP,
 } from '../types'
 import type { InventoryItem, UseItemResponse } from '../types/inventory'
 import type {
@@ -476,6 +479,26 @@ export async function attackPlanet(req: AttackPlanetRequest): Promise<AttackPlan
   return data
 }
 
+export async function getPendingAttacks(): Promise<PendingAttack[]> {
+  const { data } = await api.get<PendingAttack[]>('/pvp/pending')
+  return data
+}
+
+export async function cancelAttack(attackId: string): Promise<{ cancelled: boolean; return_seconds: number }> {
+  const { data } = await api.post<{ cancelled: boolean; return_seconds: number }>(`/pvp/cancel/${attackId}`)
+  return data
+}
+
+export async function getIncomingAttacks(): Promise<RadarIncomingResponse> {
+  const { data } = await api.get<RadarIncomingResponse>('/radar/incoming')
+  return data
+}
+
+export async function getPlayerSP(): Promise<PlayerSP> {
+  const { data } = await api.get<PlayerSP>('/player/sp')
+  return data
+}
+
 // ============ Commanders ============
 
 export interface Commander {
@@ -552,6 +575,18 @@ export async function getInventory(): Promise<InventoryItem[]> {
 
 export async function useItem(itemId: string): Promise<UseItemResponse> {
   const { data } = await api.post<UseItemResponse>(`/inventory/${itemId}/use`)
+  return data
+}
+
+// ============ Active Buffs ============
+
+export interface ActiveBuffsResponse {
+  buffs: { buff_type: string; buff_value: number; expires_at: string }[]
+  protection_until: string | null
+}
+
+export async function getActiveBuffs(): Promise<ActiveBuffsResponse> {
+  const { data } = await api.get<ActiveBuffsResponse>('/player/buffs')
   return data
 }
 
@@ -657,6 +692,16 @@ export async function getGalaxyMap(): Promise<GalaxyMapResponse> {
 export async function attackRBP(rbpPlanetId: string, req: AttackRBPRequest): Promise<AttackRBPResponse> {
   const { data } = await api.post<AttackRBPResponse>(`/corp/rbp/${rbpPlanetId}/attack`, req)
   return data
+}
+
+// ============ Dev Endpoints ============
+
+export async function devGiveResources(metal: number, he3: number, gold: number): Promise<void> {
+  await api.post('/dev/give-resources', { metal, he3, gold })
+}
+
+export async function devGiveBlueprint(blueprintId: number, level: number): Promise<void> {
+  await api.post('/dev/give-blueprint', { blueprint_id: blueprintId, level })
 }
 
 export default api
