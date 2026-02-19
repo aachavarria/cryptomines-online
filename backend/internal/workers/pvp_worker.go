@@ -88,7 +88,7 @@ func resolveAttack(attackID, attackerID, defenderID, defenderPlanetID string, fl
 		PlayerID:       attackerID,
 		FleetID:        "combined_attacker",
 		CommanderBonus: nil,
-		TechBonuses:    &combat.TechBonuses{},
+		TechBonuses:    &services.TechBonuses{},
 		Stacks:         attackerStacks,
 		Formation:      "phalanx",
 		Targeting:      "max_attack",
@@ -97,7 +97,7 @@ func resolveAttack(attackID, attackerID, defenderID, defenderPlanetID string, fl
 
 	// Load attacker tech bonuses
 	if tb, err := services.GetPlayerTechBonuses(attackerID); err == nil {
-		attackerFleet.TechBonuses = techBonusesToCombat(tb)
+		attackerFleet.TechBonuses = tb
 	}
 
 	// Load defender fleets (all stationed fleets on the planet)
@@ -353,6 +353,13 @@ func createPvPReportW(attackerID, defenderID, result string, totalRounds int, lo
 }
 
 func loadDefenderFleetsForWorker(planetID, defenderID string) (*combat.Fleet, error) {
+	// Get tech bonuses first — needed for defense buildings and DefenseMovement
+	tb, err := services.GetPlayerTechBonuses(defenderID)
+	if err != nil {
+		log.Printf("[PvP Worker] Failed to get defender tech bonuses: %v", err)
+		tb = &services.TechBonuses{}
+	}
+
 	rows, err := database.DB.Query(`
 		SELECT id FROM fleets WHERE player_id = $1 AND planet_id = $2 AND status = 'stationed'
 	`, defenderID, planetID)
@@ -374,8 +381,15 @@ func loadDefenderFleetsForWorker(planetID, defenderID string) (*combat.Fleet, er
 		allStacks = append(allStacks, fleet.Stacks...)
 	}
 
-	// Load defense buildings
-	defenseStacks, err := loadDefenseBuildingsForWorker(planetID)
+	// Apply DefenseMovement: flat speed bonus to all defender ship stacks
+	if tb.DefenseMovement > 0 {
+		for _, stack := range allStacks {
+			stack.BaseSpeed += tb.DefenseMovement
+		}
+	}
+
+	// Load defense buildings with tech bonuses applied to their stats
+	defenseStacks, err := loadDefenseBuildingsForWorker(planetID, tb)
 	if err == nil {
 		allStacks = append(allStacks, defenseStacks...)
 	}
@@ -384,26 +398,26 @@ func loadDefenderFleetsForWorker(planetID, defenderID string) (*combat.Fleet, er
 		PlayerID:       defenderID,
 		FleetID:        "combined_defender",
 		CommanderBonus: nil,
-		TechBonuses:    &combat.TechBonuses{},
+		TechBonuses:    tb,
 		Stacks:         allStacks,
 		Formation:      "phalanx",
 		Targeting:      "max_attack",
 		Side:           "defender",
 	}
 
-	if tb, err := services.GetPlayerTechBonuses(defenderID); err == nil {
-		fleet.TechBonuses = techBonusesToCombat(tb)
-	}
-
 	return fleet, nil
 }
 
-func loadDefenseBuildingsForWorker(planetID string) ([]*combat.FleetStack, error) {
+// loadDefenseBuildingsForWorker loads defense buildings with tech bonuses applied.
+func loadDefenseBuildingsForWorker(planetID string, tb *services.TechBonuses) ([]*combat.FleetStack, error) {
 	rows, err := database.DB.Query(`
 		SELECT b.id, bt.name, b.level
 		FROM buildings b
-		JOIN building_types bt ON bt.name = b.building_type
-		WHERE b.planet_id = $1 AND bt.type = 'defense' AND b.construction_end_time IS NULL
+		JOIN building_types bt ON bt.id = b.building_type
+		WHERE b.planet_id = $1
+		  AND bt.category = 'defense'
+		  AND b.is_upgrading = false
+		  AND b.level > 0
 	`, planetID)
 	if err != nil {
 		return nil, err
@@ -418,7 +432,7 @@ func loadDefenseBuildingsForWorker(planetID string) ([]*combat.FleetStack, error
 		if err := rows.Scan(&buildingID, &buildingName, &level); err != nil {
 			continue
 		}
-		stack := buildingToStackW(buildingID, buildingName, level, stackID)
+		stack := buildingToStackW(buildingID, buildingName, level, stackID, tb)
 		if stack != nil {
 			stacks = append(stacks, stack)
 			stackID++
@@ -427,9 +441,11 @@ func loadDefenseBuildingsForWorker(planetID string) ([]*combat.FleetStack, error
 	return stacks, nil
 }
 
-func buildingToStackW(buildingID, buildingName string, level, stackID int) *combat.FleetStack {
+// buildingToStackW converts a defense building to a combat stack with tech bonuses.
+// Mirrors the logic in handlers/defense_helpers.go buildingToStack.
+func buildingToStackW(buildingID, buildingName string, level, stackID int, tb *services.TechBonuses) *combat.FleetStack {
 	var baseAttack, baseDefense, baseShield, baseStructure, baseSpeed, baseAccuracy, baseDodge int
-	l2 := level * level // level^2 scaling for GO2 power scale
+	l2 := level * level
 
 	switch buildingName {
 	case "space_station":
@@ -476,6 +492,29 @@ func buildingToStackW(buildingID, buildingName string, level, stackID int) *comb
 		return nil
 	}
 
+	// Apply tech bonuses
+	if tb != nil {
+		if tb.DefenseValue > 0 {
+			mult := 1.0 + tb.DefenseValue/100.0
+			baseDefense = int(float64(baseDefense) * mult)
+			baseShield = int(float64(baseShield) * mult)
+			baseStructure = int(float64(baseStructure) * mult)
+			baseDodge = int(float64(baseDodge) * mult)
+		}
+		if tb.EmplacementAttack > 0 {
+			switch buildingName {
+			case "particle_cannon", "anti_aircraft_gun", "thors_cannon", "meteor_star":
+				baseAttack = int(float64(baseAttack) * (1.0 + tb.EmplacementAttack/100.0))
+			}
+		}
+		if tb.DefenseRange > 0 {
+			switch buildingName {
+			case "particle_cannon", "anti_aircraft_gun":
+				baseAccuracy += tb.DefenseRange
+			}
+		}
+	}
+
 	return &combat.FleetStack{
 		ID:               buildingID,
 		ShipDesignID:     "",
@@ -495,24 +534,6 @@ func buildingToStackW(buildingID, buildingName string, level, stackID int) *comb
 		CurrentStructure: baseStructure,
 		GridRow:          stackID / 3,
 		GridCol:          stackID % 3,
-	}
-}
-
-func techBonusesToCombat(tb *services.TechBonuses) *combat.TechBonuses {
-	return &combat.TechBonuses{
-		BallisticDamage:     tb.BallisticDamage,
-		BallisticCritRate:   tb.BallisticCritRate,
-		BallisticCritDamage: tb.BallisticCritDamage,
-		BallisticHitRate:    tb.BallisticHitRate,
-		DirectionalDamage:   tb.DirectionalDamage,
-		DirectionalCritRate: tb.DirectionalCritRate,
-		DirectionalAccuracy: tb.DirectionalAccuracy,
-		MissileDamage:       tb.MissileDamage,
-		MissileHitRate:      tb.MissileHitRate,
-		BaseShield:          tb.BaseShield,
-		BaseStructure:       tb.BaseStructure,
-		BaseAgility:         tb.BaseAgility,
-		BaseDefense:         tb.BaseDefense,
 	}
 }
 

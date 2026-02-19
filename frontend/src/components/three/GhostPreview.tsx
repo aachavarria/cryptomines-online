@@ -1,8 +1,9 @@
-import { useMemo } from 'react'
+import { useMemo, useEffect, Suspense } from 'react'
 import * as THREE from 'three'
 import { getBuildingSize } from '../../config/buildingConfig.ts'
 import { TILE_WORLD_SIZE, gridToWorld } from '../../contexts/GameContext.tsx'
 import type { GridPosition } from '../../contexts/GameContext.tsx'
+import { BUILDING_MODELS } from './buildings/index.ts'
 
 interface GhostPreviewProps {
   typeName: string       // building type being placed
@@ -13,6 +14,7 @@ interface GhostPreviewProps {
 
 export default function GhostPreview({ typeName, gridPosition, isValid, visible }: GhostPreviewProps) {
   const size = getBuildingSize(typeName)
+  const TypeModel = BUILDING_MODELS[typeName]
 
   // Calculate world position (center of the multi-tile footprint)
   const worldPos = useMemo(() => {
@@ -22,10 +24,10 @@ export default function GhostPreview({ typeName, gridPosition, isValid, visible 
     return gridToWorld(centerCol, centerRow)
   }, [gridPosition, size])
 
-  // Ghost box dimensions in world units (square grid — axis-aligned)
+  // Ghost box dimensions in world units (for fallback)
   const boxWidth = size.cols * TILE_WORLD_SIZE * 0.95
   const boxDepth = size.rows * TILE_WORLD_SIZE * 0.95
-  const boxHeight = Math.max(size.cols, size.rows) * 2 + 2 // taller for bigger buildings
+  const boxHeight = Math.max(size.cols, size.rows) * 2 + 2
 
   const color = isValid ? '#22cc66' : '#ff4444'
 
@@ -33,31 +35,52 @@ export default function GhostPreview({ typeName, gridPosition, isValid, visible 
 
   return (
     <group position={worldPos}>
-      {/* Ghost building shape */}
-      <mesh position={[0, boxHeight / 2, 0]}>
-        <boxGeometry args={[boxWidth, boxHeight, boxDepth]} />
-        <meshStandardMaterial
-          color={color}
-          emissive={color}
-          emissiveIntensity={0.3}
-          transparent
-          opacity={0.25}
-          depthWrite={false}
-          side={THREE.DoubleSide}
-        />
-      </mesh>
-
-      {/* Wireframe outline */}
-      <mesh position={[0, boxHeight / 2, 0]}>
-        <boxGeometry args={[boxWidth, boxHeight, boxDepth]} />
-        <meshStandardMaterial
-          color={color}
-          wireframe
-          transparent
-          opacity={0.5}
-          depthWrite={false}
-        />
-      </mesh>
+      {/* 3D Model in hologram mode */}
+      {TypeModel ? (
+        <Suspense fallback={
+          <mesh position={[0, boxHeight / 2, 0]}>
+            <boxGeometry args={[boxWidth, boxHeight, boxDepth]} />
+            <meshStandardMaterial
+              color={color}
+              transparent
+              opacity={0.3}
+              wireframe
+            />
+          </mesh>
+        }>
+          <HologramBuilding
+            TypeModel={TypeModel}
+            color={color}
+            isValid={isValid}
+          />
+        </Suspense>
+      ) : (
+        // Fallback to box if model not found
+        <>
+          <mesh position={[0, boxHeight / 2, 0]}>
+            <boxGeometry args={[boxWidth, boxHeight, boxDepth]} />
+            <meshStandardMaterial
+              color={color}
+              emissive={color}
+              emissiveIntensity={0.3}
+              transparent
+              opacity={0.25}
+              depthWrite={false}
+              side={THREE.DoubleSide}
+            />
+          </mesh>
+          <mesh position={[0, boxHeight / 2, 0]}>
+            <boxGeometry args={[boxWidth, boxHeight, boxDepth]} />
+            <meshStandardMaterial
+              color={color}
+              wireframe
+              transparent
+              opacity={0.5}
+              depthWrite={false}
+            />
+          </mesh>
+        </>
+      )}
 
       {/* Base footprint indicator */}
       <mesh position={[0, 0.05, 0]} rotation={[-Math.PI / 2, 0, 0]}>
@@ -73,5 +96,33 @@ export default function GhostPreview({ typeName, gridPosition, isValid, visible 
         />
       </mesh>
     </group>
+  )
+}
+
+// Component to apply hologram effect to building models
+function HologramBuilding({ TypeModel, color, isValid }: {
+  TypeModel: any,
+  color: string,
+  isValid: boolean
+}) {
+  useEffect(() => {
+    // Apply hologram material to all meshes in the model
+    return () => {
+      // Cleanup if needed
+    }
+  }, [])
+
+  // Convert hex color to number for hologramColor
+  const colorNum = parseInt(color.replace('#', ''), 16)
+
+  return (
+    <TypeModel
+      position={[0, 0, 0]}
+      scale={1}
+      level={1}
+      animate={false}
+      isUnderConstruction={true}
+      hologramColor={colorNum}
+    />
   )
 }

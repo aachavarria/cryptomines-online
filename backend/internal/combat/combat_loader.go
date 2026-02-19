@@ -53,22 +53,7 @@ func LoadPlayerFleet(fleetID, playerID string) (*Fleet, error) {
 		techBonuses = &services.TechBonuses{}
 	}
 
-	// Convert services.TechBonuses to combat.TechBonuses
-	fleet.TechBonuses = &TechBonuses{
-		BallisticDamage:     techBonuses.BallisticDamage,
-		BallisticCritRate:   techBonuses.BallisticCritRate,
-		BallisticCritDamage: techBonuses.BallisticCritDamage,
-		BallisticHitRate:    techBonuses.BallisticHitRate,
-		DirectionalDamage:   techBonuses.DirectionalDamage,
-		DirectionalCritRate: techBonuses.DirectionalCritRate,
-		DirectionalAccuracy: techBonuses.DirectionalAccuracy,
-		MissileDamage:       techBonuses.MissileDamage,
-		MissileHitRate:      techBonuses.MissileHitRate,
-		BaseShield:          techBonuses.BaseShield,
-		BaseStructure:       techBonuses.BaseStructure,
-		BaseAgility:         techBonuses.BaseAgility,
-		BaseDefense:         techBonuses.BaseDefense,
-	}
+	fleet.TechBonuses = techBonuses
 
 	// Load fleet stacks
 	stacks, err := loadFleetStacks(fleetID)
@@ -76,6 +61,9 @@ func LoadPlayerFleet(fleetID, playerID string) (*Fleet, error) {
 		return nil, fmt.Errorf("failed to load fleet stacks: %w", err)
 	}
 	fleet.Stacks = stacks
+
+	// Populate advanced combat properties from tech bonuses
+	applyAdvancedCombatProps(&fleet)
 
 	return &fleet, nil
 }
@@ -107,7 +95,7 @@ func LoadInstanceFleet(instanceID string) (*Fleet, error) {
 		PlayerID:       "npc",
 		FleetID:        "instance_" + instanceID,
 		CommanderBonus: nil, // NPCs don't have commanders
-		TechBonuses:    &TechBonuses{},
+		TechBonuses:    &services.TechBonuses{},
 		Stacks:         []*FleetStack{},
 		Formation:      "phalanx",
 		Targeting:      "max_attack",
@@ -160,7 +148,7 @@ func loadFleetStacks(fleetID string) ([]*FleetStack, error) {
 		}
 
 		// Get hull type info for ship type classification
-		stack.ShipType, stack.DamageType, stack.ArmorType = getHullTypeInfo(hullTypeID)
+		stack.ShipType, stack.DamageType, stack.ArmorType, stack.WeaponCategory = getHullTypeInfo(hullTypeID)
 
 		stacks = append(stacks, &stack)
 	}
@@ -170,99 +158,111 @@ func loadFleetStacks(fleetID string) ([]*FleetStack, error) {
 
 // loadCommanderBonuses loads commander stats and converts to combat bonuses
 func loadCommanderBonuses(commanderID string) (*CommanderBonus, error) {
-	var accuracy, dodge, speed, electron int
+	var accuracy, dodge, speed, electron, starRank int
+	var weaponExpertise, shipExpertise sql.NullString
 
 	err := database.DB.QueryRow(`
-		SELECT accuracy, dodge, speed, electron
+		SELECT accuracy, dodge, speed, electron, star_rank,
+		       weapon_expertise, ship_expertise
 		FROM commanders
 		WHERE id = $1
-	`, commanderID).Scan(&accuracy, &dodge, &speed, &electron)
+	`, commanderID).Scan(&accuracy, &dodge, &speed, &electron, &starRank,
+		&weaponExpertise, &shipExpertise)
 	if err != nil {
 		return nil, err
 	}
 
-	// TODO: Calculate effective stack bonus from commander star rank
-	// For now, use electron as effective stack bonus (simplified)
-	effectiveStackBonus := float64(electron) * 0.1 // 10% per 10 electron
+	// EffectiveStack = 0.1 * star_rank (GDD formula)
+	effectiveStackBonus := 0.1 * float64(starRank)
 
-	return &CommanderBonus{
-		Accuracy:      accuracy,
-		Dodge:         dodge,
-		Speed:         speed,
-		Electron:      electron,
+	bonus := &CommanderBonus{
+		Accuracy:       accuracy,
+		Dodge:          dodge,
+		Speed:          speed,
+		Electron:       electron,
+		StarRank:       starRank,
 		EffectiveStack: effectiveStackBonus,
-	}, nil
+	}
+	if weaponExpertise.Valid {
+		bonus.WeaponExpertise = weaponExpertise.String
+	}
+	if shipExpertise.Valid {
+		bonus.ShipExpertise = shipExpertise.String
+	}
+
+	return bonus, nil
 }
 
-// getHullTypeInfo retrieves ship type, damage type, and armor type from hull_types table
-func getHullTypeInfo(hullTypeID int) (ShipType, DamageType, ArmorType) {
-	var classification, primaryWeapon, armorClass string
+// getHullTypeInfo retrieves ship type and armor type from hull_types table.
+// Damage type and weapon category are determined by equipped modules (via ship_designs),
+// so this function returns defaults for those values.
+func getHullTypeInfo(hullTypeID int) (ShipType, DamageType, ArmorType, WeaponCategory) {
+	var hullClass, armorType string
 
 	err := database.DB.QueryRow(`
-		SELECT classification, primary_weapon_type, armor_class
+		SELECT hull_class, armor_type
 		FROM hull_types
 		WHERE id = $1
-	`, hullTypeID).Scan(&classification, &primaryWeapon, &armorClass)
+	`, hullTypeID).Scan(&hullClass, &armorType)
 
 	if err != nil {
 		log.Printf("Failed to get hull type info: %v", err)
-		return ShipTypeFrigate, DamageKinetic, ArmorChrome
+		return ShipTypeFrigate, DamageKinetic, ArmorChrome, WeaponBallistic
 	}
 
-	// Map classification to ShipType
-	shipType := mapClassificationToShipType(classification)
+	// Map hull_class to ShipType
+	shipType := mapClassificationToShipType(hullClass)
 
-	// Map primary weapon to DamageType
-	damageType := mapWeaponToDamageType(primaryWeapon)
+	// Map armor_type to ArmorType
+	armor := mapArmorClassToArmorType(armorType)
 
-	// Map armor class to ArmorType
-	armorType := mapArmorClassToArmorType(armorClass)
-
-	return shipType, damageType, armorType
+	// Damage type and weapon category come from modules, not the hull itself.
+	// Default to kinetic/ballistic; player ships get these from ship_designs.
+	return shipType, DamageKinetic, armor, WeaponBallistic
 }
 
 // createStackFromHullType creates a fleet stack from hull type name (for NPC fleets)
 func createStackFromHullType(hullTypeName string, quantity, gridRow, gridCol int) (*FleetStack, error) {
 	var hullTypeID int
-	var classification, primaryWeapon, armorClass string
-	var baseShield, baseStructure, baseSpeed, baseAccuracy, baseDodge int
+	var hullClass, armorTypeStr string
+	var baseShield, baseStructure, baseAgility, baseMovement int
 
 	// Get hull type base stats
 	err := database.DB.QueryRow(`
-		SELECT id, classification, primary_weapon_type, armor_class,
-		       base_shield, base_structure, base_speed, base_accuracy, base_dodge
+		SELECT id, hull_class, armor_type,
+		       base_shield, base_structure, base_agility, base_movement
 		FROM hull_types
 		WHERE name = $1
 	`, hullTypeName).Scan(
-		&hullTypeID, &classification, &primaryWeapon, &armorClass,
-		&baseShield, &baseStructure, &baseSpeed, &baseAccuracy, &baseDodge,
+		&hullTypeID, &hullClass, &armorTypeStr,
+		&baseShield, &baseStructure, &baseAgility, &baseMovement,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("hull type not found: %s", hullTypeName)
 	}
 
-	shipType := mapClassificationToShipType(classification)
-	damageType := mapWeaponToDamageType(primaryWeapon)
-	armorType := mapArmorClassToArmorType(armorClass)
+	shipType := mapClassificationToShipType(hullClass)
+	armorType := mapArmorClassToArmorType(armorTypeStr)
 
 	// For NPC ships, use simplified base attack (can be enhanced later)
 	baseAttack := baseShield / 10
 	baseDefense := baseStructure / 10
 
+	// Damage type and weapon category come from modules; NPC hulls default to kinetic/ballistic
 	return &FleetStack{
-		ShipCount:     quantity,
-		ShipType:      shipType,
-		DamageType:    damageType,
-		ArmorType:     armorType,
-		BaseAttack:    baseAttack,
-		BaseDefense:   baseDefense,
-		BaseSpeed:     baseSpeed,
-		BaseAccuracy:  baseAccuracy,
-		BaseDodge:     baseDodge,
-		BaseShield:    baseShield,
-		BaseStructure: baseStructure,
-		GridRow:       gridRow,
-		GridCol:       gridCol,
+		ShipCount:      quantity,
+		ShipType:       shipType,
+		DamageType:     DamageKinetic,
+		ArmorType:      armorType,
+		WeaponCategory: WeaponBallistic,
+		BaseAttack:     baseAttack,
+		BaseDefense:    baseDefense,
+		BaseSpeed:      baseMovement,
+		BaseAgility:    baseAgility,
+		BaseShield:     baseShield,
+		BaseStructure:  baseStructure,
+		GridRow:        gridRow,
+		GridCol:        gridCol,
 	}, nil
 }
 
@@ -296,6 +296,21 @@ func mapWeaponToDamageType(weapon string) DamageType {
 	}
 }
 
+func mapWeaponToCategory(weapon string) WeaponCategory {
+	switch weapon {
+	case "kinetic":
+		return WeaponBallistic
+	case "explosive":
+		return WeaponMissile
+	case "heat":
+		return WeaponDirectional
+	case "magnetic":
+		return WeaponFighter
+	default:
+		return WeaponBallistic
+	}
+}
+
 func mapArmorClassToArmorType(armorClass string) ArmorType {
 	switch armorClass {
 	case "chrome":
@@ -308,5 +323,54 @@ func mapArmorClassToArmorType(armorClass string) ArmorType {
 		return ArmorNeutralizing
 	default:
 		return ArmorChrome
+	}
+}
+
+// applyAdvancedCombatProps copies tech-derived advanced combat properties onto each fleet stack.
+// These values are fleet-wide (from the tech tree) and apply equally to all stacks.
+func applyAdvancedCombatProps(fleet *Fleet) {
+	tb := fleet.TechBonuses
+	if tb == nil {
+		return
+	}
+
+	for _, stack := range fleet.Stacks {
+		// Scatter / AoE
+		stack.ScatterDamage = tb.ScatterDamage
+		stack.ScatterAll = tb.ScatterAll
+		stack.ScatterRate = tb.ScatterRate / 100.0 // tech stores as percent, engine expects 0-1
+		stack.ScatterBonus = tb.ScatterBonus
+		stack.ScatterVsHighStructure = tb.ScatterVsHighStructure
+
+		// Piercing
+		stack.PiercingDamage = tb.PiercingDamage
+		stack.PiercingDamageBonus = tb.PiercingDamageBonus
+		stack.PiercingCritical = tb.PiercingCriticalEnabled
+
+		// Restoration
+		stack.ShieldRestore = tb.ShieldRestore
+		stack.StructureRestore = tb.StructureRestore
+		stack.AbsorbDouble = tb.AbsorbDouble / 100.0 // tech stores as percent, engine expects 0-1
+
+		// Reflection
+		stack.ReflectDamage = tb.ReflectDamage
+		stack.ReflectStructureDamage = tb.ReflectStructureDamage
+
+		// Positional: knockback
+		stack.Knockback = tb.KnockbackDistance
+
+		// Positional: range damage
+		if len(tb.RangeDamageRanges) > 0 {
+			stack.RangeDamage = make(map[int]float64)
+			for dist, mult := range tb.RangeDamageRanges {
+				stack.RangeDamage[dist] = 1.0 + mult/100.0 // tech stores bonus as percent
+			}
+		}
+
+		// Debuffs
+		stack.EnemyAttackReduction = tb.EnemyAttackReduction
+		if tb.EnemyAttackReduction > 0 {
+			stack.EnemyAttackReductionRounds = 3 // default duration
+		}
 	}
 }

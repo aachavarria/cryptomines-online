@@ -617,6 +617,23 @@ func applyCompletedResearch(playerID string) {
 	for _, research := range completed {
 		services.UpdateQuestProgress(playerID, "research_tech", research.techName, 1)
 	}
+
+	// Recalculate production rates for all planets (research affects production bonuses)
+	var planetIDs []string
+	rows2, err := database.DB.Query(`SELECT id FROM planets WHERE player_id = $1`, playerID)
+	if err == nil {
+		defer rows2.Close()
+		for rows2.Next() {
+			var planetID string
+			if rows2.Scan(&planetID) == nil {
+				planetIDs = append(planetIDs, planetID)
+			}
+		}
+		// Recalculate production for each planet
+		for _, planetID := range planetIDs {
+			RecalculateProductionRates(planetID)
+		}
+	}
 }
 
 // getTreesWithProgress loads tech types with player progress.

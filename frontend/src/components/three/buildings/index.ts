@@ -28,6 +28,8 @@ export interface BuildingComponentProps {
   scale?: number
   level?: number
   animate?: boolean
+  isUnderConstruction?: boolean
+  hologramColor?: number  // Color for hologram mode (e.g., 0x00ffff for cyan, 0x22cc66 for green, 0xff4444 for red)
 }
 
 export const BUILDING_MODELS: Record<string, ComponentType<BuildingComponentProps>> = {

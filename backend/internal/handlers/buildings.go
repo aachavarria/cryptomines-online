@@ -15,6 +15,19 @@ import (
 	"github.com/cryptomines-online/backend/internal/services"
 )
 
+// defenseBuildings is the set of building type names classified as defense structures.
+var defenseBuildings = map[string]bool{
+	"meteor_star":       true,
+	"particle_cannon":   true,
+	"anti_aircraft_gun": true,
+	"thors_cannon":      true,
+}
+
+// isDefenseBuilding returns true if the building type name is a defense structure.
+func isDefenseBuilding(name string) bool {
+	return defenseBuildings[name]
+}
+
 // applyDevMode checks if dev-mode is enabled and returns 5 seconds if true, otherwise returns the original seconds
 func applyDevMode(r *http.Request, seconds int) int {
 	if r.Header.Get("X-Dev-Mode") == "true" {
@@ -274,13 +287,6 @@ func ConstructBuilding(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Get cost from lookup table (exact wiki data) or fallback to formula
-	levelCost := services.GetBuildingLevelCost(
-		database.DB, bt.Name, 1,
-		bt.BaseCostMetal, bt.BaseCostHe3, bt.BaseCostGold,
-		bt.CostMultiplier, bt.BaseTimeSeconds, bt.TimeMultiplier,
-	)
-
 	// Apply tech bonuses (build cost reduction and build speed)
 	techBonuses, err := services.GetPlayerTechBonuses(playerID)
 	if err != nil {
@@ -289,15 +295,53 @@ func ConstructBuilding(w http.ResponseWriter, r *http.Request) {
 		techBonuses = &services.TechBonuses{}
 	}
 
-	// Apply cost reduction bonus
-	costReduction := techBonuses.BuildCostReduction / 100.0
-	levelCost.MetalCost = int64(float64(levelCost.MetalCost) * (1.0 - costReduction))
-	levelCost.He3Cost = int64(float64(levelCost.He3Cost) * (1.0 - costReduction))
-	levelCost.GoldCost = int64(float64(levelCost.GoldCost) * (1.0 - costReduction))
+	// Enforce defense structure limits
+	if isDefenseBuilding(bt.Name) {
+		// MaxDefenseStructures: base limit from max_count_per_planet, tech adds a percentage
+		if techBonuses.MaxDefenseStructures > 0 {
+			// Increase the effective max_count_per_planet by the tech percent bonus
+			extraSlots := int(float64(bt.MaxCountPerPlanet) * techBonuses.MaxDefenseStructures / 100.0)
+			bt.MaxCountPerPlanet += extraSlots
+		}
 
-	// Apply build speed bonus (reduces time)
-	speedBonus := techBonuses.BuildSpeed / 100.0
-	levelCost.BuildTimeSeconds = int(float64(levelCost.BuildTimeSeconds) * (1.0 - speedBonus))
+		// MaxThorCannon limit (default 0 means unlimited is not allowed without tech)
+		if bt.Name == "thors_cannon" && techBonuses.MaxThorCannon > 0 {
+			if currentCount >= techBonuses.MaxThorCannon {
+				errs.MaxCountReached(
+					fmt.Sprintf("Thor's Cannon limited to %d by Thor Buildup tech (current: %d)", techBonuses.MaxThorCannon, currentCount),
+					techBonuses.MaxThorCannon,
+					currentCount,
+				).WriteJSON(w, http.StatusConflict)
+				return
+			}
+		}
+	}
+
+	// Get cost from lookup table (exact wiki data) or fallback to formula
+	levelCost := services.GetBuildingLevelCost(
+		database.DB, bt.Name, 1,
+		bt.BaseCostMetal, bt.BaseCostHe3, bt.BaseCostGold,
+		bt.CostMultiplier, bt.BaseTimeSeconds, bt.TimeMultiplier,
+	)
+
+	// Apply cost and speed bonuses — defense buildings use their own tech bonuses
+	if isDefenseBuilding(bt.Name) {
+		costReduction := techBonuses.DefenseCostReduction / 100.0
+		levelCost.MetalCost = int64(float64(levelCost.MetalCost) * (1.0 - costReduction))
+		levelCost.He3Cost = int64(float64(levelCost.He3Cost) * (1.0 - costReduction))
+		levelCost.GoldCost = int64(float64(levelCost.GoldCost) * (1.0 - costReduction))
+
+		speedBonus := techBonuses.DefenseBuildSpeed / 100.0
+		levelCost.BuildTimeSeconds = int(float64(levelCost.BuildTimeSeconds) * (1.0 - speedBonus))
+	} else {
+		costReduction := techBonuses.BuildCostReduction / 100.0
+		levelCost.MetalCost = int64(float64(levelCost.MetalCost) * (1.0 - costReduction))
+		levelCost.He3Cost = int64(float64(levelCost.He3Cost) * (1.0 - costReduction))
+		levelCost.GoldCost = int64(float64(levelCost.GoldCost) * (1.0 - costReduction))
+
+		speedBonus := techBonuses.BuildSpeed / 100.0
+		levelCost.BuildTimeSeconds = int(float64(levelCost.BuildTimeSeconds) * (1.0 - speedBonus))
+	}
 	if levelCost.BuildTimeSeconds < 1 {
 		levelCost.BuildTimeSeconds = 1
 	}
@@ -505,15 +549,24 @@ func UpgradeBuilding(w http.ResponseWriter, r *http.Request) {
 		techBonuses = &services.TechBonuses{}
 	}
 
-	// Apply cost reduction bonus
-	costReduction := techBonuses.BuildCostReduction / 100.0
-	levelCost.MetalCost = int64(float64(levelCost.MetalCost) * (1.0 - costReduction))
-	levelCost.He3Cost = int64(float64(levelCost.He3Cost) * (1.0 - costReduction))
-	levelCost.GoldCost = int64(float64(levelCost.GoldCost) * (1.0 - costReduction))
+	// Apply cost and speed bonuses — defense buildings use their own tech bonuses
+	if isDefenseBuilding(bt.Name) {
+		costReduction := techBonuses.DefenseCostReduction / 100.0
+		levelCost.MetalCost = int64(float64(levelCost.MetalCost) * (1.0 - costReduction))
+		levelCost.He3Cost = int64(float64(levelCost.He3Cost) * (1.0 - costReduction))
+		levelCost.GoldCost = int64(float64(levelCost.GoldCost) * (1.0 - costReduction))
 
-	// Apply build speed bonus (reduces time)
-	speedBonus := techBonuses.BuildSpeed / 100.0
-	levelCost.BuildTimeSeconds = int(float64(levelCost.BuildTimeSeconds) * (1.0 - speedBonus))
+		speedBonus := techBonuses.DefenseBuildSpeed / 100.0
+		levelCost.BuildTimeSeconds = int(float64(levelCost.BuildTimeSeconds) * (1.0 - speedBonus))
+	} else {
+		costReduction := techBonuses.BuildCostReduction / 100.0
+		levelCost.MetalCost = int64(float64(levelCost.MetalCost) * (1.0 - costReduction))
+		levelCost.He3Cost = int64(float64(levelCost.He3Cost) * (1.0 - costReduction))
+		levelCost.GoldCost = int64(float64(levelCost.GoldCost) * (1.0 - costReduction))
+
+		speedBonus := techBonuses.BuildSpeed / 100.0
+		levelCost.BuildTimeSeconds = int(float64(levelCost.BuildTimeSeconds) * (1.0 - speedBonus))
+	}
 	if levelCost.BuildTimeSeconds < 1 {
 		levelCost.BuildTimeSeconds = 1
 	}

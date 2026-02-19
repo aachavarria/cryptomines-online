@@ -63,7 +63,7 @@ export default function CameraController({ target, enabled }: CameraControllerPr
     <MapControls
       ref={controlsRef}
       enabled={enabled && !isAnimating.current}
-      enableRotate={false}
+      enableRotate={true}
       enableDamping
       dampingFactor={0.08}
       panSpeed={1.0}
@@ -71,6 +71,11 @@ export default function CameraController({ target, enabled }: CameraControllerPr
       minZoom={2}
       maxZoom={30}
       screenSpacePanning={true}
+      mouseButtons={{
+        LEFT: THREE.MOUSE.PAN,
+        MIDDLE: THREE.MOUSE.DOLLY,
+        RIGHT: THREE.MOUSE.ROTATE,
+      }}
     />
   )
 }

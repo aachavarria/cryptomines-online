@@ -6,6 +6,8 @@ import (
 	"math"
 	"math/rand"
 	"time"
+
+	"github.com/cryptomines-online/backend/internal/services"
 )
 
 // CombatEngine handles 8-phase combat resolution for Galaxy Online 2
@@ -44,6 +46,16 @@ const (
 	DamageMagnetic  DamageType = "magnetic"
 )
 
+// WeaponCategory represents the tech-tree weapon category for bonus application
+type WeaponCategory string
+
+const (
+	WeaponBallistic   WeaponCategory = "ballistic"
+	WeaponDirectional WeaponCategory = "directional"
+	WeaponMissile     WeaponCategory = "missile"
+	WeaponFighter     WeaponCategory = "fighter"
+)
+
 // ArmorType represents armor classifications
 type ArmorType string
 
@@ -56,44 +68,81 @@ const (
 
 // FleetStack represents a stack of ships in the 3x3 grid
 type FleetStack struct {
-	ID            string
-	ShipDesignID  string
-	GridRow       int
-	GridCol       int
-	ShipCount     int
-	ShipType      ShipType
-	DamageType    DamageType
-	ArmorType     ArmorType
-	BaseAttack    int
-	BaseDefense   int
-	BaseSpeed     int
-	BaseAccuracy  int
-	BaseDodge     int
-	BaseShield    int
-	BaseStructure int
-	BaseAgility   int
+	ID             string
+	ShipDesignID   string
+	GridRow        int
+	GridCol        int
+	ShipCount      int
+	ShipType       ShipType
+	DamageType     DamageType
+	ArmorType      ArmorType
+	WeaponCategory WeaponCategory
+	BaseAttack     int
+	BaseDefense    int
+	BaseSpeed      int
+	BaseAccuracy   int
+	BaseDodge      int
+	BaseShield     int
+	BaseStructure  int
+	BaseAgility    int
 	// Effective stats (after bonuses)
-	EffectiveStacks   int
-	EffectiveAttack   int
-	EffectiveDefense  int
-	EffectiveSpeed    int
-	EffectiveAccuracy int
-	EffectiveDodge    int
-	EffectiveShield   int
+	EffectiveStacks    int
+	EffectiveAttack    int
+	EffectiveDefense   int
+	EffectiveSpeed     int
+	EffectiveAccuracy  int
+	EffectiveDodge     int
+	EffectiveShield    int
 	EffectiveStructure int
 	// Current combat state
 	CurrentShield    int
 	CurrentStructure int
 	CurrentShips     int
+
+	// --- Advanced combat properties ---
+
+	// Scatter/AoE: damage spreads to adjacent or all enemy ships
+	ScatterDamage          float64 // % of damage dealt to adjacent stacks (by grid position)
+	ScatterAll             float64 // % of damage spread across ALL enemy stacks
+	ScatterRate            float64 // chance (0-1) that scatter triggers on a hit
+	ScatterBonus           float64 // flat bonus added to scatter damage
+	ScatterVsLowStructure  float64 // extra scatter % when target structure < 50%
+	ScatterVsHighStructure float64 // extra scatter % when target structure >= 50%
+
+	// Piercing: damage passes through the primary target to stacks behind it
+	PiercingDamage      float64 // % of damage that pierces to the stack behind
+	PiercingCritical    bool    // if true, piercing damage can crit
+	PiercingDamageBonus float64 // multiplier applied to piercing damage (1.0 = no bonus)
+
+	// Restoration: per-round healing
+	ShieldRestore    float64 // % of max shield restored each round
+	StructureRestore float64 // % of max structure restored each round
+	AbsorbDouble     float64 // chance (0-1) to absorb 2x damage (halves effective damage)
+
+	// Reflection: reflect damage back to attacker before HP drops to 0
+	ReflectDamage          float64 // % of incoming damage reflected (from shield damage)
+	ReflectStructureDamage float64 // % of incoming structure damage reflected
+
+	// Positional: knockback and range-dependent damage
+	Knockback   int              // push target back N grid rows on hit
+	RangeDamage map[int]float64  // grid-row distance -> damage multiplier
+
+	// Debuffs applied on hit
+	DamageTakenIncrease  float64 // target takes X% more damage for rest of combat
+	EnemyAttackReduction float64 // reduce target's attack by X% for EnemyAttackReductionRounds
+	EnemyAttackReductionRounds int // number of rounds the attack reduction lasts
 }
 
 // Commander bonuses
 type CommanderBonus struct {
-	Accuracy       int
-	Dodge          int
-	Speed          int
-	Electron       int
-	EffectiveStack float64 // Percentage bonus to effective stacks
+	Accuracy        int
+	Dodge           int
+	Speed           int
+	Electron        int
+	StarRank        int
+	WeaponExpertise string // ballistic, directional, missile, fighter (or empty)
+	ShipExpertise   string // frigate, cruiser, battleship (or empty)
+	EffectiveStack  float64 // Percentage bonus to effective stacks
 }
 
 // Fleet represents a complete fleet in combat
@@ -101,28 +150,17 @@ type Fleet struct {
 	PlayerID       string
 	FleetID        string
 	CommanderBonus *CommanderBonus
-	TechBonuses    *TechBonuses
+	TechBonuses    *services.TechBonuses
 	Stacks         []*FleetStack
 	Formation      string
 	Targeting      string
 	Side           string // "attacker" or "defender"
 }
 
-// TechBonuses represents technology bonuses
-type TechBonuses struct {
-	BallisticDamage     float64
-	BallisticCritRate   float64
-	BallisticCritDamage float64
-	BallisticHitRate    float64
-	DirectionalDamage   float64
-	DirectionalCritRate float64
-	DirectionalAccuracy float64
-	MissileDamage       float64
-	MissileHitRate      float64
-	BaseShield          float64
-	BaseStructure       float64
-	BaseAgility         float64
-	BaseDefense         float64
+// StackDebuff tracks a temporary debuff applied to a stack
+type StackDebuff struct {
+	AttackReduction float64 // % attack reduction
+	RoundsLeft      int     // rounds remaining
 }
 
 // CombatState tracks the current state of combat
@@ -135,6 +173,10 @@ type CombatState struct {
 	RoundLogs   []*CombatRound
 	IsComplete  bool
 	Winner      string // "attacker", "defender", or "draw"
+
+	// Advanced combat state
+	DamageTakenModifiers map[string]float64      // stack ID -> cumulative % extra damage taken
+	AttackDebuffs        map[string]*StackDebuff  // stack ID -> active attack reduction debuff
 }
 
 // CombatRound stores detailed information about a combat round
@@ -157,6 +199,15 @@ type Attack struct {
 	ShieldDamage      int
 	StructureDamage   int
 	ShipsDestroyed    int
+
+	// Advanced combat effects
+	ScatterDamage     int            // total AoE damage dealt to other stacks
+	ScatterTargets    map[string]int // stack ID -> scatter damage dealt
+	PiercingDamage    int            // damage dealt to stack behind target
+	PiercingTargetID  string         // stack that received piercing damage
+	ReflectedDamage   int            // damage reflected back to attacker
+	AbsorbedDouble    bool           // true if target absorbed 2x (halved incoming)
+	KnockbackApplied  int            // rows the target was pushed back
 }
 
 // CombatResult is the final outcome of combat
@@ -180,12 +231,14 @@ type Loot struct {
 // ExecuteCombat runs the 8-phase combat engine
 func (ce *CombatEngine) ExecuteCombat(attacker, defender *Fleet) (*CombatResult, error) {
 	state := &CombatState{
-		Attacker:  attacker,
-		Defender:  defender,
-		Round:     0,
-		MaxRounds: 99,
-		Logs:      []string{},
-		RoundLogs: []*CombatRound{},
+		Attacker:             attacker,
+		Defender:             defender,
+		Round:                0,
+		MaxRounds:            99,
+		Logs:                 []string{},
+		RoundLogs:            []*CombatRound{},
+		DamageTakenModifiers: make(map[string]float64),
+		AttackDebuffs:        make(map[string]*StackDebuff),
 	}
 
 	state.log(fmt.Sprintf("Combat started: %s vs %s", attacker.PlayerID, defender.PlayerID))
@@ -204,6 +257,12 @@ func (ce *CombatEngine) ExecuteCombat(attacker, defender *Fleet) (*CombatResult,
 			Attacks:     []*Attack{},
 			Casualties:  make(map[string]int),
 		}
+
+		// Restoration phase: heal shields/structure at the start of each round
+		ce.applyRestoration(state)
+
+		// Tick down attack debuffs
+		ce.tickDebuffs(state)
 
 		// Phase 2: Ship type advantage calculation (embedded in damage calculation)
 		// Phase 3: Determine attack order
@@ -237,8 +296,8 @@ func (ce *CombatEngine) ExecuteCombat(attacker, defender *Fleet) (*CombatResult,
 
 			// Execute attack(s) - can be 1 or 2 if successive strike triggers
 			for attackNum := 0; attackNum < attackCount; attackNum++ {
-				// Phase 4: Calculate hit chance
-				hitChance := ce.phase4CalculateHitChance(stack, target)
+				// Phase 4: Calculate hit chance (with tech bonuses)
+				hitChance := ce.phase4CalculateHitChanceWithTech(stack, target, attackerFleet)
 				hit := ce.rng.Float64() < hitChance
 
 				attack := &Attack{
@@ -260,18 +319,68 @@ func (ce *CombatEngine) ExecuteCombat(attacker, defender *Fleet) (*CombatResult,
 				defenderFleet := ce.getFleetForStack(state, target)
 				damage := ce.phase5CalculateDamageWithFormation(stack, target, attackerFleet, defenderFleet)
 
-				// Check for critical hit (Electron stat: 5% + Electron/200 chance for 1.5x damage)
+				// Apply attack debuff reduction to attacker
+				if debuff, ok := state.AttackDebuffs[stack.ID]; ok && debuff.RoundsLeft > 0 {
+					damage = int(math.Round(float64(damage) * (1.0 - debuff.AttackReduction/100.0)))
+				}
+
+				// Apply range-based damage modifier
+				if stack.RangeDamage != nil {
+					distance := abs(stack.GridRow - target.GridRow)
+					if mult, ok := stack.RangeDamage[distance]; ok {
+						damage = int(math.Round(float64(damage) * mult))
+					}
+				}
+
+				// Apply DamageTakenIncrease modifier on the target
+				if extraDmg, ok := state.DamageTakenModifiers[target.ID]; ok && extraDmg > 0 {
+					damage = int(math.Round(float64(damage) * (1.0 + extraDmg/100.0)))
+				}
+
+				// Check for critical hit (Electron stat: 5% + Electron/200 + tech crit rate)
 				criticalHit := false
-				if attackerFleet != nil && attackerFleet.CommanderBonus != nil {
-					critChance := 0.05 + (float64(attackerFleet.CommanderBonus.Electron) / 200.0)
+				critMultiplier := 1.5
+				{
+					critChance := 0.05
+
+					// Commander Electron bonus
+					if attackerFleet != nil && attackerFleet.CommanderBonus != nil {
+						critChance += float64(attackerFleet.CommanderBonus.Electron) / 200.0
+					}
+
+					// Tech crit rate bonus (weapon-specific)
+					if attackerFleet != nil && attackerFleet.TechBonuses != nil {
+						tb := attackerFleet.TechBonuses
+						switch stack.WeaponCategory {
+						case WeaponBallistic:
+							critChance += tb.BallisticCritRate / 100.0
+							critMultiplier += tb.BallisticCritDamage / 100.0
+						case WeaponDirectional:
+							critChance += tb.DirectionalCritRate / 100.0
+						}
+					}
+
 					if ce.rng.Float64() < critChance {
-						damage = int(math.Round(float64(damage) * 1.5))
+						damage = int(math.Round(float64(damage) * critMultiplier))
 						criticalHit = true
 					}
 				}
 
+				// AbsorbDouble: chance to halve incoming damage
+				if target.AbsorbDouble > 0 && ce.rng.Float64() < target.AbsorbDouble {
+					damage = damage / 2
+					attack.AbsorbedDouble = true
+					state.log(fmt.Sprintf("Stack %s absorbed double (halved damage to %d)", target.ID, damage))
+				}
+
 				attack.Damage = damage
 				attack.CriticalHit = criticalHit
+
+				// Reflection: reflect damage back to attacker before applying
+				if target.ReflectDamage > 0 || target.ReflectStructureDamage > 0 {
+					reflectedDamage := ce.applyReflection(state, stack, target, damage, round)
+					attack.ReflectedDamage = reflectedDamage
+				}
 
 				// Phase 6: Apply damage
 				shieldDamage, structureDamage := ce.phase6ApplyDamage(target, damage)
@@ -283,6 +392,37 @@ func (ce *CombatEngine) ExecuteCombat(attacker, defender *Fleet) (*CombatResult,
 				attack.ShipsDestroyed = destroyed
 				round.Casualties[target.ID] += destroyed
 
+				// Apply debuffs from attacker to target
+				ce.applyDebuffs(state, stack, target)
+
+				// Knockback: push target back N rows
+				if stack.Knockback > 0 && target.CurrentShips > 0 {
+					oldRow := target.GridRow
+					target.GridRow += stack.Knockback
+					if target.GridRow > 2 {
+						target.GridRow = 2
+					}
+					if target.GridRow != oldRow {
+						attack.KnockbackApplied = target.GridRow - oldRow
+						state.log(fmt.Sprintf("Stack %s knocked %s back from row %d to row %d",
+							stack.ID, target.ID, oldRow, target.GridRow))
+					}
+				}
+
+				// Scatter/AoE damage
+				if stack.ScatterDamage > 0 || stack.ScatterAll > 0 {
+					scatterTotal, scatterTargets := ce.applyScatter(state, stack, target, damage, round)
+					attack.ScatterDamage = scatterTotal
+					attack.ScatterTargets = scatterTargets
+				}
+
+				// Piercing damage
+				if stack.PiercingDamage > 0 {
+					pierceDmg, pierceTargetID := ce.applyPiercing(state, stack, target, damage, criticalHit, critMultiplier, round)
+					attack.PiercingDamage = pierceDmg
+					attack.PiercingTargetID = pierceTargetID
+				}
+
 				critMsg := ""
 				if criticalHit {
 					critMsg = " [CRIT]"
@@ -291,8 +431,12 @@ func (ce *CombatEngine) ExecuteCombat(attacker, defender *Fleet) (*CombatResult,
 				if successiveStrike && attackNum > 0 {
 					strikeMsg = " [SUCCESSIVE STRIKE]"
 				}
-				state.log(fmt.Sprintf("Stack %s hit %s for %d dmg%s%s (%d shield, %d structure), %d ships destroyed",
-					stack.ID, target.ID, damage, critMsg, strikeMsg, shieldDamage, structureDamage, destroyed))
+				absorbMsg := ""
+				if attack.AbsorbedDouble {
+					absorbMsg = " [ABSORB 2x]"
+				}
+				state.log(fmt.Sprintf("Stack %s hit %s for %d dmg%s%s%s (%d shield, %d structure), %d ships destroyed",
+					stack.ID, target.ID, damage, critMsg, strikeMsg, absorbMsg, shieldDamage, structureDamage, destroyed))
 
 				round.Attacks = append(round.Attacks, attack)
 
@@ -370,10 +514,12 @@ func (ce *CombatEngine) phase1CalculateEffectiveStacks(state *CombatState) {
 				// Electron affects shield/structure
 			}
 
-			// Apply tech bonuses (simplified for now)
+			// Apply tech bonuses
 			if fleet.TechBonuses != nil {
 				stack.EffectiveShield = int(float64(stack.EffectiveShield) * (1.0 + fleet.TechBonuses.BaseShield/100.0))
 				stack.EffectiveStructure = int(float64(stack.EffectiveStructure) * (1.0 + fleet.TechBonuses.BaseStructure/100.0))
+				stack.EffectiveDefense = int(float64(stack.EffectiveDefense) * (1.0 + fleet.TechBonuses.BaseDefense/100.0))
+				stack.EffectiveDodge = int(float64(stack.EffectiveDodge) * (1.0 + fleet.TechBonuses.BaseAgility/100.0))
 			}
 
 			// Set current combat values
@@ -445,6 +591,35 @@ func (ce *CombatEngine) phase4CalculateHitChance(attacker, defender *FleetStack)
 	return hitChance
 }
 
+// phase4CalculateHitChanceWithTech applies weapon-specific tech hit rate bonuses
+func (ce *CombatEngine) phase4CalculateHitChanceWithTech(attacker, defender *FleetStack, attackerFleet *Fleet) float64 {
+	hitChance := ce.phase4CalculateHitChance(attacker, defender)
+
+	if attackerFleet != nil && attackerFleet.TechBonuses != nil {
+		tb := attackerFleet.TechBonuses
+		switch attacker.WeaponCategory {
+		case WeaponBallistic:
+			hitChance += tb.BallisticHitRate / 100.0
+		case WeaponDirectional:
+			hitChance += tb.DirectionalAccuracy / 100.0
+		case WeaponMissile:
+			hitChance += tb.MissileHitRate / 100.0
+		case WeaponFighter:
+			hitChance += tb.FighterHitRate / 100.0
+		}
+	}
+
+	// Re-clamp after tech bonuses
+	if hitChance < 0.05 {
+		hitChance = 0.05
+	}
+	if hitChance > 0.95 {
+		hitChance = 0.95
+	}
+
+	return hitChance
+}
+
 // Phase 5: Calculate damage (weapon damage * type advantage * armor effectiveness * position modifier * formation bonus)
 func (ce *CombatEngine) phase5CalculateDamage(attacker, defender *FleetStack) int {
 	baseDamage := float64(attacker.EffectiveAttack * attacker.EffectiveStacks)
@@ -467,6 +642,21 @@ func (ce *CombatEngine) phase5CalculateDamage(attacker, defender *FleetStack) in
 // Phase 5 with formation bonuses (called from combat loop with fleet context)
 func (ce *CombatEngine) phase5CalculateDamageWithFormation(attacker, defender *FleetStack, attackerFleet, defenderFleet *Fleet) int {
 	baseDamage := ce.phase5CalculateDamage(attacker, defender)
+
+	// Apply weapon-category tech damage bonus
+	if attackerFleet != nil && attackerFleet.TechBonuses != nil {
+		tb := attackerFleet.TechBonuses
+		switch attacker.WeaponCategory {
+		case WeaponBallistic:
+			baseDamage = int(math.Round(float64(baseDamage) * (1.0 + tb.BallisticDamage/100.0)))
+		case WeaponDirectional:
+			baseDamage = int(math.Round(float64(baseDamage) * (1.0 + tb.DirectionalDamage/100.0)))
+		case WeaponMissile:
+			baseDamage = int(math.Round(float64(baseDamage) * (1.0 + tb.MissileDamage/100.0)))
+		case WeaponFighter:
+			baseDamage = int(math.Round(float64(baseDamage) * (1.0 + tb.FighterDamage/100.0)))
+		}
+	}
 
 	// Apply attacker formation attack bonus
 	if attackerFleet != nil {
@@ -631,6 +821,243 @@ func (ce *CombatEngine) phase8CalculateLoot(state *CombatState) *Loot {
 		He3:   0,
 		Gold:  0,
 	}
+}
+
+// --- Advanced combat subsystem methods ---
+
+// applyRestoration heals shields and structure for all alive stacks at the start of each round.
+func (ce *CombatEngine) applyRestoration(state *CombatState) {
+	for _, fleet := range []*Fleet{state.Attacker, state.Defender} {
+		for _, stack := range fleet.Stacks {
+			if stack.CurrentShips <= 0 {
+				continue
+			}
+
+			if stack.ShieldRestore > 0 {
+				maxShield := stack.EffectiveShield * stack.EffectiveStacks
+				restore := int(math.Round(float64(maxShield) * stack.ShieldRestore / 100.0))
+				stack.CurrentShield += restore
+				if stack.CurrentShield > maxShield {
+					stack.CurrentShield = maxShield
+				}
+				if restore > 0 {
+					state.log(fmt.Sprintf("Stack %s restored %d shield (%.1f%%)", stack.ID, restore, stack.ShieldRestore))
+				}
+			}
+
+			if stack.StructureRestore > 0 {
+				maxStructure := stack.EffectiveStructure * stack.EffectiveStacks
+				restore := int(math.Round(float64(maxStructure) * stack.StructureRestore / 100.0))
+				stack.CurrentStructure += restore
+				if stack.CurrentStructure > maxStructure {
+					stack.CurrentStructure = maxStructure
+				}
+				if restore > 0 {
+					state.log(fmt.Sprintf("Stack %s restored %d structure (%.1f%%)", stack.ID, restore, stack.StructureRestore))
+				}
+			}
+		}
+	}
+}
+
+// tickDebuffs decrements round counters on attack reduction debuffs and removes expired ones.
+func (ce *CombatEngine) tickDebuffs(state *CombatState) {
+	for id, debuff := range state.AttackDebuffs {
+		debuff.RoundsLeft--
+		if debuff.RoundsLeft <= 0 {
+			delete(state.AttackDebuffs, id)
+			state.log(fmt.Sprintf("Stack %s attack debuff expired", id))
+		}
+	}
+}
+
+// applyDebuffs applies DamageTakenIncrease and EnemyAttackReduction from attacker to target.
+func (ce *CombatEngine) applyDebuffs(state *CombatState, attacker, target *FleetStack) {
+	if attacker.DamageTakenIncrease > 0 {
+		state.DamageTakenModifiers[target.ID] += attacker.DamageTakenIncrease
+		state.log(fmt.Sprintf("Stack %s debuffed %s: +%.1f%% damage taken (total: +%.1f%%)",
+			attacker.ID, target.ID, attacker.DamageTakenIncrease, state.DamageTakenModifiers[target.ID]))
+	}
+
+	if attacker.EnemyAttackReduction > 0 && attacker.EnemyAttackReductionRounds > 0 {
+		state.AttackDebuffs[target.ID] = &StackDebuff{
+			AttackReduction: attacker.EnemyAttackReduction,
+			RoundsLeft:      attacker.EnemyAttackReductionRounds,
+		}
+		state.log(fmt.Sprintf("Stack %s reduced %s attack by %.1f%% for %d rounds",
+			attacker.ID, target.ID, attacker.EnemyAttackReduction, attacker.EnemyAttackReductionRounds))
+	}
+}
+
+// applyReflection reflects a portion of incoming damage back to the attacker.
+// Returns the total amount of reflected damage.
+func (ce *CombatEngine) applyReflection(state *CombatState, attacker, target *FleetStack, incomingDamage int, round *CombatRound) int {
+	reflectedTotal := 0
+
+	// Reflect shield damage portion
+	if target.ReflectDamage > 0 {
+		reflected := int(math.Round(float64(incomingDamage) * target.ReflectDamage / 100.0))
+		if reflected > 0 {
+			ce.phase6ApplyDamage(attacker, reflected)
+			ce.phase7CalculateCasualties(attacker)
+			reflectedTotal += reflected
+			state.log(fmt.Sprintf("Stack %s reflected %d damage back to %s", target.ID, reflected, attacker.ID))
+		}
+	}
+
+	// Reflect structure damage portion
+	if target.ReflectStructureDamage > 0 {
+		reflected := int(math.Round(float64(incomingDamage) * target.ReflectStructureDamage / 100.0))
+		if reflected > 0 {
+			// Structure reflection bypasses shields, applies directly to structure
+			if attacker.CurrentStructure > 0 {
+				dmg := reflected
+				if dmg > attacker.CurrentStructure {
+					dmg = attacker.CurrentStructure
+				}
+				attacker.CurrentStructure -= dmg
+				ce.phase7CalculateCasualties(attacker)
+				reflectedTotal += dmg
+				state.log(fmt.Sprintf("Stack %s reflected %d structure damage back to %s", target.ID, dmg, attacker.ID))
+			}
+		}
+	}
+
+	return reflectedTotal
+}
+
+// applyScatter deals AoE damage to adjacent or all enemy stacks.
+// Returns total scatter damage dealt and a map of target stack IDs to damage dealt.
+func (ce *CombatEngine) applyScatter(state *CombatState, attacker, primaryTarget *FleetStack, primaryDamage int, round *CombatRound) (int, map[string]int) {
+	// Check scatter rate (chance to trigger)
+	if attacker.ScatterRate > 0 && ce.rng.Float64() >= attacker.ScatterRate {
+		return 0, nil
+	}
+
+	var enemyStacks []*FleetStack
+	if ce.isAttackerStack(state, attacker) {
+		enemyStacks = state.Defender.Stacks
+	} else {
+		enemyStacks = state.Attacker.Stacks
+	}
+
+	scatterTargets := make(map[string]int)
+	totalScatter := 0
+
+	// Determine conditional scatter bonus based on target structure
+	conditionalBonus := 0.0
+	if primaryTarget.EffectiveStructure > 0 && primaryTarget.EffectiveStacks > 0 {
+		maxStruct := float64(primaryTarget.EffectiveStructure * primaryTarget.EffectiveStacks)
+		structPercent := float64(primaryTarget.CurrentStructure) / maxStruct
+		if structPercent < 0.5 && attacker.ScatterVsLowStructure > 0 {
+			conditionalBonus = attacker.ScatterVsLowStructure
+		} else if structPercent >= 0.5 && attacker.ScatterVsHighStructure > 0 {
+			conditionalBonus = attacker.ScatterVsHighStructure
+		}
+	}
+
+	for _, enemyStack := range enemyStacks {
+		if enemyStack.ID == primaryTarget.ID || enemyStack.CurrentShips <= 0 {
+			continue
+		}
+
+		var scatterPercent float64
+
+		if attacker.ScatterAll > 0 {
+			// ScatterAll: spread to ALL enemy stacks
+			scatterPercent = attacker.ScatterAll + conditionalBonus
+		} else if attacker.ScatterDamage > 0 {
+			// ScatterDamage: only adjacent stacks (within 1 row/col distance)
+			rowDist := abs(primaryTarget.GridRow - enemyStack.GridRow)
+			colDist := abs(primaryTarget.GridCol - enemyStack.GridCol)
+			if rowDist <= 1 && colDist <= 1 {
+				scatterPercent = attacker.ScatterDamage + conditionalBonus
+			}
+		}
+
+		if scatterPercent <= 0 {
+			continue
+		}
+
+		scatterDmg := int(math.Round(float64(primaryDamage)*scatterPercent/100.0 + attacker.ScatterBonus))
+		if scatterDmg <= 0 {
+			continue
+		}
+
+		ce.phase6ApplyDamage(enemyStack, scatterDmg)
+		destroyed := ce.phase7CalculateCasualties(enemyStack)
+		round.Casualties[enemyStack.ID] += destroyed
+		scatterTargets[enemyStack.ID] = scatterDmg
+		totalScatter += scatterDmg
+
+		state.log(fmt.Sprintf("Scatter: %s dealt %d AoE damage to %s, %d ships destroyed",
+			attacker.ID, scatterDmg, enemyStack.ID, destroyed))
+	}
+
+	return totalScatter, scatterTargets
+}
+
+// applyPiercing deals damage through the primary target to the stack behind it (higher grid row).
+// Returns piercing damage dealt and the target stack ID.
+func (ce *CombatEngine) applyPiercing(state *CombatState, attacker, primaryTarget *FleetStack, primaryDamage int, wasCrit bool, critMultiplier float64, round *CombatRound) (int, string) {
+	var enemyStacks []*FleetStack
+	if ce.isAttackerStack(state, attacker) {
+		enemyStacks = state.Defender.Stacks
+	} else {
+		enemyStacks = state.Attacker.Stacks
+	}
+
+	// Find the stack "behind" the primary target (next higher grid row)
+	var behindStack *FleetStack
+	bestRow := -1
+	for _, s := range enemyStacks {
+		if s.ID == primaryTarget.ID || s.CurrentShips <= 0 {
+			continue
+		}
+		if s.GridRow > primaryTarget.GridRow {
+			if bestRow == -1 || s.GridRow < bestRow {
+				bestRow = s.GridRow
+				behindStack = s
+			}
+		}
+	}
+
+	if behindStack == nil {
+		return 0, ""
+	}
+
+	pierceDmg := int(math.Round(float64(primaryDamage) * attacker.PiercingDamage / 100.0))
+
+	// Apply piercing damage bonus multiplier
+	if attacker.PiercingDamageBonus > 0 {
+		pierceDmg = int(math.Round(float64(pierceDmg) * attacker.PiercingDamageBonus))
+	}
+
+	// Apply crit to piercing if enabled and the primary attack was a crit
+	if attacker.PiercingCritical && wasCrit {
+		pierceDmg = int(math.Round(float64(pierceDmg) * critMultiplier))
+	}
+
+	if pierceDmg <= 0 {
+		return 0, ""
+	}
+
+	ce.phase6ApplyDamage(behindStack, pierceDmg)
+	destroyed := ce.phase7CalculateCasualties(behindStack)
+	round.Casualties[behindStack.ID] += destroyed
+
+	state.log(fmt.Sprintf("Piercing: %s dealt %d piercing damage to %s (behind %s), %d ships destroyed",
+		attacker.ID, pierceDmg, behindStack.ID, primaryTarget.ID, destroyed))
+
+	return pierceDmg, behindStack.ID
+}
+
+// abs returns the absolute value of an integer.
+func abs(x int) int {
+	if x < 0 {
+		return -x
+	}
+	return x
 }
 
 // Helper methods

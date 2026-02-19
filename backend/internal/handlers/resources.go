@@ -303,12 +303,12 @@ func applyCompletedUpgrades(planetID string) {
 		}
 	}
 
-	recalculateProductionRates(planetID)
+	RecalculateProductionRates(planetID)
 }
 
-// recalculateProductionRates recalculates metal_per_hour, he3_per_hour, gold_per_hour,
+// RecalculateProductionRates recalculates metal_per_hour, he3_per_hour, gold_per_hour,
 // and storage_capacity based on current buildings on the planet.
-func recalculateProductionRates(planetID string) {
+func RecalculateProductionRates(planetID string) {
 	var metalPerHour, he3PerHour, goldPerHour int64
 	var storageCapacity int64
 

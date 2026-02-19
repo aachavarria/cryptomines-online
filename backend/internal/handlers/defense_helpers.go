@@ -5,18 +5,21 @@ import (
 
 	"github.com/cryptomines-online/backend/internal/combat"
 	"github.com/cryptomines-online/backend/internal/database"
+	"github.com/cryptomines-online/backend/internal/services"
 )
 
 // loadDefenseBuildings converts defense buildings on a planet into combat stacks.
+// Applies tech bonuses (DefenseValue, EmplacementAttack, DefenseRange) to stats.
 // Shared between PvP, RBP, and worker code.
-func loadDefenseBuildings(planetID string) ([]*combat.FleetStack, error) {
+func loadDefenseBuildings(planetID string, techBonuses *services.TechBonuses) ([]*combat.FleetStack, error) {
 	rows, err := database.DB.Query(`
 		SELECT b.id, bt.name, b.level
 		FROM buildings b
-		JOIN building_types bt ON bt.name = b.building_type
+		JOIN building_types bt ON bt.id = b.building_type
 		WHERE b.planet_id = $1
-		  AND bt.type = 'defense'
-		  AND b.construction_end_time IS NULL
+		  AND bt.category = 'defense'
+		  AND b.is_upgrading = false
+		  AND b.level > 0
 	`, planetID)
 	if err != nil {
 		return nil, err
@@ -33,7 +36,7 @@ func loadDefenseBuildings(planetID string) ([]*combat.FleetStack, error) {
 			continue
 		}
 
-		stack := buildingToStack(buildingID, buildingName, level, stackID)
+		stack := buildingToStack(buildingID, buildingName, level, stackID, techBonuses)
 		if stack != nil {
 			stacks = append(stacks, stack)
 			stackID++
@@ -43,15 +46,18 @@ func loadDefenseBuildings(planetID string) ([]*combat.FleetStack, error) {
 	return stacks, nil
 }
 
-// buildingToStack converts a defense building to a combat stack
-// Stats use level^2 scaling to match GO2 power scale (e.g. Particle Cannon Lv10 = 1M attack, 5M HP)
-func buildingToStack(buildingID, buildingName string, level, stackID int) *combat.FleetStack {
+// buildingToStack converts a defense building to a combat stack.
+// Stats use level^2 scaling to match GO2 power scale.
+// Tech bonuses applied:
+//   - DefenseValue: multiplies all defense stats (shield, structure, defense, dodge)
+//   - EmplacementAttack: multiplies attack for turret/cannon buildings
+//   - DefenseRange: adds to accuracy for Particle Cannon and Anti-Aircraft Gun
+func buildingToStack(buildingID, buildingName string, level, stackID int, tb *services.TechBonuses) *combat.FleetStack {
 	var baseAttack, baseDefense, baseShield, baseStructure, baseSpeed, baseAccuracy, baseDodge int
 	l2 := level * level // level^2 scaling
 
 	switch buildingName {
 	case "space_station":
-		// Tankiest: huge HP, moderate attack
 		baseAttack = 5000 * l2
 		baseDefense = 10000 * l2
 		baseShield = 200000 * l2
@@ -60,7 +66,6 @@ func buildingToStack(buildingID, buildingName string, level, stackID int) *comba
 		baseAccuracy = 60
 		baseDodge = 10
 	case "particle_cannon":
-		// High attack, moderate HP (GDD: Lv10 = 1M attack, 5M HP)
 		baseAttack = 10000 * l2
 		baseDefense = 5000 * l2
 		baseShield = 50000 * l2
@@ -69,7 +74,6 @@ func buildingToStack(buildingID, buildingName string, level, stackID int) *comba
 		baseAccuracy = 90
 		baseDodge = 20
 	case "anti_aircraft_gun":
-		// Anti-air specialist: high accuracy, balanced stats
 		baseAttack = 7500 * l2
 		baseDefense = 6000 * l2
 		baseShield = 60000 * l2
@@ -78,7 +82,6 @@ func buildingToStack(buildingID, buildingName string, level, stackID int) *comba
 		baseAccuracy = 100
 		baseDodge = 30
 	case "meteor_star":
-		// All-rounder: balanced attack and defense
 		baseAttack = 5000 * l2
 		baseDefense = 8000 * l2
 		baseShield = 80000 * l2
@@ -87,7 +90,6 @@ func buildingToStack(buildingID, buildingName string, level, stackID int) *comba
 		baseAccuracy = 75
 		baseDodge = 25
 	case "thors_cannon":
-		// Strongest attack: massive damage, slow
 		baseAttack = 20000 * l2
 		baseDefense = 10000 * l2
 		baseShield = 100000 * l2
@@ -97,6 +99,34 @@ func buildingToStack(buildingID, buildingName string, level, stackID int) *comba
 		baseDodge = 5
 	default:
 		return nil
+	}
+
+	// Apply tech bonuses
+	if tb != nil {
+		// DefenseValue: +N% to all defensive stats
+		if tb.DefenseValue > 0 {
+			mult := 1.0 + tb.DefenseValue/100.0
+			baseDefense = int(float64(baseDefense) * mult)
+			baseShield = int(float64(baseShield) * mult)
+			baseStructure = int(float64(baseStructure) * mult)
+			baseDodge = int(float64(baseDodge) * mult)
+		}
+
+		// EmplacementAttack: +N% attack for turret/cannon buildings
+		if tb.EmplacementAttack > 0 {
+			switch buildingName {
+			case "particle_cannon", "anti_aircraft_gun", "thors_cannon", "meteor_star":
+				baseAttack = int(float64(baseAttack) * (1.0 + tb.EmplacementAttack/100.0))
+			}
+		}
+
+		// DefenseRange: adds to accuracy for Particle Cannon and Anti-Aircraft Gun
+		if tb.DefenseRange > 0 {
+			switch buildingName {
+			case "particle_cannon", "anti_aircraft_gun":
+				baseAccuracy += tb.DefenseRange
+			}
+		}
 	}
 
 	return &combat.FleetStack{
@@ -128,7 +158,7 @@ func resetDefenseBuildings(planetID string) {
 	for _, typeName := range defenseTypes {
 		_, err := database.DB.Exec(`
 			UPDATE buildings SET level = 0, is_upgrading = false, upgrade_finish_at = NULL, updated_at = now()
-			WHERE planet_id = $1 AND building_type_id = (
+			WHERE planet_id = $1 AND building_type = (
 				SELECT id FROM building_types WHERE name = $2
 			) AND level > 0
 		`, planetID, typeName)

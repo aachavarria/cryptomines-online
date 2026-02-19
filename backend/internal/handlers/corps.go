@@ -793,7 +793,7 @@ func AttackRBP(w http.ResponseWriter, r *http.Request) {
 		PlayerID:       attackerID,
 		FleetID:        "rbp_attacker",
 		CommanderBonus: nil,
-		TechBonuses:    &combat.TechBonuses{},
+		TechBonuses:    &services.TechBonuses{},
 		Stacks:         attackerStacks,
 		Formation:      "phalanx",
 		Targeting:      "max_attack",
@@ -801,23 +801,8 @@ func AttackRBP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Load attacker tech bonuses
-	attackerTechBonuses, err := services.GetPlayerTechBonuses(attackerID)
-	if err == nil {
-		attackerFleet.TechBonuses = &combat.TechBonuses{
-			BallisticDamage:     attackerTechBonuses.BallisticDamage,
-			BallisticCritRate:   attackerTechBonuses.BallisticCritRate,
-			BallisticCritDamage: attackerTechBonuses.BallisticCritDamage,
-			BallisticHitRate:    attackerTechBonuses.BallisticHitRate,
-			DirectionalDamage:   attackerTechBonuses.DirectionalDamage,
-			DirectionalCritRate: attackerTechBonuses.DirectionalCritRate,
-			DirectionalAccuracy: attackerTechBonuses.DirectionalAccuracy,
-			MissileDamage:       attackerTechBonuses.MissileDamage,
-			MissileHitRate:      attackerTechBonuses.MissileHitRate,
-			BaseShield:          attackerTechBonuses.BaseShield,
-			BaseStructure:       attackerTechBonuses.BaseStructure,
-			BaseAgility:         attackerTechBonuses.BaseAgility,
-			BaseDefense:         attackerTechBonuses.BaseDefense,
-		}
+	if attackerTechBonuses, err := services.GetPlayerTechBonuses(attackerID); err == nil {
+		attackerFleet.TechBonuses = attackerTechBonuses
 	}
 
 	// Load RBP defenses (defense buildings only, no player fleets)
@@ -895,7 +880,7 @@ func AttackRBP(w http.ResponseWriter, r *http.Request) {
 // loadRBPDefenses creates a defensive fleet from RBP defense buildings
 func loadRBPDefenses(planetID string, rbpLevel int) (*combat.Fleet, error) {
 	// Load defense buildings
-	defenseStacks, err := loadDefenseBuildings(planetID)
+	defenseStacks, err := loadDefenseBuildings(planetID, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -916,7 +901,7 @@ func loadRBPDefenses(planetID string, rbpLevel int) (*combat.Fleet, error) {
 		PlayerID:       "rbp_defense",
 		FleetID:        "rbp_defender",
 		CommanderBonus: nil,
-		TechBonuses:    &combat.TechBonuses{},
+		TechBonuses:    &services.TechBonuses{},
 		Stacks:         defenseStacks,
 		Formation:      "phalanx",
 		Targeting:      "max_attack",

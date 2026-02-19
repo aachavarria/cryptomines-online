@@ -63,28 +63,20 @@ export default function ResearchPanel({ onClose }: ResearchPanelProps) {
 
   // Calculate active bonuses across all trees
   const activeBonuses = useMemo(() => {
-    const bonusMap = new Map<string, { total: number; unit: string; label: string }>()
+    const results: { text: string; key: string }[] = []
 
     Object.values(trees).forEach(treeTechs => {
       treeTechs.forEach(tech => {
         if (tech.current_level > 0 && tech.effects?.type) {
-          const key = tech.effects.type
-          const perLevel = tech.effects.per_level ?? 0
-          const total = perLevel * tech.current_level
-          const unit = tech.effects.unit === 'percent' ? '%' : (tech.effects.unit || '')
-          const label = tech.effects.type.replace(/_/g, ' ')
-
-          const existing = bonusMap.get(key)
-          if (existing) {
-            existing.total += total
-          } else {
-            bonusMap.set(key, { total, unit, label })
+          const text = formatEffect(tech)
+          if (text) {
+            results.push({ text, key: `${tech.id}-${tech.effects.type}` })
           }
         }
       })
     })
 
-    return Array.from(bonusMap.values())
+    return results
   }, [trees])
 
   async function handleStartResearch(tech: TechWithProgress) {
@@ -172,12 +164,9 @@ export default function ResearchPanel({ onClose }: ResearchPanelProps) {
           <div className="research-bonuses-summary">
             <div className="research-bonuses-title">ACTIVE BONUSES</div>
             <div className="research-bonuses-grid">
-              {activeBonuses.map((bonus, i) => (
-                <div key={i} className="research-bonus-item">
-                  <span className="research-bonus-label">{bonus.label}</span>
-                  <span className="research-bonus-value">
-                    +{bonus.total}{bonus.unit}
-                  </span>
+              {activeBonuses.map(bonus => (
+                <div key={bonus.key} className="research-bonus-item">
+                  <span className="research-bonus-value">{bonus.text}</span>
                 </div>
               ))}
             </div>
@@ -587,25 +576,117 @@ function getPrereqText(tech: TechWithProgress): string {
     .join(', ')
 }
 
+function getUnitSuffix(eff: { unit?: string }): string {
+  if (!eff.unit) return ''
+  if (eff.unit === 'percent' || eff.unit === 'percent_per_level') return '%'
+  if (eff.unit === 'flat') return ''
+  return ` ${eff.unit}`
+}
+
+function formatLabel(type: string): string {
+  return type.replace(/_/g, ' ')
+}
+
+/** Format the effect value at a specific level index (0-based) for the given effect object. */
+function formatEffectAtLevel(eff: Record<string, any>, levelIdx: number): string {
+  if (!eff || !eff.type) return ''
+  const unit = getUnitSuffix(eff)
+  const label = formatLabel(eff.type)
+
+  // Boolean toggle (e.g. piercing_critical enabled)
+  if (typeof eff.enabled === 'boolean') {
+    return eff.enabled ? `${label} enabled` : ''
+  }
+
+  // Values array (e.g. augment_shield values:[6,12,20])
+  if (Array.isArray(eff.values)) {
+    if (levelIdx < 0) return ''
+    const val = levelIdx < eff.values.length ? eff.values[levelIdx] : eff.values[eff.values.length - 1]
+    return `+${val}${unit} ${label}`
+  }
+
+  // Range damage (e.g. victory_rush ranges:[220,180,150,120])
+  if (eff.type === 'range_damage' && Array.isArray(eff.ranges)) {
+    const parts = [`Range dmg: ${eff.ranges.join('/')}%`]
+    if (eff.crit_rate) parts.push(`+${eff.crit_rate}% crit rate`)
+    if (eff.crit_damage) parts.push(`+${eff.crit_damage}% crit dmg`)
+    return parts.join(', ')
+  }
+
+  // Multi-bonus composite (e.g. ingenuity swarm:5, attack:5, he3:-5 ...)
+  if (eff.type === 'multi_bonus') {
+    const skip = new Set(['type', 'unit'])
+    const parts: string[] = []
+    for (const [k, v] of Object.entries(eff)) {
+      if (skip.has(k)) continue
+      if (typeof v !== 'number') continue
+      const perLevel = k.endsWith('_per_level')
+      const cleanKey = formatLabel(perLevel ? k.replace(/_per_level$/, '') : k)
+      const val = perLevel ? v * (levelIdx + 1) : v
+      const sign = val >= 0 ? '+' : ''
+      parts.push(`${sign}${val}${unit} ${cleanKey}`)
+    }
+    return parts.join(', ')
+  }
+
+  // applies_to (no numeric value, e.g. defense_range)
+  if (Array.isArray(eff.applies_to)) {
+    return `${label}: ${eff.applies_to.map((s: string) => formatLabel(s)).join(', ')}`
+  }
+
+  // Flat value (single-level techs like shield_bypass flat:15)
+  if (eff.flat !== undefined) {
+    const sign = eff.flat >= 0 ? '+' : ''
+    return `${sign}${eff.flat}${unit} ${label}`
+  }
+
+  // Per-level (standard path) with possible extra bonus keys
+  if (eff.per_level !== undefined) {
+    const total = eff.per_level * (levelIdx + 1)
+    const sign = total >= 0 ? '+' : ''
+    const parts = [`${sign}${total}${unit} ${label}`]
+
+    // Gather extra numeric bonus keys (e.g. collateral_reduction, light_bonus, chance)
+    const skip = new Set(['type', 'per_level', 'unit'])
+    for (const [k, v] of Object.entries(eff)) {
+      if (skip.has(k)) continue
+      if (typeof v !== 'number') continue
+      const perLevel = k.endsWith('_per_level')
+      const cleanKey = formatLabel(perLevel ? k.replace(/_per_level$/, '') : k)
+      const val = perLevel ? v * (levelIdx + 1) : v
+      const s = val >= 0 ? '+' : ''
+      parts.push(`${s}${val}${unit} ${cleanKey}`)
+    }
+    // Extra boolean flags
+    if (typeof eff.chance_for_half === 'boolean' && eff.chance_for_half) {
+      parts.push('50% cost reduction')
+    }
+    return parts.join(', ')
+  }
+
+  // Armor bonus / other multi-key per-level effects without explicit per_level
+  // e.g. {"type":"armor_bonus","neutral":10,"light":1,"unit":"percent_per_level"}
+  const skip = new Set(['type', 'unit'])
+  const parts: string[] = []
+  for (const [k, v] of Object.entries(eff)) {
+    if (skip.has(k)) continue
+    if (typeof v !== 'number') continue
+    const val = v * (levelIdx + 1)
+    const sign = val >= 0 ? '+' : ''
+    parts.push(`${sign}${val}${unit} vs ${formatLabel(k)}`)
+  }
+  if (parts.length > 0) return parts.join(', ')
+
+  return label
+}
+
 function formatEffect(tech: TechWithProgress): string {
   if (tech.current_level === 0) return ''
-  const eff = tech.effects
-  if (!eff || !eff.type) return ''
-  const perLevel = eff.per_level ?? 0
-  const total = perLevel * tech.current_level
-  const unit = eff.unit === 'percent' ? '%' : (eff.unit || '')
-  const label = eff.type.replace(/_/g, ' ')
-  return `+${total}${unit} ${label}`
+  return formatEffectAtLevel(tech.effects, tech.current_level - 1)
 }
 
 function formatNextEffect(tech: TechWithProgress): string {
-  const eff = tech.effects
-  if (!eff || !eff.type) return ''
-  const perLevel = eff.per_level ?? 0
-  const nextTotal = perLevel * (tech.current_level + 1)
-  const unit = eff.unit === 'percent' ? '%' : (eff.unit || '')
-  const label = eff.type.replace(/_/g, ' ')
-  return `+${nextTotal}${unit} ${label}`
+  return formatEffectAtLevel(tech.effects, tech.current_level)
 }
 
 function buildTiers(techs: TechWithProgress[]): TechWithProgress[][] {

@@ -86,7 +86,7 @@ export default function IsometricGrid({
     <group position={[0, 0.05, 0]}>
       {/* Wireframe grid lines — always visible */}
       <lineSegments geometry={gridLinesGeometry}>
-        <lineBasicMaterial color="#224466" transparent opacity={0.3} depthWrite={false} />
+        <lineBasicMaterial color="#224466" transparent opacity={0.12} depthWrite={false} />
       </lineSegments>
 
       {/* Highlight tiles under cursor — only during placement */}

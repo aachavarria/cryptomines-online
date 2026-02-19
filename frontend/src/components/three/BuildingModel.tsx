@@ -1,4 +1,4 @@
-import { useRef, useMemo, Suspense } from 'react'
+import { useRef, useMemo, Suspense, useState, useEffect } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { Html } from '@react-three/drei'
 import * as THREE from 'three'
@@ -34,7 +34,26 @@ export default function BuildingModel({
   onPointerOut,
 }: BuildingModelProps) {
   const groupRef = useRef<Group>(null)
+  const hoverLightRef = useRef<THREE.SpotLight>(null)
   const countdown = useCountdown(building.upgrade_finish_at)
+
+  // Check dev mode from localStorage
+  const [showDebug, setShowDebug] = useState(() =>
+    localStorage.getItem('dev_mode') === 'true'
+  )
+
+  useEffect(() => {
+    const checkDevMode = () => {
+      setShowDebug(localStorage.getItem('dev_mode') === 'true')
+    }
+    window.addEventListener('storage', checkDevMode)
+    // Also check periodically for same-tab changes
+    const interval = setInterval(checkDevMode, 1000)
+    return () => {
+      window.removeEventListener('storage', checkDevMode)
+      clearInterval(interval)
+    }
+  }, [])
 
   const color = CATEGORY_COLORS[building.category] || '#888888'
   const abbr = BUILDING_ABBREVIATIONS[building.type_name] || '??'
@@ -62,13 +81,24 @@ export default function BuildingModel({
     return (h & 0xff) / 255
   }, [building.id])
 
-  const shouldAnimate = isSelected || isHovered || building.is_upgrading
+  const shouldAnimate = isSelected || building.is_upgrading
+
+  // Building is under construction if upgrading to level 1 (initial construction)
+  const isUnderConstruction = building.is_upgrading && building.level === 0
 
   useFrame((state) => {
-    if (!groupRef.current || !shouldAnimate) return
-    const t = state.clock.elapsedTime
-    // Subtle idle breathing bob (only for active buildings)
-    groupRef.current.position.y = position[1] + Math.sin(t * 0.8 + seed * 6.28) * 0.05
+    // Subtle idle breathing bob (only when selected or upgrading, NOT on hover)
+    if (groupRef.current && shouldAnimate) {
+      const t = state.clock.elapsedTime
+      groupRef.current.position.y = position[1] + Math.sin(t * 0.8 + seed * 6.28) * 0.05
+    }
+
+    // Pulsing hover light
+    if (hoverLightRef.current && isHovered) {
+      const t = state.clock.elapsedTime
+      // Oscillate between 2 and 8 intensity
+      hoverLightRef.current.intensity = 5 + Math.sin(t * 3) * 3
+    }
   })
 
   return (
@@ -93,17 +123,22 @@ export default function BuildingModel({
         document.body.style.cursor = 'default'
       }}
     >
-      {/* Base platform (circle with enough segments to look smooth from isometric view) */}
-      <mesh position={[0, 0.05, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-        <circleGeometry args={[baseRadius, 32]} />
-        <meshStandardMaterial
-          color="#1a1a2e"
-          emissive={color}
-          emissiveIntensity={0.15}
-          metalness={0.5}
-          roughness={0.6}
-        />
-      </mesh>
+      {/* DEBUG helpers (controlled by DEV button in SideNav) */}
+      {showDebug && (
+        <>
+          {/* Ground level reference (red circle at Y=0) */}
+          <mesh position={[0, 0, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+            <circleGeometry args={[0.5, 16]} />
+            <meshBasicMaterial color="#ff0000" transparent opacity={0.5} />
+          </mesh>
+
+          {/* Building footprint (shows expected size based on buildingConfig) */}
+          <mesh position={[0, 0.01, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+            <planeGeometry args={[size.cols * TILE_WORLD_SIZE, size.rows * TILE_WORLD_SIZE]} />
+            <meshBasicMaterial color="#ff0000" transparent opacity={0.3} side={THREE.DoubleSide} />
+          </mesh>
+        </>
+      )}
 
       {/* Building model — LOD: simplified box at far zoom, full model at close zoom */}
       {useLOD ? (
@@ -115,7 +150,12 @@ export default function BuildingModel({
             <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.15} metalness={0.7} roughness={0.3} />
           </mesh>
         }>
-          <TypeModel scale={levelScale} level={building.level} animate={shouldAnimate} />
+          <TypeModel
+            scale={levelScale}
+            level={building.level}
+            animate={shouldAnimate}
+            isUnderConstruction={isUnderConstruction}
+          />
         </Suspense>
       ) : (
         <mesh
@@ -136,53 +176,27 @@ export default function BuildingModel({
         </mesh>
       )}
 
-      {/* Abbreviation text on top face */}
-      <Html
-        position={[0, baseHeight * levelScale + 0.2, 0]}
-        center
-        occlude={false}
-        style={{ pointerEvents: 'none' }}
-      >
-        <div style={{
-          color: '#000',
-          fontSize: '11px',
-          fontWeight: 700,
-          fontFamily: 'Rajdhani, sans-serif',
-          textAlign: 'center',
-          opacity: 0.7,
-        }}>
-          {abbr}
-        </div>
-      </Html>
-
-      {/* Upgrading scaffolding */}
-      {building.is_upgrading && (
-        <mesh position={[0, baseHeight * levelScale / 2, 0]}>
-          <boxGeometry args={[2.8, baseHeight * levelScale + 0.5, 2.8]} />
-          <meshStandardMaterial
-            color="#ffaa22"
-            wireframe
-            transparent
-            opacity={0.4}
+      {/* Pulsing hover spotlight */}
+      {isHovered && (
+        <>
+          <spotLight
+            ref={hoverLightRef}
+            position={[8, baseHeight * levelScale + 5, 8]}
+            target={groupRef.current || undefined}
+            color="#ffffff"
+            intensity={50}
+            angle={Math.PI / 3}
+            penumbra={0.5}
+            distance={20}
+            decay={2}
           />
-        </mesh>
+        </>
       )}
 
-      {/* Upgrade progress bar (yellow, above building) */}
-      {building.is_upgrading && (
-        <UpgradeProgressBar3D
-          building={building}
-          yOffset={baseHeight * levelScale + 1}
-        />
-      )}
-
-      {/* Selection ring */}
-      <SelectionRing visible={isSelected} radius={baseRadius + 0.5} />
-
-      {/* Hover tooltip - only visible on hover, not permanently */}
-      {isHovered && !isSelected && (
+      {/* Hover tooltip */}
+      {isHovered && (
         <Html
-          position={[0, baseHeight * levelScale + 2, 0]}
+          position={[0, baseHeight * levelScale + 1.5, 0]}
           center
           occlude={false}
           style={{ pointerEvents: 'none' }}

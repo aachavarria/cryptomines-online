@@ -231,7 +231,7 @@ func AttemptInstance(w http.ResponseWriter, r *http.Request) {
 		PlayerID:       playerID,
 		FleetID:        "combined",
 		CommanderBonus: nil, // TODO: Support commander in multi-fleet
-		TechBonuses:    &combat.TechBonuses{},
+		TechBonuses:    &services.TechBonuses{},
 		Stacks:         allStacks,
 		Formation:      "phalanx",
 		Targeting:      "max_attack",
@@ -239,23 +239,8 @@ func AttemptInstance(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Load tech bonuses for combined fleet
-	techBonuses, err := services.GetPlayerTechBonuses(playerID)
-	if err == nil {
-		attackerFleet.TechBonuses = &combat.TechBonuses{
-			BallisticDamage:     techBonuses.BallisticDamage,
-			BallisticCritRate:   techBonuses.BallisticCritRate,
-			BallisticCritDamage: techBonuses.BallisticCritDamage,
-			BallisticHitRate:    techBonuses.BallisticHitRate,
-			DirectionalDamage:   techBonuses.DirectionalDamage,
-			DirectionalCritRate: techBonuses.DirectionalCritRate,
-			DirectionalAccuracy: techBonuses.DirectionalAccuracy,
-			MissileDamage:       techBonuses.MissileDamage,
-			MissileHitRate:      techBonuses.MissileHitRate,
-			BaseShield:          techBonuses.BaseShield,
-			BaseStructure:       techBonuses.BaseStructure,
-			BaseAgility:         techBonuses.BaseAgility,
-			BaseDefense:         techBonuses.BaseDefense,
-		}
+	if techBonuses, err := services.GetPlayerTechBonuses(playerID); err == nil {
+		attackerFleet.TechBonuses = techBonuses
 	}
 
 	// Load instance enemy fleet

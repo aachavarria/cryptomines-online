@@ -368,7 +368,8 @@ func TestApplyTechEffect_UnknownType(t *testing.T) {
 	}
 
 	// Should log but not panic
-	applyTechEffect(bonuses, effect, 5, "test_tech")
+	rawJSON := []byte(`{"type":"unknown_effect_type","per_level":10,"unit":"percent"}`)
+	applyTechEffect(bonuses, effect, rawJSON, 5, "test_tech")
 
 	// All bonuses should remain zero
 	if bonuses.MetalOutput != 0 {

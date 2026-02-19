@@ -1,15 +1,15 @@
-import { Canvas } from '@react-three/fiber'
-import PlanetScene from '../three/PlanetScene.tsx'
-import ResourceHUD from './ResourceHUD.tsx'
-import SideNav from './SideNav.tsx'
-import BuildingContextMenu from '../panels/BuildingContextMenu.tsx'
-import BuildingDetailPanel from '../panels/BuildingDetailPanel.tsx'
-import ConstructionPanel from '../panels/ConstructionPanel.tsx'
-import ConstructionInfoPanel from '../panels/ConstructionInfoPanel.tsx'
-import { useGameContext } from '../../contexts/GameContext.tsx'
+import { Canvas } from "@react-three/fiber";
+import PlanetScene from "../three/PlanetScene.tsx";
+import ResourceHUD from "./ResourceHUD.tsx";
+import SideNav from "./SideNav.tsx";
+import BuildingContextMenu from "../panels/BuildingContextMenu.tsx";
+import BuildingDetailPanel from "../panels/BuildingDetailPanel.tsx";
+import ConstructionPanel from "../panels/ConstructionPanel.tsx";
+import ConstructionInfoPanel from "../panels/ConstructionInfoPanel.tsx";
+import { useGameContext } from "../../contexts/GameContext.tsx";
 
 export default function GameShell() {
-  const { state, deselectAll, openConstructPanel } = useGameContext()
+  const { state, deselectAll, openConstructPanel } = useGameContext();
 
   if (state.loading) {
     return (
@@ -18,14 +18,14 @@ export default function GameShell() {
         <div className="loading-spinner" />
         <p>Loading your colony...</p>
       </div>
-    )
+    );
   }
 
   if (state.error && !state.currentPlanet) {
     return (
       <div className="loading-screen">
         <h2>Cryptomines Online</h2>
-        <p style={{ color: 'var(--accent-danger)' }}>{state.error}</p>
+        <p style={{ color: "var(--accent-danger)" }}>{state.error}</p>
         <button
           className="hud-collect-btn"
           onClick={() => window.location.reload()}
@@ -33,7 +33,7 @@ export default function GameShell() {
           Retry
         </button>
       </div>
-    )
+    );
   }
 
   return (
@@ -44,14 +44,14 @@ export default function GameShell() {
           shadows
           orthographic
           camera={{
-            zoom: 10,
+            zoom: 30,
             near: -500,
             far: 1000,
             position: [100, 100, 100],
           }}
           onPointerMissed={() => {
             if (!state.placementMode.active) {
-              deselectAll()
+              deselectAll();
             }
           }}
         >
@@ -71,10 +71,7 @@ export default function GameShell() {
         {/* Build button - bottom right */}
         {!state.showConstructPanel && !state.placementMode.active && (
           <div className="bottom-actions">
-            <button
-              className="build-action-btn"
-              onClick={openConstructPanel}
-            >
+            <button className="build-action-btn" onClick={openConstructPanel}>
               Build
             </button>
           </div>
@@ -89,5 +86,5 @@ export default function GameShell() {
         )}
       </div>
     </div>
-  )
+  );
 }

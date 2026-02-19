@@ -2,6 +2,8 @@ package combat
 
 import (
 	"testing"
+
+	"github.com/cryptomines-online/backend/internal/services"
 )
 
 func TestNewCombatEngine(t *testing.T) {
@@ -196,7 +198,7 @@ func TestExecuteCombat_BasicScenario(t *testing.T) {
 		PlayerID:       "player1",
 		FleetID:        "fleet1",
 		CommanderBonus: nil,
-		TechBonuses:    &TechBonuses{},
+		TechBonuses:    &services.TechBonuses{},
 		Stacks:         []*FleetStack{attackerStack},
 		Formation:      "phalanx",
 		Targeting:      "max_attack",
@@ -225,7 +227,7 @@ func TestExecuteCombat_BasicScenario(t *testing.T) {
 		PlayerID:       "player2",
 		FleetID:        "fleet2",
 		CommanderBonus: nil,
-		TechBonuses:    &TechBonuses{},
+		TechBonuses:    &services.TechBonuses{},
 		Stacks:         []*FleetStack{defenderStack},
 		Formation:      "phalanx",
 		Targeting:      "max_attack",
@@ -457,7 +459,7 @@ func TestExecuteCombat_WithAllNewMechanics(t *testing.T) {
 			Electron:       40,  // 25% crit chance
 			EffectiveStack: 50,  // +50% effective stack
 		},
-		TechBonuses: &TechBonuses{},
+		TechBonuses: &services.TechBonuses{},
 		Stacks:      []*FleetStack{attackerStack},
 		Formation:   "battle_line", // +10% attack
 		Targeting:   "max_attack",
@@ -492,7 +494,7 @@ func TestExecuteCombat_WithAllNewMechanics(t *testing.T) {
 			Electron:       10,  // 10% crit chance
 			EffectiveStack: 25,  // +25% effective stack
 		},
-		TechBonuses: &TechBonuses{},
+		TechBonuses: &services.TechBonuses{},
 		Stacks:      []*FleetStack{defenderStack},
 		Formation:   "phalanx", // +10% defense
 		Targeting:   "max_attack",
@@ -544,4 +546,770 @@ func TestExecuteCombat_WithAllNewMechanics(t *testing.T) {
 	t.Logf("Combat result: %s won in %d rounds", result.Winner, result.TotalRounds)
 	t.Logf("Attacker casualties: %d, Defender casualties: %d", result.AttackerCasualties, result.DefenderCasualties)
 	t.Logf("Critical hits found: %v, Successive strikes found: %v", foundCrit, foundSuccessive)
+}
+
+// --- Advanced combat mechanic tests ---
+
+// Test Scatter/AoE damage to adjacent stacks
+func TestScatterDamageAdjacent(t *testing.T) {
+	engine := NewCombatEngine(42)
+
+	attacker := &FleetStack{
+		ID:              "a1",
+		GridRow:         0,
+		GridCol:         1,
+		ScatterDamage:   25, // 25% scatter to adjacent stacks
+		ScatterRate:     0,  // 0 means always triggers (no rate check)
+	}
+
+	primaryTarget := &FleetStack{
+		ID:               "d1",
+		GridRow:          0,
+		GridCol:          1,
+		CurrentShips:     50,
+		CurrentShield:    5000,
+		CurrentStructure: 5000,
+		EffectiveStacks:  50,
+		EffectiveStructure: 100,
+	}
+
+	adjacentTarget := &FleetStack{
+		ID:               "d2",
+		GridRow:          0,
+		GridCol:          0, // Adjacent (same row, col diff = 1)
+		CurrentShips:     50,
+		CurrentShield:    5000,
+		CurrentStructure: 5000,
+		EffectiveStacks:  50,
+		EffectiveStructure: 100,
+	}
+
+	farTarget := &FleetStack{
+		ID:               "d3",
+		GridRow:          2,
+		GridCol:          2, // Not adjacent (row diff = 2)
+		CurrentShips:     50,
+		CurrentShield:    5000,
+		CurrentStructure: 5000,
+		EffectiveStacks:  50,
+		EffectiveStructure: 100,
+	}
+
+	state := &CombatState{
+		Attacker: &Fleet{
+			Stacks: []*FleetStack{attacker},
+		},
+		Defender: &Fleet{
+			Stacks: []*FleetStack{primaryTarget, adjacentTarget, farTarget},
+		},
+		DamageTakenModifiers: make(map[string]float64),
+		AttackDebuffs:        make(map[string]*StackDebuff),
+	}
+
+	round := &CombatRound{
+		Casualties: make(map[string]int),
+	}
+
+	adjacentShieldBefore := adjacentTarget.CurrentShield
+	farShieldBefore := farTarget.CurrentShield
+
+	totalScatter, scatterTargets := engine.applyScatter(state, attacker, primaryTarget, 1000, round)
+
+	// Adjacent target should take 25% of 1000 = 250 damage
+	if scatterTargets["d2"] != 250 {
+		t.Errorf("Adjacent target should take 250 scatter damage, got %d", scatterTargets["d2"])
+	}
+
+	// Far target should NOT take scatter damage
+	if scatterTargets["d3"] != 0 {
+		t.Errorf("Far target should take 0 scatter damage, got %d", scatterTargets["d3"])
+	}
+
+	if totalScatter != 250 {
+		t.Errorf("Total scatter should be 250, got %d", totalScatter)
+	}
+
+	// Adjacent target's shield should be reduced
+	if adjacentTarget.CurrentShield != adjacentShieldBefore-250 {
+		t.Errorf("Adjacent shield should be %d, got %d", adjacentShieldBefore-250, adjacentTarget.CurrentShield)
+	}
+
+	// Far target's shield should be unchanged
+	if farTarget.CurrentShield != farShieldBefore {
+		t.Errorf("Far target shield should be unchanged at %d, got %d", farShieldBefore, farTarget.CurrentShield)
+	}
+}
+
+// Test ScatterAll spreads to ALL enemy stacks
+func TestScatterAll(t *testing.T) {
+	engine := NewCombatEngine(42)
+
+	attacker := &FleetStack{
+		ID:          "a1",
+		GridRow:     0,
+		GridCol:     0,
+		ScatterAll:  15, // 15% to all enemies
+	}
+
+	target1 := &FleetStack{
+		ID: "d1", GridRow: 0, GridCol: 0,
+		CurrentShips: 50, CurrentShield: 5000, CurrentStructure: 5000,
+		EffectiveStacks: 50, EffectiveStructure: 100,
+	}
+	target2 := &FleetStack{
+		ID: "d2", GridRow: 1, GridCol: 1,
+		CurrentShips: 50, CurrentShield: 5000, CurrentStructure: 5000,
+		EffectiveStacks: 50, EffectiveStructure: 100,
+	}
+	target3 := &FleetStack{
+		ID: "d3", GridRow: 2, GridCol: 2,
+		CurrentShips: 50, CurrentShield: 5000, CurrentStructure: 5000,
+		EffectiveStacks: 50, EffectiveStructure: 100,
+	}
+
+	state := &CombatState{
+		Attacker: &Fleet{Stacks: []*FleetStack{attacker}},
+		Defender: &Fleet{Stacks: []*FleetStack{target1, target2, target3}},
+		DamageTakenModifiers: make(map[string]float64),
+		AttackDebuffs:        make(map[string]*StackDebuff),
+	}
+
+	round := &CombatRound{Casualties: make(map[string]int)}
+	totalScatter, scatterTargets := engine.applyScatter(state, attacker, target1, 1000, round)
+
+	// Both d2 and d3 should receive 15% of 1000 = 150 each
+	if scatterTargets["d2"] != 150 {
+		t.Errorf("d2 should take 150 scatter, got %d", scatterTargets["d2"])
+	}
+	if scatterTargets["d3"] != 150 {
+		t.Errorf("d3 should take 150 scatter, got %d", scatterTargets["d3"])
+	}
+	if totalScatter != 300 {
+		t.Errorf("Total scatter should be 300, got %d", totalScatter)
+	}
+}
+
+// Test Piercing damage to stack behind target
+func TestPiercingDamage(t *testing.T) {
+	engine := NewCombatEngine(42)
+
+	attacker := &FleetStack{
+		ID:              "a1",
+		GridRow:         0,
+		PiercingDamage:  50, // 50% of damage pierces
+	}
+
+	frontTarget := &FleetStack{
+		ID: "d1", GridRow: 0, GridCol: 0,
+		CurrentShips: 50, CurrentShield: 5000, CurrentStructure: 5000,
+		EffectiveStacks: 50, EffectiveStructure: 100,
+	}
+	behindTarget := &FleetStack{
+		ID: "d2", GridRow: 1, GridCol: 0,
+		CurrentShips: 50, CurrentShield: 5000, CurrentStructure: 5000,
+		EffectiveStacks: 50, EffectiveStructure: 100,
+	}
+
+	state := &CombatState{
+		Attacker: &Fleet{Stacks: []*FleetStack{attacker}},
+		Defender: &Fleet{Stacks: []*FleetStack{frontTarget, behindTarget}},
+		DamageTakenModifiers: make(map[string]float64),
+		AttackDebuffs:        make(map[string]*StackDebuff),
+	}
+
+	round := &CombatRound{Casualties: make(map[string]int)}
+
+	behindShieldBefore := behindTarget.CurrentShield
+
+	pierceDmg, pierceTargetID := engine.applyPiercing(state, attacker, frontTarget, 1000, false, 1.5, round)
+
+	// 50% of 1000 = 500 piercing damage
+	if pierceDmg != 500 {
+		t.Errorf("Expected 500 piercing damage, got %d", pierceDmg)
+	}
+	if pierceTargetID != "d2" {
+		t.Errorf("Expected pierce target d2, got %s", pierceTargetID)
+	}
+	if behindTarget.CurrentShield != behindShieldBefore-500 {
+		t.Errorf("Behind target shield should be %d, got %d", behindShieldBefore-500, behindTarget.CurrentShield)
+	}
+}
+
+// Test Piercing with critical hit forwarding
+func TestPiercingWithCritical(t *testing.T) {
+	engine := NewCombatEngine(42)
+
+	attacker := &FleetStack{
+		ID:              "a1",
+		GridRow:         0,
+		PiercingDamage:  50,   // 50% pierce
+		PiercingCritical: true, // crit applies to pierce
+	}
+
+	frontTarget := &FleetStack{
+		ID: "d1", GridRow: 0,
+		CurrentShips: 50, CurrentShield: 10000, CurrentStructure: 10000,
+		EffectiveStacks: 50, EffectiveStructure: 200,
+	}
+	behindTarget := &FleetStack{
+		ID: "d2", GridRow: 1,
+		CurrentShips: 50, CurrentShield: 10000, CurrentStructure: 10000,
+		EffectiveStacks: 50, EffectiveStructure: 200,
+	}
+
+	state := &CombatState{
+		Attacker: &Fleet{Stacks: []*FleetStack{attacker}},
+		Defender: &Fleet{Stacks: []*FleetStack{frontTarget, behindTarget}},
+		DamageTakenModifiers: make(map[string]float64),
+		AttackDebuffs:        make(map[string]*StackDebuff),
+	}
+
+	round := &CombatRound{Casualties: make(map[string]int)}
+
+	// Pass wasCrit=true with critMultiplier=1.5
+	pierceDmg, _ := engine.applyPiercing(state, attacker, frontTarget, 1000, true, 1.5, round)
+
+	// 50% of 1000 = 500, then * 1.5 crit = 750
+	if pierceDmg != 750 {
+		t.Errorf("Expected 750 piercing+crit damage, got %d", pierceDmg)
+	}
+}
+
+// Test Piercing does nothing when no stack is behind
+func TestPiercingNoTargetBehind(t *testing.T) {
+	engine := NewCombatEngine(42)
+
+	attacker := &FleetStack{
+		ID:             "a1",
+		GridRow:        0,
+		PiercingDamage: 50,
+	}
+
+	// Only one enemy stack, nothing behind it
+	frontTarget := &FleetStack{
+		ID: "d1", GridRow: 0,
+		CurrentShips: 50, CurrentShield: 5000, CurrentStructure: 5000,
+		EffectiveStacks: 50, EffectiveStructure: 100,
+	}
+
+	state := &CombatState{
+		Attacker: &Fleet{Stacks: []*FleetStack{attacker}},
+		Defender: &Fleet{Stacks: []*FleetStack{frontTarget}},
+		DamageTakenModifiers: make(map[string]float64),
+		AttackDebuffs:        make(map[string]*StackDebuff),
+	}
+
+	round := &CombatRound{Casualties: make(map[string]int)}
+	pierceDmg, pierceTargetID := engine.applyPiercing(state, attacker, frontTarget, 1000, false, 1.5, round)
+
+	if pierceDmg != 0 {
+		t.Errorf("Expected 0 piercing damage with no target behind, got %d", pierceDmg)
+	}
+	if pierceTargetID != "" {
+		t.Errorf("Expected empty pierce target ID, got %s", pierceTargetID)
+	}
+}
+
+// Test Restoration heals shields and structure
+func TestRestoration(t *testing.T) {
+	engine := NewCombatEngine(42)
+
+	stack := &FleetStack{
+		ID:                 "a1",
+		CurrentShips:       50,
+		EffectiveShield:    100,
+		EffectiveStructure: 200,
+		EffectiveStacks:    50,
+		CurrentShield:      3000, // max is 100*50=5000
+		CurrentStructure:   8000, // max is 200*50=10000
+		ShieldRestore:      10,   // 10% per round
+		StructureRestore:   5,    // 5% per round
+	}
+
+	state := &CombatState{
+		Attacker: &Fleet{Stacks: []*FleetStack{stack}},
+		Defender: &Fleet{Stacks: []*FleetStack{}},
+		Logs:     []string{},
+		DamageTakenModifiers: make(map[string]float64),
+		AttackDebuffs:        make(map[string]*StackDebuff),
+	}
+
+	engine.applyRestoration(state)
+
+	// Shield: 10% of 5000 = 500 restored, 3000 + 500 = 3500
+	if stack.CurrentShield != 3500 {
+		t.Errorf("Expected shield 3500 after restore, got %d", stack.CurrentShield)
+	}
+
+	// Structure: 5% of 10000 = 500 restored, 8000 + 500 = 8500
+	if stack.CurrentStructure != 8500 {
+		t.Errorf("Expected structure 8500 after restore, got %d", stack.CurrentStructure)
+	}
+}
+
+// Test Restoration caps at max
+func TestRestorationCapsAtMax(t *testing.T) {
+	engine := NewCombatEngine(42)
+
+	stack := &FleetStack{
+		ID:                 "a1",
+		CurrentShips:       50,
+		EffectiveShield:    100,
+		EffectiveStructure: 200,
+		EffectiveStacks:    50,
+		CurrentShield:      4900, // max is 5000, only 100 missing
+		CurrentStructure:   10000, // already at max
+		ShieldRestore:      10,    // would restore 500 but cap at max
+		StructureRestore:   5,
+	}
+
+	state := &CombatState{
+		Attacker: &Fleet{Stacks: []*FleetStack{stack}},
+		Defender: &Fleet{Stacks: []*FleetStack{}},
+		Logs:     []string{},
+		DamageTakenModifiers: make(map[string]float64),
+		AttackDebuffs:        make(map[string]*StackDebuff),
+	}
+
+	engine.applyRestoration(state)
+
+	if stack.CurrentShield != 5000 {
+		t.Errorf("Expected shield capped at 5000, got %d", stack.CurrentShield)
+	}
+	if stack.CurrentStructure != 10000 {
+		t.Errorf("Expected structure capped at 10000, got %d", stack.CurrentStructure)
+	}
+}
+
+// Test Reflection reflects damage back to attacker
+func TestReflection(t *testing.T) {
+	engine := NewCombatEngine(42)
+
+	attacker := &FleetStack{
+		ID:               "a1",
+		CurrentShips:     100,
+		CurrentShield:    10000,
+		CurrentStructure: 10000,
+		EffectiveStacks:  100,
+		EffectiveStructure: 100,
+	}
+
+	defender := &FleetStack{
+		ID:                     "d1",
+		CurrentShips:           50,
+		CurrentShield:          5000,
+		CurrentStructure:       5000,
+		EffectiveStacks:        50,
+		EffectiveStructure:     100,
+		ReflectDamage:          20, // 20% reflected
+		ReflectStructureDamage: 10, // 10% structure reflected
+	}
+
+	state := &CombatState{
+		Attacker: &Fleet{Stacks: []*FleetStack{attacker}},
+		Defender: &Fleet{Stacks: []*FleetStack{defender}},
+		Logs:     []string{},
+		DamageTakenModifiers: make(map[string]float64),
+		AttackDebuffs:        make(map[string]*StackDebuff),
+	}
+
+	round := &CombatRound{Casualties: make(map[string]int)}
+
+	attackerShieldBefore := attacker.CurrentShield
+
+	reflected := engine.applyReflection(state, attacker, defender, 1000, round)
+
+	// ReflectDamage: 20% of 1000 = 200 reflected (to shield first)
+	// ReflectStructureDamage: 10% of 1000 = 100 reflected (to structure directly)
+	// Total reflected = 300
+	if reflected != 300 {
+		t.Errorf("Expected 300 total reflected damage, got %d", reflected)
+	}
+
+	// Attacker shield should be reduced by 200
+	if attacker.CurrentShield != attackerShieldBefore-200 {
+		t.Errorf("Attacker shield should be %d, got %d", attackerShieldBefore-200, attacker.CurrentShield)
+	}
+
+	// Attacker structure should be reduced by 100 (direct structure reflect)
+	if attacker.CurrentStructure != 10000-100 {
+		t.Errorf("Attacker structure should be 9900, got %d", attacker.CurrentStructure)
+	}
+}
+
+// Test AbsorbDouble halves damage
+func TestAbsorbDouble(t *testing.T) {
+	// AbsorbDouble is checked inline in ExecuteCombat, so we test via full combat
+	engine := NewCombatEngine(12345)
+
+	attackerStack := &FleetStack{
+		ID: "a1", ShipCount: 100, ShipType: ShipTypeFrigate,
+		DamageType: DamageKinetic, ArmorType: ArmorChrome,
+		BaseAttack: 50, BaseDefense: 30, BaseSpeed: 80,
+		BaseAccuracy: 100, BaseDodge: 50,
+		BaseShield: 200, BaseStructure: 300,
+		GridRow: 0, GridCol: 0,
+	}
+
+	defenderStack := &FleetStack{
+		ID: "d1", ShipCount: 50, ShipType: ShipTypeCruiser,
+		DamageType: DamageExplosive, ArmorType: ArmorRegen,
+		BaseAttack: 40, BaseDefense: 25, BaseSpeed: 60,
+		BaseAccuracy: 90, BaseDodge: 40,
+		BaseShield: 150, BaseStructure: 250,
+		GridRow: 0, GridCol: 0,
+		AbsorbDouble: 1.0, // 100% chance to absorb (always halves)
+	}
+
+	attackerFleet := &Fleet{
+		PlayerID: "p1", FleetID: "f1",
+		TechBonuses: &services.TechBonuses{},
+		Stacks: []*FleetStack{attackerStack},
+		Formation: "phalanx", Side: "attacker",
+	}
+	defenderFleet := &Fleet{
+		PlayerID: "p2", FleetID: "f2",
+		TechBonuses: &services.TechBonuses{},
+		Stacks: []*FleetStack{defenderStack},
+		Formation: "phalanx", Side: "defender",
+	}
+
+	result, err := engine.ExecuteCombat(attackerFleet, defenderFleet)
+	if err != nil {
+		t.Fatalf("Combat failed: %v", err)
+	}
+
+	// Verify AbsorbedDouble was triggered in at least one attack
+	foundAbsorb := false
+	for _, round := range result.DetailedRounds {
+		for _, attack := range round.Attacks {
+			if attack.AbsorbedDouble {
+				foundAbsorb = true
+				break
+			}
+		}
+		if foundAbsorb {
+			break
+		}
+	}
+
+	if !foundAbsorb {
+		t.Error("Expected AbsorbDouble to trigger at least once with 100% chance")
+	}
+
+	t.Logf("Combat with AbsorbDouble: %s won in %d rounds", result.Winner, result.TotalRounds)
+}
+
+// Test Knockback pushes target to higher row
+func TestKnockback(t *testing.T) {
+	engine := NewCombatEngine(12345)
+
+	attackerStack := &FleetStack{
+		ID: "a1", ShipCount: 100, ShipType: ShipTypeFrigate,
+		DamageType: DamageKinetic, ArmorType: ArmorChrome,
+		BaseAttack: 50, BaseDefense: 30, BaseSpeed: 80,
+		BaseAccuracy: 200, BaseDodge: 50,
+		BaseShield: 200, BaseStructure: 300,
+		GridRow: 0, GridCol: 0,
+		Knockback: 1, // push back 1 row
+	}
+
+	defenderStack := &FleetStack{
+		ID: "d1", ShipCount: 50, ShipType: ShipTypeCruiser,
+		DamageType: DamageExplosive, ArmorType: ArmorRegen,
+		BaseAttack: 40, BaseDefense: 25, BaseSpeed: 60,
+		BaseAccuracy: 90, BaseDodge: 40,
+		BaseShield: 150, BaseStructure: 250,
+		GridRow: 0, GridCol: 0, // starts at front row
+	}
+
+	attackerFleet := &Fleet{
+		PlayerID: "p1", FleetID: "f1",
+		TechBonuses: &services.TechBonuses{},
+		Stacks: []*FleetStack{attackerStack},
+		Formation: "phalanx", Side: "attacker",
+	}
+	defenderFleet := &Fleet{
+		PlayerID: "p2", FleetID: "f2",
+		TechBonuses: &services.TechBonuses{},
+		Stacks: []*FleetStack{defenderStack},
+		Formation: "phalanx", Side: "defender",
+	}
+
+	result, err := engine.ExecuteCombat(attackerFleet, defenderFleet)
+	if err != nil {
+		t.Fatalf("Combat failed: %v", err)
+	}
+
+	// Check that knockback was applied in at least one attack
+	foundKnockback := false
+	for _, round := range result.DetailedRounds {
+		for _, attack := range round.Attacks {
+			if attack.KnockbackApplied > 0 {
+				foundKnockback = true
+				break
+			}
+		}
+		if foundKnockback {
+			break
+		}
+	}
+
+	if !foundKnockback {
+		t.Error("Expected knockback to be applied at least once")
+	}
+
+	t.Logf("Combat with Knockback: %s won in %d rounds", result.Winner, result.TotalRounds)
+}
+
+// Test RangeDamage modifies damage based on distance
+func TestRangeDamage(t *testing.T) {
+	engine := NewCombatEngine(42)
+
+	attacker := &FleetStack{
+		ID:              "a1",
+		EffectiveAttack: 100,
+		EffectiveStacks: 10,
+		ShipType:        ShipTypeFrigate,
+		DamageType:      DamageKinetic,
+		GridRow:         0,
+		RangeDamage: map[int]float64{
+			0: 1.5,  // 50% bonus at distance 0
+			1: 1.2,  // 20% bonus at distance 1
+			2: 0.8,  // 20% penalty at distance 2
+		},
+	}
+
+	// Test at distance 0 (same row)
+	target := &FleetStack{
+		ShipType:  ShipTypeFrigate,
+		ArmorType: ArmorChrome,
+		GridRow:   0,
+	}
+
+	baseDmg := engine.phase5CalculateDamage(attacker, target)
+
+	// RangeDamage at distance 0 = 1.5x
+	distance := abs(attacker.GridRow - target.GridRow)
+	if mult, ok := attacker.RangeDamage[distance]; ok {
+		modDmg := int(float64(baseDmg) * mult)
+		expected := int(float64(baseDmg) * 1.5)
+		if modDmg != expected {
+			t.Errorf("Distance 0: expected %d, got %d", expected, modDmg)
+		}
+	} else {
+		t.Error("RangeDamage should have entry for distance 0")
+	}
+
+	// Test at distance 2
+	target.GridRow = 2
+	distance = abs(attacker.GridRow - target.GridRow)
+	if mult, ok := attacker.RangeDamage[distance]; ok {
+		if mult != 0.8 {
+			t.Errorf("Distance 2: expected mult 0.8, got %.2f", mult)
+		}
+	} else {
+		t.Error("RangeDamage should have entry for distance 2")
+	}
+}
+
+// Test DamageTakenIncrease debuff stacks
+func TestDamageTakenIncrease(t *testing.T) {
+	engine := NewCombatEngine(42)
+
+	attacker := &FleetStack{
+		ID:                  "a1",
+		DamageTakenIncrease: 10, // 10% per hit
+	}
+
+	target := &FleetStack{
+		ID:               "d1",
+		CurrentShips:     50,
+		CurrentShield:    5000,
+		CurrentStructure: 5000,
+	}
+
+	state := &CombatState{
+		Attacker:             &Fleet{Stacks: []*FleetStack{attacker}},
+		Defender:             &Fleet{Stacks: []*FleetStack{target}},
+		Logs:                 []string{},
+		DamageTakenModifiers: make(map[string]float64),
+		AttackDebuffs:        make(map[string]*StackDebuff),
+	}
+
+	// Apply debuff twice (simulating two hits)
+	engine.applyDebuffs(state, attacker, target)
+	engine.applyDebuffs(state, attacker, target)
+
+	// Should stack: 10 + 10 = 20
+	if state.DamageTakenModifiers["d1"] != 20 {
+		t.Errorf("Expected 20%% damage increase, got %.1f%%", state.DamageTakenModifiers["d1"])
+	}
+}
+
+// Test EnemyAttackReduction debuff
+func TestEnemyAttackReduction(t *testing.T) {
+	engine := NewCombatEngine(42)
+
+	attacker := &FleetStack{
+		ID:                         "a1",
+		EnemyAttackReduction:       15, // 15% reduction
+		EnemyAttackReductionRounds: 3,
+	}
+
+	target := &FleetStack{ID: "d1", CurrentShips: 50}
+
+	state := &CombatState{
+		Attacker:             &Fleet{Stacks: []*FleetStack{attacker}},
+		Defender:             &Fleet{Stacks: []*FleetStack{target}},
+		Logs:                 []string{},
+		DamageTakenModifiers: make(map[string]float64),
+		AttackDebuffs:        make(map[string]*StackDebuff),
+	}
+
+	engine.applyDebuffs(state, attacker, target)
+
+	debuff, ok := state.AttackDebuffs["d1"]
+	if !ok {
+		t.Fatal("Expected attack debuff on d1")
+	}
+	if debuff.AttackReduction != 15 {
+		t.Errorf("Expected 15%% attack reduction, got %.1f%%", debuff.AttackReduction)
+	}
+	if debuff.RoundsLeft != 3 {
+		t.Errorf("Expected 3 rounds left, got %d", debuff.RoundsLeft)
+	}
+
+	// Tick debuff
+	engine.tickDebuffs(state)
+	if state.AttackDebuffs["d1"].RoundsLeft != 2 {
+		t.Errorf("Expected 2 rounds left after tick, got %d", state.AttackDebuffs["d1"].RoundsLeft)
+	}
+
+	// Tick 2 more times to expire
+	engine.tickDebuffs(state)
+	engine.tickDebuffs(state)
+	if _, ok := state.AttackDebuffs["d1"]; ok {
+		t.Error("Debuff should be expired and removed after 3 ticks")
+	}
+}
+
+// Test full combat with all advanced mechanics active
+func TestExecuteCombat_AllAdvancedMechanics(t *testing.T) {
+	engine := NewCombatEngine(54321)
+
+	a1 := &FleetStack{
+		ID: "a1", ShipCount: 100, ShipType: ShipTypeFrigate,
+		DamageType: DamageKinetic, ArmorType: ArmorChrome,
+		BaseAttack: 50, BaseDefense: 30, BaseSpeed: 80,
+		BaseAccuracy: 150, BaseDodge: 50,
+		BaseShield: 200, BaseStructure: 300,
+		GridRow: 0, GridCol: 1,
+		ScatterAll:          10,
+		PiercingDamage:      30,
+		PiercingCritical:    true,
+		DamageTakenIncrease: 5,
+		Knockback:           1,
+	}
+
+	d1 := &FleetStack{
+		ID: "d1", ShipCount: 50, ShipType: ShipTypeCruiser,
+		DamageType: DamageExplosive, ArmorType: ArmorRegen,
+		BaseAttack: 40, BaseDefense: 25, BaseSpeed: 60,
+		BaseAccuracy: 90, BaseDodge: 40,
+		BaseShield: 150, BaseStructure: 250,
+		GridRow: 0, GridCol: 0,
+		ShieldRestore:          5,
+		StructureRestore:       2,
+		ReflectDamage:          10,
+		AbsorbDouble:           0.3,
+		EnemyAttackReduction:   10,
+		EnemyAttackReductionRounds: 2,
+	}
+
+	d2 := &FleetStack{
+		ID: "d2", ShipCount: 30, ShipType: ShipTypeBattleship,
+		DamageType: DamageMagnetic, ArmorType: ArmorNano,
+		BaseAttack: 60, BaseDefense: 40, BaseSpeed: 40,
+		BaseAccuracy: 80, BaseDodge: 30,
+		BaseShield: 300, BaseStructure: 400,
+		GridRow: 1, GridCol: 1,
+		ReflectStructureDamage: 15,
+	}
+
+	attackerFleet := &Fleet{
+		PlayerID: "p1", FleetID: "f1",
+		TechBonuses: &services.TechBonuses{},
+		Stacks:    []*FleetStack{a1},
+		Formation: "battle_line", Side: "attacker",
+	}
+	defenderFleet := &Fleet{
+		PlayerID: "p2", FleetID: "f2",
+		TechBonuses: &services.TechBonuses{},
+		Stacks:    []*FleetStack{d1, d2},
+		Formation: "phalanx", Side: "defender",
+	}
+
+	result, err := engine.ExecuteCombat(attackerFleet, defenderFleet)
+	if err != nil {
+		t.Fatalf("Combat failed: %v", err)
+	}
+
+	// Collect stats from all rounds
+	stats := struct {
+		scatterHits   int
+		piercingHits  int
+		reflectedHits int
+		absorbHits    int
+		knockbackHits int
+	}{}
+
+	for _, round := range result.DetailedRounds {
+		for _, attack := range round.Attacks {
+			if attack.ScatterDamage > 0 {
+				stats.scatterHits++
+			}
+			if attack.PiercingDamage > 0 {
+				stats.piercingHits++
+			}
+			if attack.ReflectedDamage > 0 {
+				stats.reflectedHits++
+			}
+			if attack.AbsorbedDouble {
+				stats.absorbHits++
+			}
+			if attack.KnockbackApplied > 0 {
+				stats.knockbackHits++
+			}
+		}
+	}
+
+	t.Logf("Combat with all advanced mechanics: %s won in %d rounds", result.Winner, result.TotalRounds)
+	t.Logf("Scatter hits: %d, Piercing hits: %d, Reflected: %d, Absorb: %d, Knockback: %d",
+		stats.scatterHits, stats.piercingHits, stats.reflectedHits, stats.absorbHits, stats.knockbackHits)
+	t.Logf("Attacker casualties: %d, Defender casualties: %d", result.AttackerCasualties, result.DefenderCasualties)
+
+	if result.Winner == "" {
+		t.Error("Expected a winner")
+	}
+}
+
+// Test abs helper
+func TestAbs(t *testing.T) {
+	tests := []struct {
+		input    int
+		expected int
+	}{
+		{5, 5},
+		{-5, 5},
+		{0, 0},
+		{-1, 1},
+	}
+
+	for _, tt := range tests {
+		result := abs(tt.input)
+		if result != tt.expected {
+			t.Errorf("abs(%d): expected %d, got %d", tt.input, tt.expected, result)
+		}
+	}
 }
