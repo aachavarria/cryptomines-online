@@ -60,6 +60,7 @@ import type {
   DonateRequest,
   CorpSearchResult,
   GalaxyMapResponse,
+  GalaxySectorResponse,
   AttackRBPRequest,
   AttackRBPResponse,
 } from '../types/corps'
@@ -604,6 +605,7 @@ export interface AttackData {
   AttackerSide: string
   DefenderSide: string
   Hit: boolean
+  CriticalHit?: boolean
   Damage: number
   ShieldDamage: number
   StructureDamage: number
@@ -686,6 +688,17 @@ export async function searchCorps(query: string): Promise<CorpSearchResult[]> {
 
 export async function getGalaxyMap(): Promise<GalaxyMapResponse> {
   const { data } = await api.get<GalaxyMapResponse>('/galaxy/map')
+  return data
+}
+
+export async function getGalaxySector(
+  cx: number,
+  cy: number,
+  r: number,
+): Promise<GalaxySectorResponse> {
+  const { data } = await api.get<GalaxySectorResponse>(
+    `/galaxy/sector?cx=${cx}&cy=${cy}&r=${r}`,
+  )
   return data
 }
 

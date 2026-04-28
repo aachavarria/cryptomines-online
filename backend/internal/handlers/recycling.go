@@ -24,6 +24,7 @@ type availableShip struct {
 	ID         string `json:"id"`
 	DesignName string `json:"design_name"`
 	HullClass  string `json:"hull_class"`
+	Quantity   int    `json:"quantity"`
 }
 
 type startRecycleRequest struct {
@@ -307,21 +308,27 @@ func CollectRecycle(w http.ResponseWriter, r *http.Request) {
 }
 
 // ListAvailableShips handles GET /api/ship-instances/available
-// Returns ship designs that have available quantity for recycling
+// Returns ship designs that have ships not currently deployed in fleets.
+// available = ships.quantity − (ships of the same design assigned to fleets).
 func ListAvailableShips(w http.ResponseWriter, r *http.Request) {
 	playerID := middleware.GetPlayerID(r)
 
-	// Query ship designs with available quantity
 	rows, err := database.DB.Query(`
-		SELECT
-			s.ship_design_id as id,
-			sd.name as design_name,
-			ht.hull_class,
-			s.quantity
+		WITH deployed AS (
+			SELECT fs.ship_design_id, COALESCE(SUM(fs.ship_count), 0) AS qty
+			FROM fleet_stacks fs
+			JOIN fleets f ON f.id = fs.fleet_id
+			WHERE f.player_id = $1
+			GROUP BY fs.ship_design_id
+		)
+		SELECT s.ship_design_id, sd.name, ht.hull_class,
+		       GREATEST(s.quantity - COALESCE(d.qty, 0), 0) AS available
 		FROM ships s
 		JOIN ship_designs sd ON s.ship_design_id = sd.id
 		JOIN hull_types ht ON sd.hull_type_id = ht.id
+		LEFT JOIN deployed d ON d.ship_design_id = s.ship_design_id
 		WHERE s.player_id = $1 AND s.quantity > 0
+		  AND GREATEST(s.quantity - COALESCE(d.qty, 0), 0) > 0
 		ORDER BY ht.hull_class, sd.name
 	`, playerID)
 

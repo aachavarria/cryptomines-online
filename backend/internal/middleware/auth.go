@@ -76,6 +76,20 @@ func Auth(next http.Handler) http.Handler {
 	})
 }
 
+// GenerateToken signs a minimal JWT for the given player ID using the same
+// HS256 secret the Auth middleware verifies with. It exists so test code can
+// produce valid bearer tokens without touching Supabase.
+func GenerateToken(playerID string) (string, error) {
+	secret := os.Getenv("SUPABASE_JWT_SECRET")
+	if secret == "" {
+		secret = "super-secret-jwt-token-with-at-least-32-characters-long"
+	}
+	tok := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"sub": playerID,
+	})
+	return tok.SignedString([]byte(secret))
+}
+
 // GetPlayerID extracts the player ID from the request context.
 func GetPlayerID(r *http.Request) string {
 	if id, ok := r.Context().Value(PlayerIDKey).(string); ok {

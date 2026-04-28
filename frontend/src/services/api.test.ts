@@ -16,50 +16,37 @@ vi.mock('axios', () => {
 
 describe('api service', () => {
   beforeEach(() => {
-    vi.resetModules()
-    localStorage.clear()
+    if (typeof localStorage !== 'undefined' && typeof localStorage.clear === 'function') {
+      localStorage.clear()
+    }
   })
 
-  it('creates axios instance with /api baseURL', async () => {
+  it('creates a single axios instance pointed at /api', async () => {
     await import('./api')
     expect(axios.create).toHaveBeenCalledWith(
-      expect.objectContaining({ baseURL: '/api' })
+      expect.objectContaining({ baseURL: '/api' }),
     )
   })
 
-  it('registers a request interceptor for JWT', async () => {
+  it('registers a request interceptor so the JWT can be attached', async () => {
     await import('./api')
-    expect(axios.create({} as never).interceptors.request.use).toBeDefined()
+    const inst = (axios.create as unknown as { mock: { results: Array<{ value: unknown }> } }).mock.results[0]
+      .value as { interceptors: { request: { use: ReturnType<typeof vi.fn> } } }
+    expect(inst.interceptors.request.use).toHaveBeenCalled()
   })
 
-  it('healthCheck calls GET /health', async () => {
+  it('healthCheck round-trips the /health response', async () => {
     const mockApi = axios.create({} as never) as unknown as {
       get: ReturnType<typeof vi.fn>
     }
     mockApi.get.mockResolvedValueOnce({ data: { status: 'ok' } })
 
     const { healthCheck } = await import('./api')
-    const result = await healthCheck()
-    expect(result).toEqual({ status: 'ok' })
+    expect(await healthCheck()).toEqual({ status: 'ok' })
   })
 
-  it('guestLogin calls POST /auth/guest and stores token', async () => {
-    const mockResponse = {
-      data: {
-        token: 'test-jwt-token',
-        player: { id: 'p1', anonymous_id: 'guest_abc', level: 1, created_at: '2026-01-01' },
-      },
-    }
-    const mockApi = axios.create({} as never) as unknown as {
-      post: ReturnType<typeof vi.fn>
-    }
-    mockApi.post.mockResolvedValueOnce(mockResponse)
-
+  it('guestLogin is deprecated and throws — auth is handled by Supabase now', async () => {
     const { guestLogin } = await import('./api')
-    const result = await guestLogin()
-    expect(result.token).toBe('test-jwt-token')
-    expect(result.player.id).toBe('p1')
-    expect(localStorage.getItem('token')).toBe('test-jwt-token')
-    expect(localStorage.getItem('player_id')).toBe('p1')
+    await expect(guestLogin()).rejects.toThrow(/Supabase/i)
   })
 })

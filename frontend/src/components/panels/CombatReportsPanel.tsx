@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useCombatReports, useCombatReport } from '../../hooks/useCombatReports';
 import { combatReportsAPI, type RoundData } from '../../services/api';
+import BattlePlayback from './BattlePlayback';
 import './CombatReportsPanel.css';
 
 type ReportFilter = 'all' | 'pvp' | 'instance' | 'rbp'
@@ -9,6 +10,7 @@ export const CombatReportsPanel: React.FC = () => {
   const { reports, loading, error } = useCombatReports();
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
   const [filter, setFilter] = useState<ReportFilter>('all');
+  const [showStaticLog, setShowStaticLog] = useState(false);
   const { report: selectedReport, loading: reportLoading } = useCombatReport(selectedReportId);
 
   const filteredReports = filter === 'all'
@@ -184,45 +186,47 @@ export const CombatReportsPanel: React.FC = () => {
 
         {rounds && rounds.length > 0 && (
           <div className="detail-section">
-            <h4>Round-by-Round Details</h4>
-            <div className="rounds-list">
-              {rounds.map((round: RoundData) => (
-                <div key={round.RoundNumber} className="round-card">
-                  <h5>Round {round.RoundNumber}</h5>
-                  <div className="attacks-list">
-                    {round.Attacks.map((attack, idx) => (
-                      <div key={idx} className={`attack-log ${attack.Hit ? 'hit' : 'miss'}`}>
-                        <span className="attacker-side">[{attack.AttackerSide}]</span>
-                        <span className="attack-action">
-                          {attack.Hit ? '⚔️ HIT' : '❌ MISS'}
-                        </span>
-                        <span className="defender-side">[{attack.DefenderSide}]</span>
-                        {attack.Hit && (
-                          <>
-                            <span className="damage">
-                              Dmg: {attack.Damage} ({attack.ShieldDamage} shield, {attack.StructureDamage} structure)
-                            </span>
-                            {attack.ShipsDestroyed > 0 && (
-                              <span className="casualties">💥 {attack.ShipsDestroyed} destroyed</span>
-                            )}
-                          </>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                  {Object.keys(round.Casualties).length > 0 && (
-                    <div className="round-casualties">
-                      <strong>Round Casualties:</strong>
-                      {Object.entries(round.Casualties).map(([stackId, count]) => (
-                        <span key={stackId} className="casualty-item">
-                          {stackId}: {count} ships
-                        </span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <h4 style={{ margin: 0 }}>Battle Playback</h4>
+              <button
+                className="btn btn-small btn-secondary"
+                onClick={() => setShowStaticLog((s) => !s)}
+              >
+                {showStaticLog ? 'Show playback' : 'Show full log'}
+              </button>
+            </div>
+            {showStaticLog ? (
+              <div className="rounds-list">
+                {rounds.map((round: RoundData) => (
+                  <div key={round.RoundNumber} className="round-card">
+                    <h5>Round {round.RoundNumber}</h5>
+                    <div className="attacks-list">
+                      {round.Attacks.map((attack, idx) => (
+                        <div key={idx} className={`attack-log ${attack.Hit ? 'hit' : 'miss'}`}>
+                          <span className="attacker-side">[{attack.AttackerSide}]</span>
+                          <span className="attack-action">
+                            {attack.Hit ? '⚔️ HIT' : '❌ MISS'}
+                          </span>
+                          <span className="defender-side">[{attack.DefenderSide}]</span>
+                          {attack.Hit && (
+                            <>
+                              <span className="damage">
+                                Dmg: {attack.Damage} ({attack.ShieldDamage} shield, {attack.StructureDamage} structure)
+                              </span>
+                              {attack.ShipsDestroyed > 0 && (
+                                <span className="casualties">💥 {attack.ShipsDestroyed} destroyed</span>
+                              )}
+                            </>
+                          )}
+                        </div>
                       ))}
                     </div>
-                  )}
-                </div>
-              ))}
-            </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <BattlePlayback rounds={rounds} totalRounds={selectedReport.total_rounds} />
+            )}
           </div>
         )}
       </div>

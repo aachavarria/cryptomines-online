@@ -28,7 +28,12 @@ export default function ConstructionPanel() {
     buildingCounts[b.type_name] = (buildingCounts[b.type_name] || 0) + 1
   }
 
+  // Buildings whose mechanics are out of scope per docs/planning/final-scope.md.
+  // Hidden from construction so players don't waste resources on no-op buildings.
+  const HIDDEN = new Set(['trading_center', 'galaxy_transporter', 'compound_center'])
+
   const filteredTypes = state.buildingTypes.filter(bt => {
+    if (HIDDEN.has(bt.name)) return false
     if (activeCategory === 'space') {
       return bt.category === 'space' || bt.category === 'defense'
     }

@@ -175,32 +175,45 @@ func doCollectResources(w http.ResponseWriter, playerID, planetID string) {
 	warehouseHe3 := min64(res.WarehouseHe3+producedHe3, res.StorageCapacity)
 	warehouseGold := min64(res.WarehouseGold+producedGold, res.StorageCapacity)
 
-	// Step 2: Transfer ALL warehouse to main
-	collectedMetal := warehouseMetal
-	collectedHe3 := warehouseHe3
-	collectedGold := warehouseGold
+	// Step 2: Transfer warehouse → main storage, but never above storage_capacity.
+	// Anything that doesn't fit stays in the warehouse so production isn't lost.
+	collectedMetal := min64(warehouseMetal, res.StorageCapacity-res.Metal)
+	collectedHe3 := min64(warehouseHe3, res.StorageCapacity-res.He3)
+	collectedGold := min64(warehouseGold, res.StorageCapacity-res.Gold)
+	if collectedMetal < 0 {
+		collectedMetal = 0
+	}
+	if collectedHe3 < 0 {
+		collectedHe3 = 0
+	}
+	if collectedGold < 0 {
+		collectedGold = 0
+	}
 
 	if collectedMetal == 0 && collectedHe3 == 0 && collectedGold == 0 {
-		http.Error(w, `{"error":"nothing to collect"}`, http.StatusBadRequest)
+		http.Error(w, `{"error":"no resources to collect or storage full"}`, http.StatusBadRequest)
 		return
 	}
 
 	newMetal := res.Metal + collectedMetal
 	newHe3 := res.He3 + collectedHe3
 	newGold := res.Gold + collectedGold
+	remainingWHMetal := warehouseMetal - collectedMetal
+	remainingWHHe3 := warehouseHe3 - collectedHe3
+	remainingWHGold := warehouseGold - collectedGold
 
-	// Step 3: Zero warehouse, update timestamps
+	// Step 3: Apply storage delta, leave overflow in warehouse, refresh timestamps.
 	now := time.Now()
 	err = tx.QueryRow(`
 		UPDATE resources
 		SET metal = $1, he3 = $2, gold = $3,
-		    warehouse_metal = 0, warehouse_he3 = 0, warehouse_gold = 0,
+		    warehouse_metal = $6, warehouse_he3 = $7, warehouse_gold = $8,
 		    last_warehouse_update = $4, last_collected_at = $4, updated_at = $4
 		WHERE planet_id = $5
 		RETURNING id, planet_id, metal, he3, gold, metal_per_hour, he3_per_hour,
 		          gold_per_hour, storage_capacity, warehouse_metal, warehouse_he3,
 		          warehouse_gold, last_warehouse_update, last_collected_at, updated_at
-	`, newMetal, newHe3, newGold, now, planetID).Scan(
+	`, newMetal, newHe3, newGold, now, planetID, remainingWHMetal, remainingWHHe3, remainingWHGold).Scan(
 		&res.ID, &res.PlanetID, &res.Metal, &res.He3, &res.Gold,
 		&res.MetalPerHour, &res.He3PerHour, &res.GoldPerHour,
 		&res.StorageCapacity, &res.WarehouseMetal, &res.WarehouseHe3,

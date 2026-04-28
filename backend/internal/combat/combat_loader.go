@@ -118,12 +118,18 @@ func LoadInstanceFleet(instanceID string) (*Fleet, error) {
 
 // loadFleetStacks loads all stacks for a fleet and converts them to combat format
 func loadFleetStacks(fleetID string) ([]*FleetStack, error) {
+	// Speed/accuracy/dodge are NOT denormalised on ship_designs — they live on
+	// hull_types as base values and are buffed at combat time by commander +
+	// tech bonuses. We pull base_movement → speed, base_agility → dodge, and
+	// default accuracy to 100 (modifiers stack on top).
 	rows, err := database.DB.Query(`
 		SELECT fs.id, fs.ship_design_id, fs.grid_row, fs.grid_col, fs.ship_count,
-		       sd.hull_type_id, sd.attack_power, sd.total_defense, sd.total_speed,
-		       sd.total_accuracy, sd.total_dodge, sd.total_shield, sd.total_structure
+		       sd.hull_type_id, sd.attack_power, sd.total_defense,
+		       ht.base_movement, 100 AS base_accuracy, ht.base_agility,
+		       sd.total_shield, sd.total_structure
 		FROM fleet_stacks fs
 		JOIN ship_designs sd ON fs.ship_design_id = sd.id
+		JOIN hull_types ht ON ht.id = sd.hull_type_id
 		WHERE fs.fleet_id = $1 AND fs.ship_count > 0
 	`, fleetID)
 	if err != nil {
@@ -135,17 +141,20 @@ func loadFleetStacks(fleetID string) ([]*FleetStack, error) {
 	for rows.Next() {
 		var stack FleetStack
 		var hullTypeID int
+		// total_defense is numeric(5,2) — scan into float64 then truncate.
+		var totalDefense float64
 
 		err := rows.Scan(
 			&stack.ID, &stack.ShipDesignID, &stack.GridRow, &stack.GridCol, &stack.ShipCount,
 			&hullTypeID,
-			&stack.BaseAttack, &stack.BaseDefense, &stack.BaseSpeed,
+			&stack.BaseAttack, &totalDefense, &stack.BaseSpeed,
 			&stack.BaseAccuracy, &stack.BaseDodge, &stack.BaseShield, &stack.BaseStructure,
 		)
 		if err != nil {
 			log.Printf("Failed to scan fleet stack: %v", err)
 			continue
 		}
+		stack.BaseDefense = int(totalDefense)
 
 		// Get hull type info for ship type classification
 		stack.ShipType, stack.DamageType, stack.ArmorType, stack.WeaponCategory = getHullTypeInfo(hullTypeID)

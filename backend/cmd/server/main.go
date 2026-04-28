@@ -158,6 +158,7 @@ func main() {
 	protected.HandleFunc("GET /api/corp/search", handlers.SearchCorps)
 	protected.HandleFunc("POST /api/corp/rbp/{id}/attack", handlers.AttackRBP)
 	protected.HandleFunc("GET /api/galaxy/map", handlers.GetGalaxyMap)
+	protected.HandleFunc("GET /api/galaxy/sector", handlers.GetGalaxySector)
 
 	// Dev Tools (require X-Dev-Mode: true header)
 	protected.HandleFunc("POST /api/dev/reset", handlers.DevResetPlayer)

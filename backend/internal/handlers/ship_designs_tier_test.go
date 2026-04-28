@@ -203,32 +203,27 @@ func TestCreateShipDesign_ModuleTierNotUnlocked(t *testing.T) {
 		t.Fatalf("Failed to create hull blueprint: %v", err)
 	}
 
-	// Find a tier 2 module by name suffix (_ii)
+	// Find any tier-2 module. Module names do NOT carry a tier suffix (the
+	// same name is reused for tiers 1/2/3 with different rows).
 	var tier2ModuleID int
 	var tier2ModuleName string
 	err = database.DB.QueryRow(`
-		SELECT id, name
-		FROM module_types
-		WHERE name LIKE '%_ii' AND tier = 2
-		LIMIT 1
+		SELECT id, name FROM module_types WHERE tier = 2 LIMIT 1
 	`).Scan(&tier2ModuleID, &tier2ModuleName)
 	if err != nil {
 		t.Fatalf("Failed to find tier 2 module: %v", err)
 	}
 
-	// Find the tier 1 version of this module's blueprint
-	baseName := tier2ModuleName[:len(tier2ModuleName)-3] // Remove "_ii"
-	tier1Name := baseName + "_i"
-
+	// The blueprint references the tier-1 row of the same module name.
 	var moduleBlueprintID int
 	err = database.DB.QueryRow(`
-		SELECT b.id
-		FROM blueprints b
+		SELECT b.id FROM blueprints b
 		JOIN module_types mt ON b.module_type_id = mt.id
 		WHERE b.blueprint_type = 'module' AND mt.name = $1
-	`, tier1Name).Scan(&moduleBlueprintID)
+		LIMIT 1
+	`, tier2ModuleName).Scan(&moduleBlueprintID)
 	if err != nil {
-		t.Fatalf("Failed to find module blueprint for %s: %v", tier1Name, err)
+		t.Fatalf("Failed to find module blueprint for %s: %v", tier2ModuleName, err)
 	}
 
 	// Give player the module blueprint but only at research level 1

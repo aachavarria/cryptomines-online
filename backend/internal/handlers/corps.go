@@ -3,6 +3,7 @@ package handlers
 import (
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"strings"
@@ -991,4 +992,127 @@ func GetGalaxyMap(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(zones)
+}
+
+// SectorPlanet is a planet entry returned by GetGalaxySector.
+type SectorPlanet struct {
+	ID              string     `json:"id"`
+	Name            string     `json:"name"`
+	PositionX       int        `json:"position_x"`
+	PositionY       int        `json:"position_y"`
+	IsHomeworld     bool       `json:"is_homeworld"`
+	IsRBP           bool       `json:"is_rbp"`
+	RBPLevel        int        `json:"rbp_level"`
+	IsOwn           bool       `json:"is_own"`
+	OwnerID         *string    `json:"owner_id,omitempty"`
+	OwnerName       *string    `json:"owner_name,omitempty"`
+	ControllingCorp *corpBrief `json:"controlling_corp,omitempty"`
+	ProtectionUntil *time.Time `json:"protection_until,omitempty"`
+	DefenseStrength int64      `json:"defense_strength"`
+}
+
+// GetGalaxySector handles GET /api/galaxy/sector?cx=&cy=&r=
+// Returns every planet (own, enemy, RBP) inside the bounding box
+// centered at (cx, cy) with radius r. Used by the galaxy map UI to render
+// neighbours that the player can attack or visit.
+func GetGalaxySector(w http.ResponseWriter, r *http.Request) {
+	playerID := middleware.GetPlayerID(r)
+
+	cx := parseIntParam(r, "cx", 1000)
+	cy := parseIntParam(r, "cy", 1000)
+	radius := parseIntParam(r, "r", 200)
+	if radius <= 0 {
+		radius = 200
+	}
+	if radius > 1000 {
+		radius = 1000
+	}
+
+	rows, err := database.DB.Query(`
+		SELECT p.id, p.name, p.position_x, p.position_y,
+		       p.is_homeworld, p.is_rbp, p.rbp_level,
+		       p.player_id, pl.username,
+		       p.controlling_corp_id, c.name, c.tag,
+		       p.protection_until,
+		       COALESCE((
+		           SELECT SUM(b.level) FROM buildings b
+		           JOIN building_types bt ON bt.id = b.building_type
+		           WHERE b.planet_id = p.id AND bt.category IN ('defense', 'space')
+		       ), 0) AS defense_strength
+		FROM planets p
+		LEFT JOIN players pl ON pl.id = p.player_id
+		LEFT JOIN corps c ON c.id = p.controlling_corp_id
+		WHERE p.position_x BETWEEN $1 AND $2
+		  AND p.position_y BETWEEN $3 AND $4
+		ORDER BY p.position_y, p.position_x
+		LIMIT 500
+	`, cx-radius, cx+radius, cy-radius, cy+radius)
+	if err != nil {
+		log.Printf("GetGalaxySector: query failed: %v", err)
+		errs.InternalError("Failed to load galaxy sector").WriteJSON(w, http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	planets := []SectorPlanet{}
+	for rows.Next() {
+		var sp SectorPlanet
+		var ownerID, ownerName, corpID, corpName, corpTag sql.NullString
+		var protectionUntil sql.NullTime
+
+		if err := rows.Scan(
+			&sp.ID, &sp.Name, &sp.PositionX, &sp.PositionY,
+			&sp.IsHomeworld, &sp.IsRBP, &sp.RBPLevel,
+			&ownerID, &ownerName,
+			&corpID, &corpName, &corpTag,
+			&protectionUntil,
+			&sp.DefenseStrength,
+		); err != nil {
+			log.Printf("GetGalaxySector: scan failed: %v", err)
+			continue
+		}
+
+		if ownerID.Valid {
+			s := ownerID.String
+			sp.OwnerID = &s
+			sp.IsOwn = ownerID.String == playerID
+		}
+		if ownerName.Valid {
+			s := ownerName.String
+			sp.OwnerName = &s
+		}
+		if corpID.Valid {
+			sp.ControllingCorp = &corpBrief{
+				ID:   corpID.String,
+				Name: corpName.String,
+				Tag:  corpTag.String,
+			}
+		}
+		if protectionUntil.Valid {
+			sp.ProtectionUntil = &protectionUntil.Time
+		}
+
+		planets = append(planets, sp)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"center_x": cx,
+		"center_y": cy,
+		"radius":   radius,
+		"planets":  planets,
+	})
+}
+
+// parseIntParam reads an integer query parameter, returning fallback if absent or invalid.
+func parseIntParam(r *http.Request, key string, fallback int) int {
+	v := r.URL.Query().Get(key)
+	if v == "" {
+		return fallback
+	}
+	var n int
+	if _, err := fmt.Sscanf(v, "%d", &n); err != nil {
+		return fallback
+	}
+	return n
 }

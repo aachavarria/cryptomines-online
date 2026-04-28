@@ -1084,8 +1084,41 @@ func (ce *CombatEngine) selectTarget(state *CombatState, attacker *FleetStack) *
 		return nil
 	}
 
-	// Simple targeting: pick first alive target (TODO: implement targeting strategies)
-	return aliveTargets[0]
+	// Honour the attacking fleet's targeting_command. The valid set comes from
+	// handlers/fleets.go (max_attack, min_attack, max_durability, min_durability,
+	// closest, by_commander_rank).
+	fleet := ce.getFleetForStack(state, attacker)
+	cmd := ""
+	if fleet != nil {
+		cmd = fleet.Targeting
+	}
+
+	score := func(t *FleetStack) int {
+		switch cmd {
+		case "max_attack":
+			return t.EffectiveAttack
+		case "min_attack":
+			return -t.EffectiveAttack
+		case "max_durability":
+			return t.CurrentShield + t.CurrentStructure
+		case "min_durability":
+			return -(t.CurrentShield + t.CurrentStructure)
+		case "closest":
+			return -abs(attacker.GridRow - t.GridRow)
+		default:
+			return 0
+		}
+	}
+
+	best := aliveTargets[0]
+	bestScore := score(best)
+	for _, t := range aliveTargets[1:] {
+		if s := score(t); s > bestScore {
+			best = t
+			bestScore = s
+		}
+	}
+	return best
 }
 
 func (ce *CombatEngine) isAttackerStack(state *CombatState, stack *FleetStack) bool {

@@ -12,6 +12,7 @@ import (
 	"github.com/cryptomines-online/backend/internal/errs"
 	"github.com/cryptomines-online/backend/internal/middleware"
 	"github.com/cryptomines-online/backend/internal/models"
+	"github.com/cryptomines-online/backend/internal/workers"
 )
 
 const maxShipsPerStack = 3000
@@ -560,16 +561,29 @@ func MoveFleet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// For Phase 2, travel is instant (stub for future implementation)
+	// Compute real travel time using the same model PvP attacks use, so a fleet
+	// reposition between own planets costs proportional wall-clock time.
+	originX, originY := 0, 0
+	if fleet.PlanetID != nil {
+		if x, y, perr := workers.GetPlanetPosition(*fleet.PlanetID); perr == nil {
+			originX, originY = x, y
+		}
+	}
+	speed := workers.GetFleetSpeed([]string{fleetID})
+	travelSeconds := workers.CalculateTravelTime(originX, originY, req.DestinationX, req.DestinationY, speed)
+	if travelSeconds < 1 {
+		travelSeconds = 1
+	}
+
 	var f models.Fleet
 	err = database.DB.QueryRow(
 		`UPDATE fleets SET status = 'traveling', destination_x = $1, destination_y = $2,
-		        arrival_at = now() + interval '1 second', updated_at = now()
-		 WHERE id = $3
+		        arrival_at = now() + ($3 || ' seconds')::interval, updated_at = now()
+		 WHERE id = $4
 		 RETURNING id, player_id, name, formation, commander_id, targeting_command,
 		           status, planet_id, position_x, position_y,
 		           destination_x, destination_y, arrival_at, created_at, updated_at`,
-		req.DestinationX, req.DestinationY, fleetID,
+		req.DestinationX, req.DestinationY, travelSeconds, fleetID,
 	).Scan(
 		&f.ID, &f.PlayerID, &f.Name, &f.Formation, &f.CommanderID, &f.TargetingCommand,
 		&f.Status, &f.PlanetID, &f.PositionX, &f.PositionY,

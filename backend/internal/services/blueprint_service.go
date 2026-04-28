@@ -138,11 +138,9 @@ func CanUseModuleTier(playerID string, moduleTypeID int) (bool, error) {
 		return false, fmt.Errorf("failed to get module type: %w", err)
 	}
 
-	// Get base module name (modules may have tier suffixes too)
-	baseName := GetHullBaseName(moduleName) // Reuse same logic
-
-	// Find the blueprint for this module's base name
-	// The blueprint references the tier 1 module
+	// Modules share a single name across tiers (rapid_fire is rows 1, 2, 3 in
+	// module_types) — unlike hulls which encode the tier in the name. The
+	// blueprint references the lowest seeded tier, so look it up by name only.
 	var blueprintID int
 	err = database.DB.QueryRow(`
 		SELECT b.id
@@ -150,7 +148,8 @@ func CanUseModuleTier(playerID string, moduleTypeID int) (bool, error) {
 		JOIN module_types mt ON b.module_type_id = mt.id
 		WHERE b.blueprint_type = 'module'
 		  AND mt.name = $1
-	`, baseName+"_i").Scan(&blueprintID)
+		LIMIT 1
+	`, moduleName).Scan(&blueprintID)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			// No blueprint exists for this module - allow usage (base game modules)

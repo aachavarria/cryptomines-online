@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 
 	"github.com/cryptomines-online/backend/internal/database"
 	"github.com/cryptomines-online/backend/internal/middleware"
@@ -42,15 +41,17 @@ func setupWarehouseTest(t *testing.T) (playerID, planetID, resourceID string, cl
 		t.Fatalf("Failed to create test planet: %v", err)
 	}
 
-	// Create test resources
+	// last_warehouse_update = now() so auto-accumulation contributes ~0 over
+	// the test's elapsed wall-clock; the handler runs UpdateWarehouseResources
+	// before reading.
 	_, err = database.DB.Exec(`
 		INSERT INTO resources (id, planet_id, metal, he3, gold,
 			metal_per_hour, he3_per_hour, gold_per_hour, storage_capacity,
 			warehouse_metal, warehouse_he3, warehouse_gold,
 			last_warehouse_update, last_collected_at)
 		VALUES ($1, $2, 1000, 500, 100, 1000, 500, 100, 100000,
-			5000, 3000, 500, $3, $3)
-	`, resourceID, planetID, time.Now().Add(-1*time.Hour))
+			5000, 3000, 500, now(), now())
+	`, resourceID, planetID)
 	if err != nil {
 		t.Fatalf("Failed to create test resources: %v", err)
 	}
@@ -138,11 +139,13 @@ func TestCollectWarehouse_PartialCollection_CapacityLimit(t *testing.T) {
 	playerID, _, resourceID, cleanup := setupWarehouseTest(t)
 	defer cleanup()
 
-	// Set resources near capacity
+	// Set resources near capacity. Pin last_warehouse_update to now() so the
+	// handler's auto-accumulation pass adds 0 before the explicit collection.
 	_, err := database.DB.Exec(`
 		UPDATE resources
 		SET metal = 98000, he3 = 99000, gold = 99500,
-		    warehouse_metal = 5000, warehouse_he3 = 3000, warehouse_gold = 1000
+		    warehouse_metal = 5000, warehouse_he3 = 3000, warehouse_gold = 1000,
+		    last_warehouse_update = now()
 		WHERE id = $1
 	`, resourceID)
 	if err != nil {
@@ -206,10 +209,12 @@ func TestCollectWarehouse_EmptyWarehouse(t *testing.T) {
 	playerID, _, resourceID, cleanup := setupWarehouseTest(t)
 	defer cleanup()
 
-	// Set warehouse to empty
+	// Empty the warehouse and freeze the auto-accumulation timestamp so the
+	// handler doesn't refill it from the per_hour rates before collecting.
 	_, err := database.DB.Exec(`
 		UPDATE resources
-		SET warehouse_metal = 0, warehouse_he3 = 0, warehouse_gold = 0
+		SET warehouse_metal = 0, warehouse_he3 = 0, warehouse_gold = 0,
+		    last_warehouse_update = now()
 		WHERE id = $1
 	`, resourceID)
 	if err != nil {
@@ -238,11 +243,11 @@ func TestCollectWarehouse_StorageFull(t *testing.T) {
 	playerID, _, resourceID, cleanup := setupWarehouseTest(t)
 	defer cleanup()
 
-	// Fill storage to capacity
 	_, err := database.DB.Exec(`
 		UPDATE resources
 		SET metal = 100000, he3 = 100000, gold = 100000,
-		    warehouse_metal = 5000, warehouse_he3 = 3000, warehouse_gold = 500
+		    warehouse_metal = 5000, warehouse_he3 = 3000, warehouse_gold = 500,
+		    last_warehouse_update = now()
 		WHERE id = $1
 	`, resourceID)
 	if err != nil {

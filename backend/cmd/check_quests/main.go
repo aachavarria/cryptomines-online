@@ -21,7 +21,7 @@ func main() {
 	}
 	defer db.Close()
 
-	fmt.Println("=== BLUEPRINT SYSTEM STRUCTURE ===\n")
+	fmt.Print("=== BLUEPRINT SYSTEM STRUCTURE ===\n\n")
 
 	// Show blueprints table structure
 	fmt.Println("1. BLUEPRINTS TABLE (master list of all blueprints)")

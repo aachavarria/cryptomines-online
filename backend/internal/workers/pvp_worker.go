@@ -112,6 +112,7 @@ func resolveAttack(attackID, attackerID, defenderID, defenderPlanetID string, fl
 	var totalRounds int
 	var loot *pvpLootW
 	var attackerHe3, defenderHe3 int64
+	roundsBlob := []byte("[]")
 
 	if len(defenderFleet.Stacks) == 0 {
 		// Auto-win
@@ -166,10 +167,13 @@ func resolveAttack(attackID, attackerID, defenderID, defenderPlanetID string, fl
 		// He3 consumption = sum(design.he3_per_round * avg_ships) * totalRounds
 		attackerHe3 = calculateCombatHe3(fleetIDs, totalRounds)
 		defenderHe3 = int64(0) // defender He3 tracked separately if needed
+		if blob, err := json.Marshal(combatResult.DetailedRounds); err == nil {
+			roundsBlob = blob
+		}
 	}
 
 	// Create combat report
-	reportID := createPvPReportW(attackerID, defenderID, result, totalRounds, loot, attackerHe3, defenderHe3)
+	reportID := createPvPReportW(attackerID, defenderID, result, totalRounds, loot, attackerHe3, defenderHe3, roundsBlob)
 
 	// Update quest progress
 	services.UpdateQuestProgress(attackerID, "pvp_attack", "attack", 1)
@@ -332,22 +336,25 @@ func resetDefenseBuildingsW(planetID string) {
 	for _, typeName := range defenseTypes {
 		database.DB.Exec(`
 			UPDATE buildings SET level = 0, is_upgrading = false, upgrade_finish_at = NULL, updated_at = now()
-			WHERE planet_id = $1 AND building_type_id = (SELECT id FROM building_types WHERE name = $2) AND level > 0
+			WHERE planet_id = $1 AND building_type = (SELECT id FROM building_types WHERE name = $2) AND level > 0
 		`, planetID, typeName)
 	}
 }
 
-func createPvPReportW(attackerID, defenderID, result string, totalRounds int, loot *pvpLootW, attackerHe3, defenderHe3 int64) string {
+func createPvPReportW(attackerID, defenderID, result string, totalRounds int, loot *pvpLootW, attackerHe3, defenderHe3 int64, roundsJSON []byte) string {
 	lootJSON := []byte("{}")
 	if loot != nil {
 		lootJSON, _ = json.Marshal(map[string]int64{"metal": loot.Metal, "he3": loot.He3, "gold": loot.Gold})
 	}
+	if len(roundsJSON) == 0 {
+		roundsJSON = []byte("[]")
+	}
 
 	var reportID string
 	database.DB.QueryRow(`
-		INSERT INTO combat_reports (attacker_id, defender_id, combat_type, result, total_rounds, loot_json, he3_consumed)
-		VALUES ($1, $2, 'pvp', $3, $4, $5, $6) RETURNING id
-	`, attackerID, defenderID, result, totalRounds, string(lootJSON), attackerHe3+defenderHe3).Scan(&reportID)
+		INSERT INTO combat_reports (attacker_id, defender_id, combat_type, result, total_rounds, loot_json, rounds_json, he3_consumed)
+		VALUES ($1, $2, 'pvp', $3, $4, $5, $6, $7) RETURNING id
+	`, attackerID, defenderID, result, totalRounds, string(lootJSON), string(roundsJSON), attackerHe3+defenderHe3).Scan(&reportID)
 
 	return reportID
 }

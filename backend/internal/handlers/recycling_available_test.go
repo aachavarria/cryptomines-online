@@ -81,7 +81,7 @@ func TestListAvailableShips_WithUndeployedShips(t *testing.T) {
 	// Get a hull type (Frigate)
 	var hullTypeID int
 	err := database.DB.QueryRow(`
-		SELECT id FROM hull_types WHERE hull_class = 'Frigate' LIMIT 1
+		SELECT id FROM hull_types WHERE hull_class = 'frigate' LIMIT 1
 	`).Scan(&hullTypeID)
 	if err != nil {
 		t.Fatalf("Failed to find hull type: %v", err)
@@ -94,22 +94,20 @@ func TestListAvailableShips_WithUndeployedShips(t *testing.T) {
 			total_shield, total_structure, total_defense, total_agility, total_movement,
 			total_storage, attack_power, weapon_range_min, weapon_range_max, volume_used,
 			he3_per_round, metal_cost, he3_cost, gold_cost, build_time_seconds)
-		VALUES ($1, 'Test Frigate', $2, '[]', 100, 100, 10, 10, 5, 100, 50, 1, 5, 10, 5, 1000, 500, 50, 3600)
+		VALUES ($1, 'Test_Frigate', $2, '[]', 100, 100, 10, 10, 5, 100, 50, 1, 5, 10, 5, 1000, 500, 50, 3600)
 		RETURNING id
 	`, playerID, hullTypeID).Scan(&designID)
 	if err != nil {
 		t.Fatalf("Failed to create ship design: %v", err)
 	}
 
-	// Create 3 ship instances (not deployed)
-	for i := 0; i < 3; i++ {
-		_, err = database.DB.Exec(`
-			INSERT INTO ship_instances (id, player_id, ship_design_id, hull_type_id)
-			VALUES ($1, $2, $3, $4)
-		`, uuid.New().String(), playerID, designID, hullTypeID)
-		if err != nil {
-			t.Fatalf("Failed to create ship instance: %v", err)
-		}
+	// Insert one ships row with quantity=3 (handler aggregates by design).
+	_, err = database.DB.Exec(`
+		INSERT INTO ships (player_id, ship_design_id, quantity, is_building, build_quantity, production_slot)
+		VALUES ($1, $2, 3, false, 0, 1)
+	`, playerID, designID)
+	if err != nil {
+		t.Fatalf("Failed to create ships row: %v", err)
 	}
 
 	req := httptest.NewRequest("GET", "/api/ship-instances/available", nil)
@@ -128,21 +126,15 @@ func TestListAvailableShips_WithUndeployedShips(t *testing.T) {
 		t.Fatalf("Failed to decode response: %v", err)
 	}
 
-	if len(response) != 3 {
-		t.Errorf("Expected 3 ships, got %d", len(response))
+	// Handler returns one row per design with the aggregate quantity.
+	if len(response) != 1 {
+		t.Fatalf("Expected 1 design row, got %d", len(response))
 	}
-
-	// Verify response structure
-	for _, ship := range response {
-		if ship.ID == "" {
-			t.Error("Expected ship ID to be set")
-		}
-		if ship.DesignName != "Test Frigate" {
-			t.Errorf("Expected design name 'Test Frigate', got '%s'", ship.DesignName)
-		}
-		if ship.HullClass != "Frigate" {
-			t.Errorf("Expected hull class 'Frigate', got '%s'", ship.HullClass)
-		}
+	if response[0].DesignName != "Test_Frigate" {
+		t.Errorf("Expected design name 'Test_Frigate', got '%s'", response[0].DesignName)
+	}
+	if response[0].HullClass != "frigate" {
+		t.Errorf("Expected hull class 'frigate', got '%s'", response[0].HullClass)
 	}
 }
 
@@ -153,7 +145,7 @@ func TestListAvailableShips_ExcludesDeployedShips(t *testing.T) {
 	// Get a hull type
 	var hullTypeID int
 	err := database.DB.QueryRow(`
-		SELECT id FROM hull_types WHERE hull_class = 'Cruiser' LIMIT 1
+		SELECT id FROM hull_types WHERE hull_class = 'cruiser' LIMIT 1
 	`).Scan(&hullTypeID)
 	if err != nil {
 		t.Fatalf("Failed to find hull type: %v", err)
@@ -166,45 +158,37 @@ func TestListAvailableShips_ExcludesDeployedShips(t *testing.T) {
 			total_shield, total_structure, total_defense, total_agility, total_movement,
 			total_storage, attack_power, weapon_range_min, weapon_range_max, volume_used,
 			he3_per_round, metal_cost, he3_cost, gold_cost, build_time_seconds)
-		VALUES ($1, 'Test Cruiser', $2, '[]', 200, 200, 15, 8, 4, 150, 80, 2, 6, 15, 8, 2000, 1000, 100, 7200)
+		VALUES ($1, 'Test_Cruiser', $2, '[]', 200, 200, 15, 8, 4, 150, 80, 2, 6, 15, 8, 2000, 1000, 100, 7200)
 		RETURNING id
 	`, playerID, hullTypeID).Scan(&designID)
 	if err != nil {
 		t.Fatalf("Failed to create ship design: %v", err)
 	}
 
-	// Create 2 ship instances
-	shipInstance1 := uuid.New().String()
-	shipInstance2 := uuid.New().String()
-
-	_, err = database.DB.Exec(`
-		INSERT INTO ship_instances (id, player_id, ship_design_id, hull_type_id)
-		VALUES ($1, $2, $3, $4), ($5, $6, $7, $8)
-	`, shipInstance1, playerID, designID, hullTypeID, shipInstance2, playerID, designID, hullTypeID)
-	if err != nil {
-		t.Fatalf("Failed to create ship instances: %v", err)
+	// 5 ships of this design exist; 2 will be assigned to a fleet, 3 should
+	// remain available for recycling.
+	if _, err := database.DB.Exec(`
+		INSERT INTO ships (player_id, ship_design_id, quantity, production_slot)
+		VALUES ($1, $2, 5, 1)
+	`, playerID, designID); err != nil {
+		t.Fatalf("ships: %v", err)
 	}
 
-	// Create a fleet
 	fleetID := uuid.New().String()
 	_, err = database.DB.Exec(`
 		INSERT INTO fleets (id, player_id, name, formation, targeting_command, status)
-		VALUES ($1, $2, 'Test Fleet', 'square', 'balanced', 'stationed')
+		VALUES ($1, $2, 'Test_Fleet', 'phalanx', 'max_attack', 'stationed')
 	`, fleetID, playerID)
 	if err != nil {
 		t.Fatalf("Failed to create fleet: %v", err)
 	}
-
-	// Deploy shipInstance1 to fleet (should exclude it)
-	_, err = database.DB.Exec(`
-		INSERT INTO fleet_stacks (id, fleet_id, ship_design_id, ship_instance_id, grid_row, grid_col, ship_count)
-		VALUES ($1, $2, $3, $4, 0, 0, 1)
-	`, uuid.New().String(), fleetID, designID, shipInstance1)
-	if err != nil {
-		t.Fatalf("Failed to deploy ship to fleet: %v", err)
+	if _, err := database.DB.Exec(`
+		INSERT INTO fleet_stacks (id, fleet_id, ship_design_id, grid_row, grid_col, ship_count)
+		VALUES ($1, $2, $3, 0, 0, 2)
+	`, uuid.New().String(), fleetID, designID); err != nil {
+		t.Fatalf("Failed to assign stack: %v", err)
 	}
 
-	// Query available ships - should only return shipInstance2
 	req := httptest.NewRequest("GET", "/api/ship-instances/available", nil)
 	ctx := context.WithValue(req.Context(), middleware.PlayerIDKey, playerID)
 	req = req.WithContext(ctx)
@@ -213,21 +197,18 @@ func TestListAvailableShips_ExcludesDeployedShips(t *testing.T) {
 	ListAvailableShips(w, req)
 
 	if w.Code != http.StatusOK {
-		t.Errorf("Expected status 200, got %d: %s", w.Code, w.Body.String())
+		t.Fatalf("Expected status 200, got %d: %s", w.Code, w.Body.String())
 	}
 
 	var response []availableShip
 	if err := json.NewDecoder(w.Body).Decode(&response); err != nil {
 		t.Fatalf("Failed to decode response: %v", err)
 	}
-
 	if len(response) != 1 {
-		t.Errorf("Expected 1 undeployed ship, got %d", len(response))
+		t.Fatalf("Expected one design row, got %d", len(response))
 	}
-
-	// Verify it's shipInstance2 (not deployed)
-	if len(response) > 0 && response[0].ID != shipInstance2 {
-		t.Errorf("Expected ship ID %s, got %s", shipInstance2, response[0].ID)
+	if response[0].Quantity != 3 {
+		t.Errorf("Expected available qty=3 (5 built − 2 deployed), got %d", response[0].Quantity)
 	}
 }
 
@@ -237,9 +218,9 @@ func TestListAvailableShips_MultipleHullClasses(t *testing.T) {
 
 	// Get different hull types
 	var frigateID, cruiserID, battleshipID int
-	database.DB.QueryRow(`SELECT id FROM hull_types WHERE hull_class = 'Frigate' LIMIT 1`).Scan(&frigateID)
-	database.DB.QueryRow(`SELECT id FROM hull_types WHERE hull_class = 'Cruiser' LIMIT 1`).Scan(&cruiserID)
-	database.DB.QueryRow(`SELECT id FROM hull_types WHERE hull_class = 'Battleship' LIMIT 1`).Scan(&battleshipID)
+	database.DB.QueryRow(`SELECT id FROM hull_types WHERE hull_class = 'frigate' LIMIT 1`).Scan(&frigateID)
+	database.DB.QueryRow(`SELECT id FROM hull_types WHERE hull_class = 'cruiser' LIMIT 1`).Scan(&cruiserID)
+	database.DB.QueryRow(`SELECT id FROM hull_types WHERE hull_class = 'battleship' LIMIT 1`).Scan(&battleshipID)
 
 	// Create designs for each class
 	var frigateDesignID, cruiserDesignID, battleshipDesignID string
@@ -248,7 +229,7 @@ func TestListAvailableShips_MultipleHullClasses(t *testing.T) {
 			total_shield, total_structure, total_defense, total_agility, total_movement,
 			total_storage, attack_power, weapon_range_min, weapon_range_max, volume_used,
 			he3_per_round, metal_cost, he3_cost, gold_cost, build_time_seconds)
-		VALUES ($1, 'Alpha Frigate', $2, '[]', 100, 100, 10, 10, 5, 100, 50, 1, 5, 10, 5, 1000, 500, 50, 3600)
+		VALUES ($1, 'Alpha_Frigate', $2, '[]', 100, 100, 10, 10, 5, 100, 50, 1, 5, 10, 5, 1000, 500, 50, 3600)
 		RETURNING id
 	`, playerID, frigateID).Scan(&frigateDesignID)
 
@@ -257,7 +238,7 @@ func TestListAvailableShips_MultipleHullClasses(t *testing.T) {
 			total_shield, total_structure, total_defense, total_agility, total_movement,
 			total_storage, attack_power, weapon_range_min, weapon_range_max, volume_used,
 			he3_per_round, metal_cost, he3_cost, gold_cost, build_time_seconds)
-		VALUES ($1, 'Beta Cruiser', $2, '[]', 200, 200, 15, 8, 4, 150, 80, 2, 6, 15, 8, 2000, 1000, 100, 7200)
+		VALUES ($1, 'Beta_Cruiser', $2, '[]', 200, 200, 15, 8, 4, 150, 80, 2, 6, 15, 8, 2000, 1000, 100, 7200)
 		RETURNING id
 	`, playerID, cruiserID).Scan(&cruiserDesignID)
 
@@ -266,17 +247,17 @@ func TestListAvailableShips_MultipleHullClasses(t *testing.T) {
 			total_shield, total_structure, total_defense, total_agility, total_movement,
 			total_storage, attack_power, weapon_range_min, weapon_range_max, volume_used,
 			he3_per_round, metal_cost, he3_cost, gold_cost, build_time_seconds)
-		VALUES ($1, 'Gamma Battleship', $2, '[]', 400, 400, 20, 5, 3, 200, 150, 3, 8, 25, 15, 5000, 2500, 250, 14400)
+		VALUES ($1, 'Gamma_Battleship', $2, '[]', 400, 400, 20, 5, 3, 200, 150, 3, 8, 25, 15, 5000, 2500, 250, 14400)
 		RETURNING id
 	`, playerID, battleshipID).Scan(&battleshipDesignID)
 
-	// Create one ship of each type
-	database.DB.Exec(`INSERT INTO ship_instances (id, player_id, ship_design_id, hull_type_id) VALUES ($1, $2, $3, $4)`,
-		uuid.New().String(), playerID, frigateDesignID, frigateID)
-	database.DB.Exec(`INSERT INTO ship_instances (id, player_id, ship_design_id, hull_type_id) VALUES ($1, $2, $3, $4)`,
-		uuid.New().String(), playerID, cruiserDesignID, cruiserID)
-	database.DB.Exec(`INSERT INTO ship_instances (id, player_id, ship_design_id, hull_type_id) VALUES ($1, $2, $3, $4)`,
-		uuid.New().String(), playerID, battleshipDesignID, battleshipID)
+	// One ships row per design, quantity 1 each.
+	database.DB.Exec(`INSERT INTO ships (player_id, ship_design_id, quantity, production_slot) VALUES ($1, $2, 1, 1)`,
+		playerID, frigateDesignID)
+	database.DB.Exec(`INSERT INTO ships (player_id, ship_design_id, quantity, production_slot) VALUES ($1, $2, 1, 2)`,
+		playerID, cruiserDesignID)
+	database.DB.Exec(`INSERT INTO ships (player_id, ship_design_id, quantity, production_slot) VALUES ($1, $2, 1, 3)`,
+		playerID, battleshipDesignID)
 
 	req := httptest.NewRequest("GET", "/api/ship-instances/available", nil)
 	ctx := context.WithValue(req.Context(), middleware.PlayerIDKey, playerID)
@@ -305,16 +286,16 @@ func TestListAvailableShips_MultipleHullClasses(t *testing.T) {
 		hullClasses = append(hullClasses, ship.HullClass)
 	}
 
-	// Check that we have all three types
+	// Check that we have all three types (DB stores hull_class lowercase).
 	hasF, hasC, hasB := false, false, false
 	for _, hc := range hullClasses {
-		if hc == "Frigate" {
+		if hc == "frigate" {
 			hasF = true
 		}
-		if hc == "Cruiser" {
+		if hc == "cruiser" {
 			hasC = true
 		}
-		if hc == "Battleship" {
+		if hc == "battleship" {
 			hasB = true
 		}
 	}
@@ -343,7 +324,7 @@ func TestListAvailableShips_OnlyOwnShips(t *testing.T) {
 
 	// Get hull type
 	var hullTypeID int
-	database.DB.QueryRow(`SELECT id FROM hull_types WHERE hull_class = 'Frigate' LIMIT 1`).Scan(&hullTypeID)
+	database.DB.QueryRow(`SELECT id FROM hull_types WHERE hull_class = 'frigate' LIMIT 1`).Scan(&hullTypeID)
 
 	// Create ship design for other player
 	var otherDesignID string

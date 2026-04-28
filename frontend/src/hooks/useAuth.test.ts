@@ -1,68 +1,68 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook, waitFor } from '@testing-library/react'
-import { useAuth } from './useAuth'
 
-const mockGuestLogin = vi.fn()
+// Stub the Supabase client before importing the hook so the mock is in place
+// for the module-level `supabase.auth` calls inside useEffect.
+const getSession = vi.fn()
+const signInAnonymously = vi.fn()
+const onAuthStateChange = vi.fn().mockReturnValue({
+  data: { subscription: { unsubscribe: vi.fn() } },
+})
 
-vi.mock('../services/api', () => ({
-  guestLogin: () => mockGuestLogin(),
+vi.mock('../lib/supabase', () => ({
+  supabase: {
+    auth: {
+      getSession: () => getSession(),
+      signInAnonymously: () => signInAnonymously(),
+      onAuthStateChange: (cb: unknown) => onAuthStateChange(cb),
+    },
+  },
 }))
+
+import { useAuth } from './useAuth'
 
 describe('useAuth', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    localStorage.clear()
+    onAuthStateChange.mockReturnValue({
+      data: { subscription: { unsubscribe: vi.fn() } },
+    })
   })
 
-  it('starts in loading state', () => {
-    mockGuestLogin.mockReturnValue(new Promise(() => {})) // never resolves
+  it('uses an existing session if Supabase already has one', async () => {
+    getSession.mockResolvedValue({
+      data: {
+        session: {
+          user: { id: 'u-existing', created_at: '2026-04-28T00:00:00Z' },
+        },
+      },
+    })
     const { result } = renderHook(() => useAuth())
-    expect(result.current.loading).toBe(true)
-    expect(result.current.player).toBeNull()
-    expect(result.current.error).toBeNull()
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.player?.id).toBe('u-existing')
+    expect(signInAnonymously).not.toHaveBeenCalled()
   })
 
-  it('auto-calls guestLogin when no token exists', async () => {
-    mockGuestLogin.mockResolvedValue({
-      token: 'new-token',
-      player: { id: 'p1', anonymous_id: 'guest_x', level: 1, created_at: '2026-01-01' },
+  it('falls back to anonymous sign-in when no session is present', async () => {
+    getSession.mockResolvedValue({ data: { session: null } })
+    signInAnonymously.mockResolvedValue({
+      data: { user: { id: 'u-anon', created_at: '2026-04-28T00:00:00Z' } },
+      error: null,
     })
-
     const { result } = renderHook(() => useAuth())
-
-    await waitFor(() => {
-      expect(result.current.loading).toBe(false)
-    })
-
-    expect(mockGuestLogin).toHaveBeenCalledTimes(1)
-    expect(result.current.player).not.toBeNull()
-    expect(result.current.player!.id).toBe('p1')
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(signInAnonymously).toHaveBeenCalledTimes(1)
+    expect(result.current.player?.id).toBe('u-anon')
   })
 
-  it('uses stored token if already logged in', async () => {
-    localStorage.setItem('token', 'existing-token')
-    localStorage.setItem('player_id', 'stored-player-id')
-
-    const { result } = renderHook(() => useAuth())
-
-    await waitFor(() => {
-      expect(result.current.loading).toBe(false)
+  it('sets an error when anonymous sign-in fails', async () => {
+    getSession.mockResolvedValue({ data: { session: null } })
+    signInAnonymously.mockResolvedValue({
+      data: { user: null },
+      error: new Error('boom'),
     })
-
-    expect(mockGuestLogin).not.toHaveBeenCalled()
-    expect(result.current.player).not.toBeNull()
-    expect(result.current.player!.id).toBe('stored-player-id')
-  })
-
-  it('sets error when guestLogin fails', async () => {
-    mockGuestLogin.mockRejectedValue(new Error('Network error'))
-
     const { result } = renderHook(() => useAuth())
-
-    await waitFor(() => {
-      expect(result.current.loading).toBe(false)
-    })
-
+    await waitFor(() => expect(result.current.loading).toBe(false))
     expect(result.current.error).toBe('Failed to connect to server')
     expect(result.current.player).toBeNull()
   })

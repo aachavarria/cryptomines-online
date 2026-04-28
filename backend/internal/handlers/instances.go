@@ -212,9 +212,13 @@ func AttemptInstance(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Combat resolution using real combat engine
-	// Load player fleets and combine into single combat fleet
+	// Combat resolution using real combat engine.
+	// Load player fleets, merge their stacks into a single combat fleet and
+	// promote the strongest commander among them to lead the combined force —
+	// otherwise multi-fleet attempts would lose every commander bonus.
 	var allStacks []*combat.FleetStack
+	var leadCommander *combat.CommanderBonus
+	var leadScore int
 	var totalHe3Consumed int64
 	for _, fid := range req.FleetIDs {
 		playerFleet, err := combat.LoadPlayerFleet(fid, playerID)
@@ -224,13 +228,19 @@ func AttemptInstance(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		allStacks = append(allStacks, playerFleet.Stacks...)
+		if c := playerFleet.CommanderBonus; c != nil {
+			score := c.Accuracy + c.Dodge + c.Speed + c.Electron
+			if leadCommander == nil || score > leadScore {
+				leadCommander = c
+				leadScore = score
+			}
+		}
 	}
 
-	// Create combined attacker fleet
 	attackerFleet := &combat.Fleet{
 		PlayerID:       playerID,
 		FleetID:        "combined",
-		CommanderBonus: nil, // TODO: Support commander in multi-fleet
+		CommanderBonus: leadCommander,
 		TechBonuses:    &services.TechBonuses{},
 		Stacks:         allStacks,
 		Formation:      "phalanx",
@@ -353,16 +363,21 @@ func AttemptInstance(w http.ResponseWriter, r *http.Request) {
 		inst.ExpReward, playerID,
 	)
 
-	// Create combat report
+	// Create combat report. Persist the round-by-round log so the UI battle
+	// playback can replay every attack instead of only showing summary stats.
 	lootJSON, _ := json.Marshal(map[string]int64{
 		"metal": metalReward, "he3": he3Reward, "gold": goldReward,
 	})
+	roundsJSON, _ := json.Marshal(combatResult.DetailedRounds)
+	if len(roundsJSON) == 0 {
+		roundsJSON = []byte("[]")
+	}
 	var reportID string
 	err = tx.QueryRow(
-		`INSERT INTO combat_reports (attacker_id, defender_id, combat_type, result, total_rounds, loot_json, he3_consumed)
-		 VALUES ($1, $1, 'instance_normal', $2, $3, $4, $5)
+		`INSERT INTO combat_reports (attacker_id, defender_id, combat_type, result, total_rounds, loot_json, rounds_json, he3_consumed)
+		 VALUES ($1, $1, 'instance_normal', $2, $3, $4, $5, $6)
 		 RETURNING id`,
-		playerID, result, totalRounds, string(lootJSON), totalHe3Consumed,
+		playerID, result, totalRounds, string(lootJSON), string(roundsJSON), totalHe3Consumed,
 	).Scan(&reportID)
 	if err != nil {
 		log.Printf("Failed to create combat report: %v", err)

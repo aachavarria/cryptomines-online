@@ -83,15 +83,29 @@ func UpdateWarehouseResources() {
 		newWarehouseHe3 := u.warehouseHe3 + he3Produced
 		newWarehouseGold := u.warehouseGold + goldProduced
 
-		// Cap at storage capacity (warehouse has its own independent cap)
-		if newWarehouseMetal > u.storageCapacity {
-			newWarehouseMetal = u.storageCapacity
+		// Cap so the warehouse can never hold more than would fit in main
+		// storage at collection time. Anything above (capacity - current)
+		// would just spill on collect, so we don't accumulate it here.
+		capMetal := u.storageCapacity - u.currentMetal
+		capHe3 := u.storageCapacity - u.currentHe3
+		capGold := u.storageCapacity - u.currentGold
+		if capMetal < 0 {
+			capMetal = 0
 		}
-		if newWarehouseHe3 > u.storageCapacity {
-			newWarehouseHe3 = u.storageCapacity
+		if capHe3 < 0 {
+			capHe3 = 0
 		}
-		if newWarehouseGold > u.storageCapacity {
-			newWarehouseGold = u.storageCapacity
+		if capGold < 0 {
+			capGold = 0
+		}
+		if newWarehouseMetal > capMetal {
+			newWarehouseMetal = capMetal
+		}
+		if newWarehouseHe3 > capHe3 {
+			newWarehouseHe3 = capHe3
+		}
+		if newWarehouseGold > capGold {
+			newWarehouseGold = capGold
 		}
 
 		// Ensure non-negative

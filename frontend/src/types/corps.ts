@@ -71,6 +71,33 @@ export interface GalaxyMapResponse {
   zones: GalaxyZone[]
 }
 
+export interface SectorPlanet {
+  id: string
+  name: string
+  position_x: number
+  position_y: number
+  is_homeworld: boolean
+  is_rbp: boolean
+  rbp_level: number
+  is_own: boolean
+  owner_id?: string
+  owner_name?: string
+  controlling_corp?: {
+    id: string
+    name: string
+    tag: string
+  }
+  protection_until?: string
+  defense_strength: number
+}
+
+export interface GalaxySectorResponse {
+  center_x: number
+  center_y: number
+  radius: number
+  planets: SectorPlanet[]
+}
+
 export interface AttackRBPRequest {
   fleet_ids: string[]
 }

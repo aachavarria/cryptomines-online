@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/cryptomines-online/backend/internal/database"
 )
 
 func TestGenerateToken_ReturnsValidJWT(t *testing.T) {
@@ -83,7 +85,18 @@ func TestAuth_InvalidToken(t *testing.T) {
 }
 
 func TestAuth_ValidToken(t *testing.T) {
-	playerID := "test-player-abc"
+	if database.DB == nil {
+		if err := database.InitSupabase(); err != nil {
+			t.Skipf("DB unavailable, skipping Auth integration: %v", err)
+		}
+	}
+	playerID := "00000000-0000-0000-0000-00000000a17e"
+	defer func() {
+		database.DB.Exec("DELETE FROM resources WHERE planet_id IN (SELECT id FROM planets WHERE player_id = $1)", playerID)
+		database.DB.Exec("DELETE FROM buildings WHERE planet_id IN (SELECT id FROM planets WHERE player_id = $1)", playerID)
+		database.DB.Exec("DELETE FROM planets WHERE player_id = $1", playerID)
+		database.DB.Exec("DELETE FROM players WHERE id = $1", playerID)
+	}()
 	token, err := GenerateToken(playerID)
 	if err != nil {
 		t.Fatalf("GenerateToken failed: %v", err)
