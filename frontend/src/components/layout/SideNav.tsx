@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useQuests } from '../../hooks/useQuests.ts'
+import { useGameContext } from '../../contexts/GameContext.tsx'
 import QuestPanel from '../panels/QuestPanel.tsx'
 import ResearchPanel from '../panels/ResearchPanel.tsx'
 import ChatPanel from '../panels/ChatPanel.tsx'
@@ -18,7 +19,8 @@ interface NavItemConfig {
 }
 
 const NAV_ITEMS: NavItemConfig[] = [
-  { id: 'base', icon: '\u{1F30D}', label: 'Base', route: null, locked: false },
+  { id: 'base', icon: '\u{1F30D}', label: 'Ground', route: null, locked: false },
+  { id: 'space', icon: '\u{1F6F0}', label: 'Space', route: null, locked: false },
   { id: 'research', icon: '\u{1F52C}', label: 'Research', route: null, locked: false },
   { id: 'fleet', icon: '\u{1F680}', label: 'Military', route: '/military', locked: false },
   { id: 'inventory', icon: '\u{1F4E6}', label: 'Inventory', route: null, locked: false },
@@ -44,6 +46,7 @@ export default function SideNav() {
   const navigate = useNavigate()
   const location = useLocation()
   const { claimableCount } = useQuests()
+  const { state: gameState, setBaseView } = useGameContext()
 
   useEffect(() => {
     localStorage.setItem('dev_mode', devMode.toString())
@@ -95,7 +98,12 @@ export default function SideNav() {
   }, [navigate])
 
   function isActive(item: NavItemConfig): boolean {
-    if (item.id === 'base') return location.pathname.startsWith('/planet')
+    if (item.id === 'base') {
+      return location.pathname.startsWith('/planet') && gameState.currentBase === 'ground'
+    }
+    if (item.id === 'space') {
+      return location.pathname.startsWith('/planet') && gameState.currentBase === 'space'
+    }
     if (item.id === 'quest') return questOpen
     if (item.id === 'research') return researchOpen
     if (item.id === 'chat') return chatOpen
@@ -180,11 +188,20 @@ export default function SideNav() {
       return
     }
     if (item.id === 'base') {
+      setBaseView('ground')
       const storedPlanetId = localStorage.getItem('current_planet_id')
-      if (storedPlanetId) {
-        navigate(`/planet/${storedPlanetId}`)
-      } else {
-        navigate('/')
+      if (!location.pathname.startsWith('/planet')) {
+        if (storedPlanetId) navigate(`/planet/${storedPlanetId}`)
+        else navigate('/')
+      }
+      return
+    }
+    if (item.id === 'space') {
+      setBaseView('space')
+      const storedPlanetId = localStorage.getItem('current_planet_id')
+      if (!location.pathname.startsWith('/planet')) {
+        if (storedPlanetId) navigate(`/planet/${storedPlanetId}`)
+        else navigate('/')
       }
       return
     }

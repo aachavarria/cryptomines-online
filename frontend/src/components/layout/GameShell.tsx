@@ -80,7 +80,9 @@ export default function GameShell() {
         {/* Placement mode indicator */}
         {state.placementMode.active && (
           <div className="placement-indicator">
-            <span>Click a green tile to place building</span>
+            <span>
+              Placing on {state.currentBase === 'space' ? 'Space Base' : 'Ground Base'} — click a green tile
+            </span>
             <span className="placement-hint">Press ESC to cancel</span>
           </div>
         )}

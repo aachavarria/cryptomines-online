@@ -105,6 +105,7 @@ export interface BuildingTypeData {
   name: string
   display_name: string
   category: string
+  base: 'ground' | 'space'
   base_cost_metal: number
   base_cost_he3: number
   base_cost_gold: number

@@ -20,14 +20,21 @@ export default function PlanetScene() {
   const { construct, move } = useBuildings()
   const [cursorGridPos, setCursorGridPos] = useState<GridPosition | null>(null)
   const {
-    buildings,
+    buildings: allBuildings,
     selectedBuilding,
     hoveredBuilding,
     showConstructPanel,
     showDetailPanel,
     cameraTarget,
     placementMode,
+    currentBase,
   } = state
+
+  // Only render buildings that belong to the currently-viewed base
+  const buildings = useMemo(
+    () => allBuildings.filter(b => (b.base_type === 'space' ? 'space' : 'ground') === currentBase),
+    [allBuildings, currentBase],
+  )
 
   // Derive buildingPositions from server-side grid_col/grid_row
   const buildingPositions = useMemo(() => {
@@ -120,7 +127,7 @@ export default function PlanetScene() {
     <>
       <SceneLighting />
       <Starfield />
-      <PlanetSurface />
+      <PlanetSurface base={currentBase} />
 
       {/* Isometric grid - visible during placement mode */}
       <IsometricGrid

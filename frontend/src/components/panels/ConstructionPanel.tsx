@@ -2,16 +2,40 @@ import { useState, useEffect } from 'react'
 import { useGameContext, CATEGORY_COLORS, BUILDING_ABBREVIATIONS } from '../../contexts/GameContext.tsx'
 import { formatNumber } from '../../hooks/useCountdown.ts'
 
-const CATEGORIES = [
+const GROUND_CATEGORIES = [
   { id: 'resource', label: 'Resource' },
   { id: 'core', label: 'Core' },
   { id: 'military', label: 'Military' },
-  { id: 'space', label: 'Space' },
 ]
+
+// Space base has no Station tab — Space Station is auto-created at planet
+// creation, and the rest are defenses (+ Celestial Base, an end-game structure
+// shown together with defenses).
+const SPACE_CATEGORIES = [
+  { id: 'defense', label: 'Defense' },
+]
+
+// Buildings auto-created at planet creation — never shown in the Build panel.
+const AUTO_CREATED = new Set(['civic_center', 'space_station'])
+
+// Returns 'space' or 'ground' for a building type, falling back to category
+// when the backend hasn't been restarted to expose `base`.
+function resolveBase(bt: { base?: string; category: string }): 'space' | 'ground' {
+  if (bt.base === 'space') return 'space'
+  if (bt.base === 'ground') return 'ground'
+  if (bt.category === 'space' || bt.category === 'defense') return 'space'
+  return 'ground'
+}
 
 export default function ConstructionPanel() {
   const { state, closeConstructPanel, enterPlacementMode } = useGameContext()
-  const [activeCategory, setActiveCategory] = useState('resource')
+  const categories = state.currentBase === 'space' ? SPACE_CATEGORIES : GROUND_CATEGORIES
+  const [activeCategory, setActiveCategory] = useState(categories[0].id)
+
+  // Reset active category when base changes
+  useEffect(() => {
+    setActiveCategory(categories[0].id)
+  }, [state.currentBase, categories])
 
   // Close on Escape
   useEffect(() => {
@@ -34,7 +58,12 @@ export default function ConstructionPanel() {
 
   const filteredTypes = state.buildingTypes.filter(bt => {
     if (HIDDEN.has(bt.name)) return false
-    if (activeCategory === 'space') {
+    if (AUTO_CREATED.has(bt.name)) return false
+    if (resolveBase(bt) !== state.currentBase) return false
+    if (state.currentBase === 'space') {
+      // In space view show all buildable space-base structures (Celestial
+      // Base + 4 defenses) regardless of the active tab — there is only
+      // one tab.
       return bt.category === 'space' || bt.category === 'defense'
     }
     return bt.category === activeCategory
@@ -55,21 +84,25 @@ export default function ConstructionPanel() {
     >
       <div className="construction-modal">
         <div className="cm-header">
-          <span className="cm-title">Build New Structure</span>
+          <span className="cm-title">
+            Build on {state.currentBase === 'space' ? 'Space Base' : 'Ground Base'}
+          </span>
           <button className="cm-close" onClick={closeConstructPanel}>X</button>
         </div>
 
-        <div className="cm-tabs">
-          {CATEGORIES.map(cat => (
-            <button
-              key={cat.id}
-              className={`cm-tab ${cat.id} ${activeCategory === cat.id ? 'active' : ''}`}
-              onClick={() => setActiveCategory(cat.id)}
-            >
-              {cat.label}
-            </button>
-          ))}
-        </div>
+        {state.currentBase === 'ground' && (
+          <div className="cm-tabs">
+            {categories.map(cat => (
+              <button
+                key={cat.id}
+                className={`cm-tab ${cat.id} ${activeCategory === cat.id ? 'active' : ''}`}
+                onClick={() => setActiveCategory(cat.id)}
+              >
+                {cat.label}
+              </button>
+            ))}
+          </div>
+        )}
 
         <div className="cm-grid">
           {filteredTypes.map(bt => {

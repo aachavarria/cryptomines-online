@@ -93,6 +93,8 @@ export interface PlacementMode {
   movingBuildingId?: string   // for moving existing
 }
 
+export type BaseView = 'ground' | 'space'
+
 export interface GameState {
   player: Player | null
   planets: Planet[]
@@ -110,6 +112,8 @@ export interface GameState {
   // Map building id -> grid position (persisted client-side for now)
   buildingPositions: Record<string, GridPosition>
   cameraTarget: [number, number, number] | null
+  // Which base the player is currently viewing/placing on
+  currentBase: BaseView
   loading: boolean
   error: string | null
 }
@@ -131,6 +135,7 @@ type GameAction =
   | { type: 'PLACE_BUILDING'; payload: { buildingId: string; position: GridPosition } }
   | { type: 'SET_BUILDING_POSITIONS'; payload: Record<string, GridPosition> }
   | { type: 'SET_CAMERA_TARGET'; payload: [number, number, number] | null }
+  | { type: 'SET_BASE_VIEW'; payload: BaseView }
   | { type: 'SET_LOADING'; payload: boolean }
   | { type: 'SET_ERROR'; payload: string | null }
   | { type: 'DESELECT_ALL' }
@@ -151,6 +156,7 @@ const initialState: GameState = {
   placementMode: { active: false },
   buildingPositions: {},
   cameraTarget: null,
+  currentBase: 'ground',
   loading: true,
   error: null,
 }
@@ -212,6 +218,14 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       return { ...state, buildingPositions: action.payload }
     case 'SET_CAMERA_TARGET':
       return { ...state, cameraTarget: action.payload }
+    case 'SET_BASE_VIEW':
+      return {
+        ...state,
+        currentBase: action.payload,
+        selectedBuilding: null,
+        showContextMenu: false,
+        showDetailPanel: false,
+      }
     case 'SET_LOADING':
       return { ...state, loading: action.payload }
     case 'SET_ERROR':
@@ -243,6 +257,7 @@ interface GameContextValue {
   exitPlacementMode: () => void
   placeBuilding: (buildingId: string, position: GridPosition) => void
   focusCamera: (position: [number, number, number] | null) => void
+  setBaseView: (base: BaseView) => void
 }
 
 const GameContext = createContext<GameContextValue | null>(null)
@@ -282,8 +297,21 @@ export function GameProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const enterPlacementMode = useCallback((buildingTypeName: string) => {
+    // Auto-switch to the correct base for this building type. Falls back to
+    // category when the backend hasn't restarted to expose `base` (space /
+    // defense category → space base).
+    const bt = state.buildingTypes.find(t => t.name === buildingTypeName)
+    if (bt) {
+      let targetBase: BaseView = 'ground'
+      if (bt.base === 'space') targetBase = 'space'
+      else if (bt.base === 'ground') targetBase = 'ground'
+      else if (bt.category === 'space' || bt.category === 'defense') targetBase = 'space'
+      if (state.currentBase !== targetBase) {
+        dispatch({ type: 'SET_BASE_VIEW', payload: targetBase })
+      }
+    }
     dispatch({ type: 'SET_PLACEMENT_MODE', payload: { active: true, buildingTypeName } })
-  }, [])
+  }, [state.buildingTypes, state.currentBase])
 
   const enterMoveMode = useCallback((buildingId: string) => {
     dispatch({ type: 'SET_PLACEMENT_MODE', payload: { active: true, movingBuildingId: buildingId } })
@@ -301,6 +329,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
     dispatch({ type: 'SET_CAMERA_TARGET', payload: position })
   }, [])
 
+  const setBaseView = useCallback((base: BaseView) => {
+    dispatch({ type: 'SET_BASE_VIEW', payload: base })
+  }, [])
+
   return (
     <GameContext.Provider value={{
       state,
@@ -316,6 +348,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       exitPlacementMode,
       placeBuilding,
       focusCamera,
+      setBaseView,
     }}>
       {children}
     </GameContext.Provider>

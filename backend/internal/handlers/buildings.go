@@ -632,7 +632,7 @@ func UpgradeBuilding(w http.ResponseWriter, r *http.Request) {
 // ListBuildingTypes handles GET /api/building-types (public)
 func ListBuildingTypes(w http.ResponseWriter, r *http.Request) {
 	rows, err := database.DB.Query(
-		`SELECT name, display_name, category, base_cost_metal, base_cost_he3,
+		`SELECT name, display_name, category, base, base_cost_metal, base_cost_he3,
 		        base_cost_gold, base_time_seconds, cost_multiplier, time_multiplier,
 		        max_level, max_count_per_planet, civic_center_req_per_level,
 		        base_production_per_hour, production_multiplier
@@ -649,6 +649,7 @@ func ListBuildingTypes(w http.ResponseWriter, r *http.Request) {
 		Name                   string  `json:"name"`
 		DisplayName            string  `json:"display_name"`
 		Category               string  `json:"category"`
+		Base                   string  `json:"base"`
 		BaseCostMetal          int64   `json:"base_cost_metal"`
 		BaseCostHe3            int64   `json:"base_cost_he3"`
 		BaseCostGold           int64   `json:"base_cost_gold"`
@@ -666,7 +667,7 @@ func ListBuildingTypes(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var bt buildingTypeRow
 		err := rows.Scan(
-			&bt.Name, &bt.DisplayName, &bt.Category,
+			&bt.Name, &bt.DisplayName, &bt.Category, &bt.Base,
 			&bt.BaseCostMetal, &bt.BaseCostHe3, &bt.BaseCostGold,
 			&bt.BaseTimeSeconds, &bt.CostMultiplier, &bt.TimeMultiplier,
 			&bt.MaxLevel, &bt.MaxCountPerPlanet, &bt.CivicCenterReqPerLevel,
