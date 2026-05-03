@@ -1,13 +1,31 @@
 import { useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
+import { X, Sparkles, Package, Users } from 'lucide-react'
 import { useCommanders } from '../../hooks/useCommanders'
 import { useResources } from '../../hooks/useResources'
+import { useGameContext } from '../../contexts/GameContext.tsx'
 import { recruitCommander, type RecruitResponse } from '../../services/api'
 import LoadingButton from '../common/LoadingButton.tsx'
 import axios from 'axios'
-import './CommandCenterPanel.css'
-import '../../styles/common.css'
+
+// Map backend rarity → design-system rarity badge variant.
+// Backend uses 'common' / 'skill' / 'super'. DS expects
+// 'common' | 'rare' | 'epic' | 'legendary' (per spec).
+function rarityVariant(rarity: string): 'common' | 'rare' | 'epic' | 'legendary' {
+  switch (rarity) {
+    case 'super':
+      return 'epic'
+    case 'skill':
+      return 'rare'
+    case 'legendary':
+      return 'legendary'
+    default:
+      return 'common'
+  }
+}
 
 export default function CommandCenterPanel() {
+  const { state, closeCommandCenterPanel } = useGameContext()
   const { refreshResources } = useResources()
   const { commanders, refresh: refreshCommanders } = useCommanders()
   const [recruiting, setRecruiting] = useState(false)
@@ -15,6 +33,17 @@ export default function CommandCenterPanel() {
   const [error, setError] = useState<string | null>(null)
   const [cooldown, setCooldown] = useState(0)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  const isOpen = state.showCommandCenterPanel
+
+  useEffect(() => {
+    if (!isOpen) return
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') closeCommandCenterPanel()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [isOpen, closeCommandCenterPanel])
 
   // Countdown timer
   useEffect(() => {
@@ -59,112 +88,237 @@ export default function CommandCenterPanel() {
     }
   }
 
-  return (
-    <div className="command-center-panel">
-      <div className="panel-header">
-        <h2>Command Center - Recruitment</h2>
-        <div className="commander-count">
-          {commanders.length} / 60 Commanders
-        </div>
-      </div>
+  if (!isOpen) return null
 
-      {error && <div className="p2-error-msg">{error}</div>}
-
-      <div className="recruitment-section">
-        <div className="recruitment-info">
-          <div className="cost-display">
-            <span className="label">Recruitment Cost:</span>
-            <span className="value gold">10,000 Gold</span>
+  return createPortal(
+    <div
+      className="ds-modal-backdrop"
+      role="dialog"
+      aria-modal="true"
+      onClick={e => { if (e.target === e.currentTarget) closeCommandCenterPanel() }}
+    >
+      <div className="ds-modal ds-modal--lg" style={{ maxWidth: 'min(680px, 95vw)' }}>
+        <div className="ds-modal-header">
+          <div className="ds-row" style={{ gap: 'var(--sp-3)' }}>
+            <h2 className="ds-modal-title">Command Center</h2>
+            <span className="ds-badge ds-badge--neutral">
+              <Users size={12} strokeWidth={2} />
+              <span className="ds-mono">{commanders.length}</span>
+              {' / '}
+              <span className="ds-mono">60</span>
+            </span>
           </div>
+          <button
+            type="button"
+            className="ds-btn-icon"
+            aria-label="Close"
+            onClick={closeCommandCenterPanel}
+          >
+            <X size={18} strokeWidth={2} />
+          </button>
+        </div>
 
-          {cooldown > 0 && (
-            <div className="cooldown-display">
-              <span className="label">Cooldown:</span>
-              <span className="value">
-                {cooldown >= 3600 && `${Math.floor(cooldown / 3600)}h `}
-                {Math.floor((cooldown % 3600) / 60)}m {cooldown % 60}s
+        <div className="ds-modal-body">
+          {error && (
+            <div
+              className="ds-badge ds-badge--danger"
+              style={{
+                display: 'flex',
+                width: '100%',
+                padding: 'var(--sp-3)',
+                marginBottom: 'var(--sp-4)',
+              }}
+            >
+              {error}
+            </div>
+          )}
+
+          <div className="ds-card ds-stack" style={{ marginBottom: 'var(--sp-4)' }}>
+            <div className="ds-row--between">
+              <span className="ds-text-muted" style={{ fontSize: 'var(--fs-sm)' }}>
+                Recruitment cost
+              </span>
+              <span className="ds-row" style={{ gap: 6 }}>
+                <span className="ds-resource-dot ds-resource-dot--gold" />
+                <span className="ds-mono" style={{ fontWeight: 600 }}>10,000</span>
+                <span className="ds-text-muted" style={{ fontSize: 'var(--fs-sm)' }}>Gold</span>
               </span>
             </div>
-          )}
 
-          <div className="drop-rates">
-            <h4>Drop Rates:</h4>
-            <div className="rates-list">
-              <div className="rate common">Common: 50%</div>
-              <div className="rate skill">Skill: 35%</div>
-              <div className="rate super">Super: 15%</div>
+            {cooldown > 0 && (
+              <div className="ds-row--between">
+                <span className="ds-text-muted" style={{ fontSize: 'var(--fs-sm)' }}>
+                  Cooldown
+                </span>
+                <span className="ds-mono" style={{ color: 'var(--ds-danger)', fontWeight: 600 }}>
+                  {cooldown >= 3600 && `${Math.floor(cooldown / 3600)}h `}
+                  {Math.floor((cooldown % 3600) / 60)}m {cooldown % 60}s
+                </span>
+              </div>
+            )}
+
+            <div>
+              <div className="ds-caption" style={{ marginBottom: 'var(--sp-2)' }}>
+                Drop rates
+              </div>
+              <div className="ds-row" style={{ gap: 'var(--sp-2)' }}>
+                <span className="ds-badge ds-badge--rarity-common" style={{ flex: 1, justifyContent: 'center' }}>
+                  Common <span className="ds-mono" style={{ marginLeft: 4 }}>50%</span>
+                </span>
+                <span className="ds-badge ds-badge--rarity-rare" style={{ flex: 1, justifyContent: 'center' }}>
+                  Skill <span className="ds-mono" style={{ marginLeft: 4 }}>35%</span>
+                </span>
+                <span className="ds-badge ds-badge--rarity-epic" style={{ flex: 1, justifyContent: 'center' }}>
+                  Super <span className="ds-mono" style={{ marginLeft: 4 }}>15%</span>
+                </span>
+              </div>
             </div>
           </div>
-        </div>
 
-        <LoadingButton
-          className="recruit-btn"
-          onClick={handleRecruit}
-          loading={recruiting}
-          disabled={cooldown > 0 || commanders.length >= 60}
-        >
-          {cooldown > 0 ? 'On Cooldown' : 'Recruit Commander'}
-        </LoadingButton>
-      </div>
+          {result && (
+            <div className="ds-card ds-stack" style={{ marginBottom: 'var(--sp-4)' }}>
+              {result.is_duplicate ? (
+                <>
+                  <div className="ds-row" style={{ gap: 'var(--sp-2)' }}>
+                    <Package size={20} strokeWidth={1.75} color="var(--ds-orange-strong)" />
+                    <h3 className="ds-h3" style={{ margin: 0 }}>Duplicate Commander</h3>
+                  </div>
+                  <p style={{ margin: 0, color: 'var(--ds-text)' }}>{result.message}</p>
+                  <div
+                    className="ds-text-muted"
+                    style={{
+                      fontSize: 'var(--fs-sm)',
+                      padding: 'var(--sp-3)',
+                      background: 'var(--ds-orange-tint)',
+                      borderRadius: 'var(--r-md)',
+                    }}
+                  >
+                    Visit the <strong>Compound Center</strong> to merge duplicates and increase star rank.
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="ds-row" style={{ gap: 'var(--sp-2)' }}>
+                    <Sparkles size={20} strokeWidth={1.75} color="var(--ds-teal)" />
+                    <h3 className="ds-h3" style={{ margin: 0 }}>New Commander Recruited</h3>
+                  </div>
 
-      {result && (
-        <div className={`recruitment-result ${result.is_duplicate ? 'duplicate' : 'new'}`}>
-          {result.is_duplicate ? (
-            <div className="duplicate-result">
-              <div className="result-icon">📦</div>
-              <h3>Duplicate Commander!</h3>
-              <p className="message">{result.message}</p>
-              <div className="hint">
-                Go to <strong>Compound Center</strong> to merge duplicates and increase star rank!
-              </div>
+                  <div
+                    className="ds-card"
+                    style={{
+                      background: 'var(--ds-surface)',
+                      textAlign: 'center',
+                    }}
+                  >
+                    <div style={{ marginBottom: 'var(--sp-2)' }}>
+                      <span className={`ds-badge ds-badge--rarity-${rarityVariant(result.commander.rarity)}`}>
+                        {result.commander.rarity.toUpperCase()}
+                      </span>
+                    </div>
+
+                    <div
+                      className="ds-h3"
+                      style={{ margin: '0 0 var(--sp-2)' }}
+                    >
+                      {result.commander.name}
+                    </div>
+
+                    <div
+                      className="ds-mono"
+                      style={{
+                        color: 'var(--ds-orange)',
+                        fontSize: 'var(--fs-h3)',
+                        letterSpacing: '0.15em',
+                        marginBottom: 'var(--sp-3)',
+                      }}
+                    >
+                      {'★'.repeat(result.commander.star_rank)}
+                      <span style={{ color: 'var(--ds-text-soft)' }}>
+                        {'☆'.repeat(15 - result.commander.star_rank)}
+                      </span>
+                    </div>
+
+                    <div
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(4, 1fr)',
+                        gap: 'var(--sp-3)',
+                      }}
+                    >
+                      {[
+                        ['ACC', result.commander.accuracy],
+                        ['DOD', result.commander.dodge],
+                        ['SPD', result.commander.speed],
+                        ['ELEC', result.commander.electron],
+                      ].map(([label, value]) => (
+                        <div
+                          key={label as string}
+                          style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            gap: 4,
+                          }}
+                        >
+                          <span className="ds-caption">{label}</span>
+                          <span
+                            className="ds-mono"
+                            style={{
+                              fontSize: 'var(--fs-h3)',
+                              fontWeight: 600,
+                              color: 'var(--ds-teal-dark)',
+                            }}
+                          >
+                            {value}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
-          ) : (
-            <div className="new-commander-result">
-              <div className="result-icon">✨</div>
-              <h3>New Commander Recruited!</h3>
+          )}
 
-              <div className="commander-card">
-                <div className={`rarity-badge ${result.commander.rarity}`}>
-                  {result.commander.rarity.toUpperCase()}
-                </div>
-
-                <h4 className="commander-name">{result.commander.name}</h4>
-
-                <div className="star-rank">
-                  {'★'.repeat(result.commander.star_rank)}
-                  {'☆'.repeat(15 - result.commander.star_rank)}
-                </div>
-
-                <div className="stats-grid">
-                  <div className="stat">
-                    <span className="stat-label">ACC</span>
-                    <span className="stat-value">{result.commander.accuracy}</span>
-                  </div>
-                  <div className="stat">
-                    <span className="stat-label">DOD</span>
-                    <span className="stat-value">{result.commander.dodge}</span>
-                  </div>
-                  <div className="stat">
-                    <span className="stat-label">SPD</span>
-                    <span className="stat-value">{result.commander.speed}</span>
-                  </div>
-                  <div className="stat">
-                    <span className="stat-label">ELEC</span>
-                    <span className="stat-value">{result.commander.electron}</span>
-                  </div>
-                </div>
-              </div>
+          {commanders.length === 0 && !result && (
+            <div
+              style={{
+                textAlign: 'center',
+                padding: 'var(--sp-6) var(--sp-4)',
+                color: 'var(--ds-text-muted)',
+              }}
+            >
+              <p style={{ margin: 0 }}>You have no commanders yet.</p>
+              <p
+                className="ds-text-soft"
+                style={{ marginTop: 'var(--sp-2)', fontSize: 'var(--fs-sm)' }}
+              >
+                Recruit your first commander to begin building your fleet.
+              </p>
             </div>
           )}
         </div>
-      )}
 
-      {commanders.length === 0 && !result && (
-        <div className="empty-state">
-          <p>You have no commanders yet.</p>
-          <p className="hint">Recruit your first commander to begin building your fleet!</p>
+        <div className="ds-modal-footer">
+          <button
+            type="button"
+            className="ds-btn-ghost"
+            onClick={closeCommandCenterPanel}
+          >
+            Close
+          </button>
+          <LoadingButton
+            className="ds-btn-primary"
+            onClick={handleRecruit}
+            loading={recruiting}
+            disabled={cooldown > 0 || commanders.length >= 60}
+          >
+            <Sparkles size={14} strokeWidth={2} />
+            {cooldown > 0 ? 'On Cooldown' : 'Recruit Commander'}
+          </LoadingButton>
         </div>
-      )}
-    </div>
+      </div>
+    </div>,
+    document.body
   )
 }

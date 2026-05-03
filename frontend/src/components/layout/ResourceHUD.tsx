@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { Pickaxe, Atom, Coins, Box, Shield, Sparkles } from 'lucide-react'
 import { useResources } from '../../hooks/useResources.ts'
 import { useGameContext } from '../../contexts/GameContext.tsx'
 import { formatNumber } from '../../hooks/useCountdown.ts'
@@ -66,12 +67,18 @@ export default function ResourceHUD() {
     ? (resources.pending_metal + resources.pending_he3 + resources.pending_gold)
     : 0
 
+  // Warehouse fullness for badge
+  const warehousePct = resources && resources.warehouse_capacity > 0
+    ? (resources.warehouse_metal + resources.warehouse_he3 + resources.warehouse_gold) / resources.warehouse_capacity
+    : 0
+  const warehouseFull = warehousePct >= 0.9
+
   return (
     <div className="resource-hud">
       <div className="hud-logo">
         <span className="hud-logo-title">Cryptomines Online</span>
         {ccLevel > 0 && (
-          <span className="hud-cc-badge">CC Lv {ccLevel}</span>
+          <span className="hud-cc-badge ds-badge ds-badge--neutral">CC Lv {ccLevel}</span>
         )}
       </div>
 
@@ -81,34 +88,45 @@ export default function ResourceHUD() {
         {resources ? (
           <>
             <div className="hud-resource">
-              <span className="hud-resource-icon metal">M</span>
-              <span className="hud-resource-value">{formatNumber(resources.metal)}</span>
-              <span className="hud-resource-rate">+{formatNumber(resources.metal_per_hour)}/hr</span>
+              <span className="hud-resource-icon metal" aria-hidden="true">
+                <Pickaxe size={18} strokeWidth={1.75} />
+              </span>
+              <span className="hud-resource-value ds-mono">{formatNumber(resources.metal)}</span>
+              <span className="hud-resource-rate ds-mono">+{formatNumber(resources.metal_per_hour)}/h</span>
             </div>
             <div className="hud-resource">
-              <span className="hud-resource-icon he3">H</span>
-              <span className="hud-resource-value">{formatNumber(resources.he3)}</span>
-              <span className="hud-resource-rate">+{formatNumber(resources.he3_per_hour)}/hr</span>
+              <span className="hud-resource-icon he3" aria-hidden="true">
+                <Atom size={18} strokeWidth={1.75} />
+              </span>
+              <span className="hud-resource-value ds-mono">{formatNumber(resources.he3)}</span>
+              <span className="hud-resource-rate ds-mono">+{formatNumber(resources.he3_per_hour)}/h</span>
             </div>
             <div className="hud-resource">
-              <span className="hud-resource-icon gold">G</span>
-              <span className="hud-resource-value">{formatNumber(resources.gold)}</span>
-              <span className="hud-resource-rate">+{formatNumber(resources.gold_per_hour)}/hr</span>
+              <span className="hud-resource-icon gold" aria-hidden="true">
+                <Coins size={18} strokeWidth={1.75} />
+              </span>
+              <span className="hud-resource-value ds-mono">{formatNumber(resources.gold)}</span>
+              <span className="hud-resource-rate ds-mono">+{formatNumber(resources.gold_per_hour)}/h</span>
             </div>
 
-            <div className={`hud-storage ${getWarehouseColorClass(resources)}`}>
-              Storage Cap: {formatNumber(resources.storage_capacity)}
+            <div className={`hud-storage ${getWarehouseColorClass(resources)} ${warehouseFull ? 'hud-storage-full' : ''}`}>
+              <Box size={18} strokeWidth={1.75} aria-hidden="true" />
+              <span className="ds-mono">{formatNumber(resources.storage_capacity)}</span>
             </div>
 
             {sp && (
               <div className="hud-sp">
                 <span className="hud-sp-label">SP</span>
-                <span className="hud-sp-value">{sp.space_points}/{sp.max_space_points}</span>
+                <span className="hud-sp-value ds-mono">{sp.space_points}/{sp.max_space_points}</span>
               </div>
             )}
 
             {buffData?.protection_until && (
-              <div className="hud-truce" title={`Protected until ${new Date(buffData.protection_until).toLocaleString()}`}>
+              <div
+                className="hud-truce ds-badge ds-badge--info"
+                title={`Protected until ${new Date(buffData.protection_until).toLocaleString()}`}
+              >
+                <Shield size={14} strokeWidth={1.75} aria-hidden="true" />
                 Truce Active
               </div>
             )}
@@ -116,7 +134,12 @@ export default function ResourceHUD() {
             {buffData && buffData.buffs.length > 0 && (
               <div className="hud-buffs">
                 {buffData.buffs.map(b => (
-                  <span key={b.buff_type} className="hud-buff-badge" title={`Expires: ${new Date(b.expires_at).toLocaleString()}`}>
+                  <span
+                    key={b.buff_type}
+                    className="hud-buff-badge ds-badge ds-badge--teal"
+                    title={`Expires: ${new Date(b.expires_at).toLocaleString()}`}
+                  >
+                    <Sparkles size={12} strokeWidth={1.75} aria-hidden="true" />
                     {b.buff_type.replace(/_/g, ' ')}
                   </span>
                 ))}
@@ -124,12 +147,12 @@ export default function ResourceHUD() {
             )}
           </>
         ) : (
-          <span style={{ color: 'var(--text-dim)' }}>Loading...</span>
+          <span className="ds-text-muted">Loading...</span>
         )}
       </div>
 
       <button
-        className="hud-collect-btn"
+        className="hud-collect-btn ds-btn ds-btn-secondary"
         onClick={handleCollect}
         disabled={collecting || pending <= 0}
         title={`Collect ${formatNumber(pending)} resources from warehouse`}
@@ -142,7 +165,7 @@ export default function ResourceHUD() {
 
       {isDevMode && (
         <button
-          className="hud-dev-btn"
+          className="hud-dev-btn ds-btn ds-btn-ghost ds-btn--sm"
           onClick={handleDevGiveResources}
           disabled={givingResources}
           title="DEV: +500k Metal, He3, Gold"

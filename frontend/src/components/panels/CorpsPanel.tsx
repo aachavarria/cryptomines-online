@@ -1,10 +1,54 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
+import { Users, Shield, X } from 'lucide-react'
 import { useCorp } from '../../hooks/useCorp'
 import { useGameContext } from '../../contexts/GameContext'
 import LoadingButton from '../common/LoadingButton'
-import '../../styles/common.css'
-import '../../styles/chat.css'
+
+const styles: Record<string, CSSProperties> = {
+  modalBody: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 'var(--sp-4)',
+  },
+  formGroup: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 'var(--sp-1)',
+    marginBottom: 'var(--sp-3)',
+  },
+  list: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 'var(--sp-2)',
+    maxHeight: 320,
+    overflowY: 'auto',
+  },
+  rowBetween: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 'var(--sp-3)',
+  },
+  overviewRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    paddingBottom: 'var(--sp-2)',
+    borderBottom: '1px solid var(--ds-border)',
+  },
+  donateBar: {
+    height: 6,
+    background: 'var(--ds-border)',
+    borderRadius: 'var(--r-pill)',
+    overflow: 'hidden',
+    marginTop: 'var(--sp-2)',
+  },
+  donateBarFill: {
+    height: '100%',
+    transition: 'width var(--motion-slow)',
+    borderRadius: 'inherit',
+  },
+}
 
 interface CorpsPanelProps {
   onClose: () => void
@@ -110,54 +154,34 @@ export default function CorpsPanel({ onClose }: CorpsPanelProps) {
   )
 
   const renderTabs = () => {
-    if (!isInCorp) {
-      return (
-        <>
-          <button
-            className={`chat-tab ${activeTab === 'create' ? 'active' : ''}`}
-            onClick={() => setActiveTab('create')}
-          >
-            Create
-          </button>
-          <button
-            className={`chat-tab ${activeTab === 'join' ? 'active' : ''}`}
-            onClick={() => setActiveTab('join')}
-          >
-            Join
-          </button>
-        </>
-      )
-    }
+    const tabs: { id: typeof activeTab; label: string; show: boolean }[] = isInCorp
+      ? [
+          { id: 'overview', label: 'Overview', show: true },
+          { id: 'members', label: 'Members', show: true },
+          { id: 'donate', label: 'Donate', show: true },
+          { id: 'manage', label: 'Manage', show: !!isLeader },
+        ]
+      : [
+          { id: 'create', label: 'Create', show: true },
+          { id: 'join', label: 'Join', show: true },
+        ]
 
     return (
-      <>
-        <button
-          className={`chat-tab ${activeTab === 'overview' ? 'active' : ''}`}
-          onClick={() => setActiveTab('overview')}
-        >
-          Overview
-        </button>
-        <button
-          className={`chat-tab ${activeTab === 'members' ? 'active' : ''}`}
-          onClick={() => setActiveTab('members')}
-        >
-          Members
-        </button>
-        <button
-          className={`chat-tab ${activeTab === 'donate' ? 'active' : ''}`}
-          onClick={() => setActiveTab('donate')}
-        >
-          Donate
-        </button>
-        {isLeader && (
-          <button
-            className={`chat-tab ${activeTab === 'manage' ? 'active' : ''}`}
-            onClick={() => setActiveTab('manage')}
-          >
-            Manage
-          </button>
-        )}
-      </>
+      <div className="ds-tabs" role="tablist">
+        {tabs
+          .filter((t) => t.show)
+          .map((t) => (
+            <button
+              key={t.id}
+              className="ds-tab"
+              role="tab"
+              aria-selected={activeTab === t.id}
+              onClick={() => setActiveTab(t.id)}
+            >
+              {t.label}
+            </button>
+          ))}
+      </div>
     )
   }
 
@@ -165,149 +189,104 @@ export default function CorpsPanel({ onClose }: CorpsPanelProps) {
     if (!isInCorp) {
       if (activeTab === 'create') {
         return (
-          <div style={{ padding: '20px' }}>
-            <h3>Create a New Corp</h3>
-            <div style={{ marginTop: '16px' }}>
-              <label style={{ display: 'block', marginBottom: '8px' }}>
-                Corp Name:
-                <input
-                  type="text"
-                  value={createForm.name}
-                  onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '8px',
-                    marginTop: '4px',
-                    background: 'rgba(0,0,0,0.3)',
-                    border: '1px solid #333',
-                    borderRadius: '4px',
-                    color: '#fff',
-                  }}
-                  placeholder="Enter corp name"
-                  maxLength={50}
-                />
-              </label>
-              <label style={{ display: 'block', marginTop: '12px', marginBottom: '8px' }}>
-                Corp Tag (3-5 chars):
-                <input
-                  type="text"
-                  value={createForm.tag}
-                  onChange={(e) => setCreateForm({ ...createForm, tag: e.target.value.toUpperCase() })}
-                  style={{
-                    width: '100%',
-                    padding: '8px',
-                    marginTop: '4px',
-                    background: 'rgba(0,0,0,0.3)',
-                    border: '1px solid #333',
-                    borderRadius: '4px',
-                    color: '#fff',
-                  }}
-                  placeholder="ABC"
-                  maxLength={5}
-                />
-              </label>
-              <label style={{ display: 'block', marginTop: '12px', marginBottom: '8px' }}>
-                Description:
-                <textarea
-                  value={createForm.description}
-                  onChange={(e) => setCreateForm({ ...createForm, description: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '8px',
-                    marginTop: '4px',
-                    background: 'rgba(0,0,0,0.3)',
-                    border: '1px solid #333',
-                    borderRadius: '4px',
-                    color: '#fff',
-                    minHeight: '80px',
-                  }}
-                  placeholder="Describe your corp..."
-                  maxLength={200}
-                />
-              </label>
-              <LoadingButton
-                className="btn btn-primary"
-                onClick={handleCreate}
-                loading={loading}
-                disabled={
-                  !createForm.name.trim() ||
-                  createForm.tag.length < 3 ||
-                  createForm.tag.length > 5
-                }
-                style={{ marginTop: '16px' }}
-              >
-                Create Corp
-              </LoadingButton>
+          <div style={styles.modalBody}>
+            <h3 className="ds-h3" style={{ margin: 0 }}>Create a New Corp</h3>
+            <div style={styles.formGroup}>
+              <label className="ds-caption">Corp Name</label>
+              <input
+                type="text"
+                className="ds-input"
+                value={createForm.name}
+                onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })}
+                placeholder="Enter corp name"
+                maxLength={50}
+              />
             </div>
+            <div style={styles.formGroup}>
+              <label className="ds-caption">Corp Tag (3-5 chars)</label>
+              <input
+                type="text"
+                className="ds-input"
+                value={createForm.tag}
+                onChange={(e) => setCreateForm({ ...createForm, tag: e.target.value.toUpperCase() })}
+                placeholder="ABC"
+                maxLength={5}
+              />
+            </div>
+            <div style={styles.formGroup}>
+              <label className="ds-caption">Description</label>
+              <textarea
+                className="ds-textarea"
+                value={createForm.description}
+                onChange={(e) => setCreateForm({ ...createForm, description: e.target.value })}
+                placeholder="Describe your corp..."
+                maxLength={200}
+                style={{ minHeight: 80 }}
+              />
+            </div>
+            <LoadingButton
+              className="ds-btn ds-btn-primary"
+              onClick={handleCreate}
+              loading={loading}
+              disabled={
+                !createForm.name.trim() ||
+                createForm.tag.length < 3 ||
+                createForm.tag.length > 5
+              }
+            >
+              Create Corp
+            </LoadingButton>
           </div>
         )
       }
 
       if (activeTab === 'join') {
         return (
-          <div style={{ padding: '20px' }}>
-            <h3>Join a Corp</h3>
-            <div style={{ marginTop: '16px' }}>
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => handleSearch(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '8px',
-                  background: 'rgba(0,0,0,0.3)',
-                  border: '1px solid #333',
-                  borderRadius: '4px',
-                  color: '#fff',
-                }}
-                placeholder="Search corps by name or tag..."
-              />
-              <div style={{ marginTop: '16px', maxHeight: '300px', overflowY: 'auto' }}>
-                {searchLoading && <div className="inline-spinner" />}
-                {!searchLoading && searchResults.length === 0 && searchQuery && (
-                  <p style={{ color: '#888' }}>No corps found.</p>
-                )}
-                {!searchLoading && searchResults.length === 0 && !searchQuery && (
-                  <p style={{ color: '#888' }}>Type to search for corps.</p>
-                )}
-                {!searchLoading &&
-                  searchResults.map((corp) => (
-                    <div
-                      key={corp.id}
-                      style={{
-                        padding: '12px',
-                        marginBottom: '8px',
-                        background: 'rgba(0,0,0,0.3)',
-                        border: '1px solid #333',
-                        borderRadius: '4px',
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                      }}
-                    >
-                      <div>
-                        <div style={{ fontWeight: 'bold' }}>
-                          [{corp.tag}] {corp.name}
-                        </div>
-                        <div style={{ fontSize: '0.85rem', color: '#aaa', marginTop: '4px' }}>
-                          Level {corp.level} | {corp.member_count}/{corp.max_members} members
-                        </div>
-                        {corp.description && (
-                          <div style={{ fontSize: '0.8rem', color: '#999', marginTop: '4px' }}>
-                            {corp.description}
-                          </div>
-                        )}
+          <div style={styles.modalBody}>
+            <h3 className="ds-h3" style={{ margin: 0 }}>Join a Corp</h3>
+            <input
+              type="text"
+              className="ds-input"
+              value={searchQuery}
+              onChange={(e) => handleSearch(e.target.value)}
+              placeholder="Search corps by name or tag..."
+            />
+            <div style={styles.list}>
+              {searchLoading && <div className="loading-spinner" />}
+              {!searchLoading && searchResults.length === 0 && searchQuery && (
+                <p className="ds-text-muted">No corps found.</p>
+              )}
+              {!searchLoading && searchResults.length === 0 && !searchQuery && (
+                <p className="ds-text-muted">Type to search for corps.</p>
+              )}
+              {!searchLoading &&
+                searchResults.map((corp) => (
+                  <div key={corp.id} className="ds-card" style={styles.rowBetween}>
+                    <div>
+                      <div style={{ fontWeight: 600 }}>
+                        <span className="ds-badge ds-badge--neutral" style={{ marginRight: 'var(--sp-2)' }}>
+                          {corp.tag}
+                        </span>
+                        {corp.name}
                       </div>
-                      <LoadingButton
-                        className="btn btn-primary"
-                        onClick={() => handleJoin(corp.id)}
-                        loading={loading}
-                      >
-                        Join
-                      </LoadingButton>
+                      <div className="ds-text-muted" style={{ fontSize: 'var(--fs-sm)', marginTop: 4 }}>
+                        Level {corp.level} | {corp.member_count}/{corp.max_members} members
+                      </div>
+                      {corp.description && (
+                        <div className="ds-text-soft" style={{ fontSize: 'var(--fs-sm)', marginTop: 4 }}>
+                          {corp.description}
+                        </div>
+                      )}
                     </div>
-                  ))}
-              </div>
+                    <LoadingButton
+                      className="ds-btn ds-btn-primary ds-btn--sm"
+                      onClick={() => handleJoin(corp.id)}
+                      loading={loading}
+                    >
+                      Join
+                    </LoadingButton>
+                  </div>
+                ))}
             </div>
           </div>
         )
@@ -317,44 +296,61 @@ export default function CorpsPanel({ onClose }: CorpsPanelProps) {
     // In corp tabs
     if (activeTab === 'overview') {
       return (
-        <div style={{ padding: '20px' }}>
-          <h3>Corp Overview</h3>
+        <div style={styles.modalBody}>
+          <h3 className="ds-h3" style={{ margin: 0 }}>Corp Overview</h3>
           {corpData?.corp && (
-            <div style={{ marginTop: '16px' }}>
-              <div style={{ marginBottom: '12px' }}>
-                <strong>Name:</strong> [{corpData.corp.tag}] {corpData.corp.name}
+            <div className="ds-card" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)' }}>
+              <div style={styles.overviewRow}>
+                <strong>Name</strong>
+                <span>
+                  <span className="ds-badge ds-badge--teal" style={{ marginRight: 'var(--sp-2)' }}>
+                    {corpData.corp.tag}
+                  </span>
+                  {corpData.corp.name}
+                </span>
               </div>
-              <div style={{ marginBottom: '12px' }}>
-                <strong>Level:</strong> {corpData.corp.level}
+              <div style={styles.overviewRow}>
+                <strong>Level</strong>
+                <span className="ds-mono">{corpData.corp.level}</span>
               </div>
-              <div style={{ marginBottom: '12px' }}>
-                <strong>Wealth:</strong> {corpData.corp.wealth.toLocaleString()}
+              <div style={styles.overviewRow}>
+                <strong>Wealth</strong>
+                <span className="ds-mono">{corpData.corp.wealth.toLocaleString()}</span>
               </div>
-              <div style={{ marginBottom: '12px' }}>
-                <strong>Members:</strong> {members.length}/{corpData.corp.max_members}
+              <div style={styles.overviewRow}>
+                <strong>Members</strong>
+                <span className="ds-mono">{members.length}/{corpData.corp.max_members}</span>
               </div>
               {corpData.bonuses && (
                 <>
-                  <div style={{ marginBottom: '12px' }}>
-                    <strong>Controlled RBPs:</strong> {corpData.bonuses.rbp_count}
+                  <div style={styles.overviewRow}>
+                    <strong>Controlled RBPs</strong>
+                    <span className="ds-mono">{corpData.bonuses.rbp_count}</span>
                   </div>
-                  <div style={{ marginBottom: '12px' }}>
-                    <strong>Total RBP Bonus:</strong> +{corpData.bonuses.total_rbp_bonus}%
+                  <div style={styles.overviewRow}>
+                    <strong>Total RBP Bonus</strong>
+                    <span className="ds-mono" style={{ color: 'var(--ds-teal-dark)' }}>
+                      +{corpData.bonuses.total_rbp_bonus}%
+                    </span>
                   </div>
                 </>
               )}
-              <div style={{ marginBottom: '12px' }}>
-                <strong>Description:</strong> {corpData.corp.description || 'No description'}
+              <div style={{ ...styles.overviewRow, borderBottom: 'none', alignItems: 'flex-start' }}>
+                <strong>Description</strong>
+                <span className="ds-text-muted" style={{ textAlign: 'right', maxWidth: '60%' }}>
+                  {corpData.corp.description || 'No description'}
+                </span>
               </div>
               {!isLeader && (
-                <LoadingButton
-                  className="btn btn-secondary"
-                  onClick={handleLeave}
-                  loading={loading}
-                  style={{ marginTop: '16px' }}
-                >
-                  Leave Corp
-                </LoadingButton>
+                <div style={{ marginTop: 'var(--sp-3)' }}>
+                  <LoadingButton
+                    className="ds-btn ds-btn-ghost"
+                    onClick={handleLeave}
+                    loading={loading}
+                  >
+                    Leave Corp
+                  </LoadingButton>
+                </div>
               )}
             </div>
           )}
@@ -364,38 +360,37 @@ export default function CorpsPanel({ onClose }: CorpsPanelProps) {
 
     if (activeTab === 'members') {
       return (
-        <div style={{ padding: '20px' }}>
-          <h3>Corp Members</h3>
-          <div style={{ marginTop: '16px', maxHeight: '300px', overflowY: 'auto' }}>
-            {membersLoading && <div className="inline-spinner" />}
+        <div style={styles.modalBody}>
+          <h3 className="ds-h3" style={{ margin: 0 }}>Corp Members</h3>
+          <div style={styles.list}>
+            {membersLoading && <div className="loading-spinner" />}
             {!membersLoading && members.length === 0 && (
-              <p style={{ color: '#888' }}>No members found.</p>
+              <p className="ds-text-muted">No members found.</p>
             )}
             {!membersLoading &&
-              members.map((member) => (
-                <div
-                  key={member.player_id}
-                  style={{
-                    padding: '12px',
-                    marginBottom: '8px',
-                    background: 'rgba(0,0,0,0.3)',
-                    border: '1px solid #333',
-                    borderRadius: '4px',
-                  }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <div>
-                      <div style={{ fontWeight: 'bold' }}>{member.player_name}</div>
-                      <div style={{ fontSize: '0.85rem', color: '#aaa', marginTop: '4px' }}>
-                        {member.role.charAt(0).toUpperCase() + member.role.slice(1)} | Contribution: {member.contribution_points.toLocaleString()}
-                      </div>
-                      <div style={{ fontSize: '0.8rem', color: '#999', marginTop: '2px' }}>
-                        Daily: {member.daily_contribution.toLocaleString()}
+              members.map((member) => {
+                const roleBadge =
+                  member.role === 'leader' ? 'ds-badge--orange' :
+                  member.role === 'officer' ? 'ds-badge--teal' :
+                  'ds-badge--neutral'
+                return (
+                  <div key={member.player_id} className="ds-card">
+                    <div style={styles.rowBetween}>
+                      <div>
+                        <div style={{ fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 'var(--sp-2)' }}>
+                          {member.player_name}
+                          <span className={`ds-badge ${roleBadge}`}>{member.role}</span>
+                        </div>
+                        <div className="ds-text-muted" style={{ fontSize: 'var(--fs-sm)', marginTop: 4 }}>
+                          Contribution: <span className="ds-mono">{member.contribution_points.toLocaleString()}</span>
+                          {' | '}
+                          Daily: <span className="ds-mono">{member.daily_contribution.toLocaleString()}</span>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                )
+              })}
           </div>
         </div>
       )
@@ -403,155 +398,105 @@ export default function CorpsPanel({ onClose }: CorpsPanelProps) {
 
     if (activeTab === 'donate') {
       const myMember = members.length > 0 ? members.find(m => {
-        // Find current player by checking state.player
         return state.player && m.player_id === state.player.id
       }) : null
       const dailyUsed = myMember?.daily_contribution ?? 0
       const dailyMax = 200
       const dailyRemaining = dailyMax - dailyUsed
       const dailyPct = Math.min(100, (dailyUsed / dailyMax) * 100)
+      const dailyBarColor =
+        dailyPct >= 95 ? 'var(--ds-danger)' :
+        dailyPct >= 80 ? 'var(--ds-orange)' :
+        'var(--ds-success)'
 
       return (
-        <div style={{ padding: '20px' }}>
-          <h3>Donate Resources</h3>
-          <div style={{ marginTop: '16px' }}>
-            <div style={{
-              padding: '12px',
-              background: 'rgba(0,0,0,0.3)',
-              border: '1px solid #333',
-              borderRadius: '4px',
-              marginBottom: '16px',
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', fontSize: '0.85rem' }}>
-                <span>Daily Contribution: {dailyUsed}/{dailyMax} pts</span>
-                <span style={{ color: dailyRemaining <= 0 ? '#f87171' : dailyRemaining < 50 ? '#fbbf24' : '#4ade80' }}>
-                  {dailyRemaining > 0 ? `${dailyRemaining} pts remaining` : 'Limit reached'}
-                </span>
-              </div>
-              <div style={{ height: '6px', background: '#333', borderRadius: '3px', overflow: 'hidden' }}>
-                <div style={{
-                  height: '100%',
-                  width: `${dailyPct}%`,
-                  background: dailyPct >= 95 ? '#f87171' : dailyPct >= 80 ? '#fbbf24' : '#4ade80',
-                  borderRadius: '3px',
-                  transition: 'width 0.3s',
-                }} />
-              </div>
+        <div style={styles.modalBody}>
+          <h3 className="ds-h3" style={{ margin: 0 }}>Donate Resources</h3>
+          <div className="ds-card">
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--fs-sm)' }}>
+              <span>Daily Contribution: <span className="ds-mono">{dailyUsed}/{dailyMax}</span> pts</span>
+              <span style={{ color: dailyBarColor, fontWeight: 600 }}>
+                {dailyRemaining > 0 ? `${dailyRemaining} pts remaining` : 'Limit reached'}
+              </span>
             </div>
-            <p style={{ color: '#aaa', fontSize: '0.9rem', marginBottom: '16px' }}>
-              Donate resources to your corp to earn contribution points and increase corp wealth. (1 pt per 10,000 resources)
-            </p>
-            <label style={{ display: 'block', marginBottom: '8px' }}>
-              Metal:
-              <input
-                type="number"
-                value={donateForm.metal}
-                onChange={(e) => setDonateForm({ ...donateForm, metal: parseInt(e.target.value) || 0 })}
-                style={{
-                  width: '100%',
-                  padding: '8px',
-                  marginTop: '4px',
-                  background: 'rgba(0,0,0,0.3)',
-                  border: '1px solid #333',
-                  borderRadius: '4px',
-                  color: '#fff',
-                }}
-                min={0}
+            <div className="ds-bar" style={styles.donateBar}>
+              <div
+                className="ds-bar-fill"
+                style={{ ...styles.donateBarFill, width: `${dailyPct}%`, background: dailyBarColor }}
               />
-            </label>
-            <label style={{ display: 'block', marginTop: '12px', marginBottom: '8px' }}>
-              He3:
-              <input
-                type="number"
-                value={donateForm.he3}
-                onChange={(e) => setDonateForm({ ...donateForm, he3: parseInt(e.target.value) || 0 })}
-                style={{
-                  width: '100%',
-                  padding: '8px',
-                  marginTop: '4px',
-                  background: 'rgba(0,0,0,0.3)',
-                  border: '1px solid #333',
-                  borderRadius: '4px',
-                  color: '#fff',
-                }}
-                min={0}
-              />
-            </label>
-            <label style={{ display: 'block', marginTop: '12px', marginBottom: '8px' }}>
-              Gold:
-              <input
-                type="number"
-                value={donateForm.gold}
-                onChange={(e) => setDonateForm({ ...donateForm, gold: parseInt(e.target.value) || 0 })}
-                style={{
-                  width: '100%',
-                  padding: '8px',
-                  marginTop: '4px',
-                  background: 'rgba(0,0,0,0.3)',
-                  border: '1px solid #333',
-                  borderRadius: '4px',
-                  color: '#fff',
-                }}
-                min={0}
-              />
-            </label>
-            <LoadingButton
-              className="btn btn-primary"
-              onClick={handleDonate}
-              loading={loading}
-              disabled={donateForm.metal === 0 && donateForm.he3 === 0 && donateForm.gold === 0}
-              style={{ marginTop: '16px' }}
-            >
-              Donate
-            </LoadingButton>
+            </div>
           </div>
+          <p className="ds-text-muted" style={{ fontSize: 'var(--fs-sm)', margin: 0 }}>
+            Donate resources to your corp to earn contribution points and increase corp wealth. (1 pt per 10,000 resources)
+          </p>
+          <div style={styles.formGroup}>
+            <label className="ds-caption">Metal</label>
+            <input
+              type="number"
+              className="ds-input"
+              value={donateForm.metal}
+              onChange={(e) => setDonateForm({ ...donateForm, metal: parseInt(e.target.value) || 0 })}
+              min={0}
+            />
+          </div>
+          <div style={styles.formGroup}>
+            <label className="ds-caption">He3</label>
+            <input
+              type="number"
+              className="ds-input"
+              value={donateForm.he3}
+              onChange={(e) => setDonateForm({ ...donateForm, he3: parseInt(e.target.value) || 0 })}
+              min={0}
+            />
+          </div>
+          <div style={styles.formGroup}>
+            <label className="ds-caption">Gold</label>
+            <input
+              type="number"
+              className="ds-input"
+              value={donateForm.gold}
+              onChange={(e) => setDonateForm({ ...donateForm, gold: parseInt(e.target.value) || 0 })}
+              min={0}
+            />
+          </div>
+          <LoadingButton
+            className="ds-btn ds-btn-primary"
+            onClick={handleDonate}
+            loading={loading}
+            disabled={donateForm.metal === 0 && donateForm.he3 === 0 && donateForm.gold === 0}
+          >
+            Donate
+          </LoadingButton>
         </div>
       )
     }
 
     if (activeTab === 'manage' && isLeader) {
       return (
-        <div style={{ padding: '20px' }}>
-          <h3>Manage Members</h3>
-          <div style={{ marginTop: '16px', maxHeight: '300px', overflowY: 'auto' }}>
-            {membersLoading && <div className="inline-spinner" />}
+        <div style={styles.modalBody}>
+          <h3 className="ds-h3" style={{ margin: 0 }}>Manage Members</h3>
+          <div style={styles.list}>
+            {membersLoading && <div className="loading-spinner" />}
             {!membersLoading && members.length === 0 && (
-              <p style={{ color: '#888' }}>No members found.</p>
+              <p className="ds-text-muted">No members found.</p>
             )}
             {!membersLoading &&
               members
                 .filter((m) => m.role !== 'leader')
                 .map((member) => (
-                  <div
-                    key={member.player_id}
-                    style={{
-                      padding: '12px',
-                      marginBottom: '8px',
-                      background: 'rgba(0,0,0,0.3)',
-                      border: '1px solid #333',
-                      borderRadius: '4px',
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                    }}
-                  >
+                  <div key={member.player_id} className="ds-card" style={styles.rowBetween}>
                     <div>
-                      <div style={{ fontWeight: 'bold' }}>{member.player_name}</div>
-                      <div style={{ fontSize: '0.85rem', color: '#aaa', marginTop: '4px' }}>
-                        {member.role.charAt(0).toUpperCase() + member.role.slice(1)} | Contribution: {member.contribution_points.toLocaleString()}
+                      <div style={{ fontWeight: 600 }}>{member.player_name}</div>
+                      <div className="ds-text-muted" style={{ fontSize: 'var(--fs-sm)', marginTop: 4 }}>
+                        {member.role.charAt(0).toUpperCase() + member.role.slice(1)} | Contribution:{' '}
+                        <span className="ds-mono">{member.contribution_points.toLocaleString()}</span>
                       </div>
                     </div>
                     <select
+                      className="ds-select"
+                      style={{ width: 'auto' }}
                       value={member.role}
                       onChange={(e) => handleRoleChange(member.player_id, e.target.value)}
-                      style={{
-                        padding: '6px 12px',
-                        background: 'rgba(0,0,0,0.3)',
-                        border: '1px solid #333',
-                        borderRadius: '4px',
-                        color: '#fff',
-                        cursor: 'pointer',
-                      }}
                     >
                       <option value="member">Member</option>
                       <option value="officer">Officer</option>
@@ -568,20 +513,29 @@ export default function CorpsPanel({ onClose }: CorpsPanelProps) {
 
   return createPortal(
     <div
-      className="chat-backdrop"
+      className="ds-modal-backdrop"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose()
       }}
     >
-      <div className="panel chat-panel">
-        <div className="panel-header">
-          <h2>Corps</h2>
-          <button className="p2-modal-close" onClick={onClose}>
-            X
+      <div className="ds-modal ds-modal--lg" role="dialog" aria-modal="true">
+        <div className="ds-modal-header">
+          <h2 className="ds-modal-title" style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--sp-2)' }}>
+            {isInCorp ? (
+              <Shield size={20} strokeWidth={1.75} aria-hidden="true" />
+            ) : (
+              <Users size={20} strokeWidth={1.75} aria-hidden="true" />
+            )}
+            Corps
+          </h2>
+          <button className="ds-btn-icon" onClick={onClose} aria-label="Close">
+            <X size={16} strokeWidth={2} aria-hidden="true" />
           </button>
         </div>
-        <div className="chat-channel-tabs">{renderTabs()}</div>
-        <div className="panel-content" style={{ overflowY: 'auto' }}>
+        <div style={{ padding: '0 var(--sp-6)' }}>
+          {renderTabs()}
+        </div>
+        <div className="ds-modal-body">
           {renderContent()}
         </div>
       </div>

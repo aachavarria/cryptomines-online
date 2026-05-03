@@ -1,13 +1,37 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo, type ReactElement, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { useQuests } from '../../hooks/useQuests.ts'
+import { useBlueprints } from '../../hooks/useBlueprints.ts'
+import { useItemTypes } from '../../hooks/useItemTypes.ts'
 import { formatNumber } from '../../hooks/useCountdown.ts'
+import {
+  ScrollText,
+  Trophy,
+  CircleCheck,
+  Lock,
+  ChevronRight,
+  X,
+  Sparkles,
+} from 'lucide-react'
 import type {
   PlayerQuestWithType,
   DailyQuestEntry,
   DailyTierReward,
   DailyQuestsResponse,
+  Blueprint,
 } from '../../types'
+import type { ItemTypeInfo } from '../../services/api.ts'
+
+type BlueprintLookup = Record<string, Blueprint>
+type ItemLookup = Record<string, ItemTypeInfo>
+
+function snakeToTitle(s: string): string {
+  return s
+    .split('_')
+    .filter(Boolean)
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ')
+}
 
 type Tab = 'main' | 'side' | 'daily'
 
@@ -17,10 +41,28 @@ interface QuestPanelProps {
 
 export default function QuestPanel({ onClose }: QuestPanelProps) {
   const [tab, setTab] = useState<Tab>('main')
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [selectedTier, setSelectedTier] = useState<string | null>(null)
   const { quests, daily, loading, error, refreshDaily, claim, claimTier } = useQuests()
+  const { allBlueprints } = useBlueprints()
+  const { itemTypes } = useItemTypes()
   const [claimingId, setClaimingId] = useState<string | null>(null)
   const [claimingTier, setClaimingTier] = useState<string | null>(null)
   const [rewardFlash, setRewardFlash] = useState<string | null>(null)
+
+  const blueprintLookup = useMemo<BlueprintLookup>(() => {
+    const map: BlueprintLookup = {}
+    for (const bp of allBlueprints) {
+      if (bp.blueprint_key) map[bp.blueprint_key] = bp
+    }
+    return map
+  }, [allBlueprints])
+
+  const itemLookup = useMemo<ItemLookup>(() => {
+    const map: ItemLookup = {}
+    for (const it of itemTypes) map[it.item_key] = it
+    return map
+  }, [itemTypes])
 
   // Load daily quests when switching to daily tab
   useEffect(() => {
@@ -73,83 +115,96 @@ export default function QuestPanel({ onClose }: QuestPanelProps) {
     t => !t.claimed && daily.daily_points >= t.points_required,
   ).length || 0
 
+  const visibleQuests: PlayerQuestWithType[] = useMemo(() => {
+    if (!quests) return []
+    if (tab === 'main') return quests.main_quests
+    if (tab === 'side') return quests.side_quests
+    return []
+  }, [quests, tab])
+
+  // Auto-select first quest when switching tab or quest list arrives
+  useEffect(() => {
+    if (tab === 'main' || tab === 'side') {
+      if (!selectedId && visibleQuests.length > 0) {
+        const preferred = visibleQuests.find(q => q.status === 'completed')
+          ?? visibleQuests.find(q => q.status === 'available')
+          ?? visibleQuests[0]
+        setSelectedId(preferred.id)
+      } else if (selectedId && !visibleQuests.find(q => q.id === selectedId)) {
+        setSelectedId(visibleQuests[0]?.id ?? null)
+      }
+    }
+  }, [tab, visibleQuests, selectedId])
+
+  const selectedQuest = visibleQuests.find(q => q.id === selectedId) ?? null
+
   return createPortal(
     <div className="quest-backdrop" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <div className="quest-panel">
+      <div className="quest-panel ds-modal ds-modal--lg">
         {/* Header */}
-        <div className="quest-header">
-          <span className="quest-title">QUEST LOG</span>
-          <button className="p2-modal-close" onClick={onClose}>X</button>
+        <div className="ds-modal-header">
+          <div className="ds-row">
+            <ScrollText size={22} strokeWidth={1.75} style={{ color: 'var(--ds-teal)' }} />
+            <h2 className="ds-modal-title">Quest Log</h2>
+          </div>
+          <button className="ds-btn-icon" onClick={onClose} aria-label="Close">
+            <X size={16} />
+          </button>
         </div>
 
         {/* Tabs */}
-        <div className="quest-tabs">
-          <button
-            className={`quest-tab ${tab === 'main' ? 'active' : ''}`}
-            onClick={() => setTab('main')}
-          >
-            Main Quests
-            {mainClaimable > 0 && <span className="quest-tab-badge">{mainClaimable}</span>}
-          </button>
-          <button
-            className={`quest-tab ${tab === 'side' ? 'active' : ''}`}
-            onClick={() => setTab('side')}
-          >
-            Side Quests
-            {sideClaimable > 0 && <span className="quest-tab-badge">{sideClaimable}</span>}
-          </button>
-          <button
-            className={`quest-tab ${tab === 'daily' ? 'active' : ''}`}
-            onClick={() => setTab('daily')}
-          >
-            Daily Quests
-            {dailyClaimable > 0 && <span className="quest-tab-badge">{dailyClaimable}</span>}
-          </button>
+        <div className="ds-tabs quest-tabs">
+          <TabButton active={tab === 'main'} count={mainClaimable} onClick={() => { setTab('main'); setSelectedId(null) }}>
+            Main
+          </TabButton>
+          <TabButton active={tab === 'side'} count={sideClaimable} onClick={() => { setTab('side'); setSelectedId(null) }}>
+            Side
+          </TabButton>
+          <TabButton active={tab === 'daily'} count={dailyClaimable} onClick={() => { setTab('daily'); setSelectedTier(null) }}>
+            Daily
+          </TabButton>
         </div>
 
         {/* Reward flash */}
         {rewardFlash && (
-          <div className="quest-reward-flash">{rewardFlash}</div>
+          <div className="quest-reward-flash">
+            <Sparkles size={14} /> <span className="ds-mono">{rewardFlash}</span>
+          </div>
         )}
 
         {/* Content */}
         <div className="quest-body">
           {loading ? (
-            <div className="p2-panel-loading">
+            <div className="quest-loading">
               <div className="loading-spinner" /><span>Loading quests...</span>
             </div>
           ) : error ? (
-            <div className="p2-panel-error">{error}</div>
+            <div className="quest-error">{error}</div>
+          ) : tab === 'daily' ? (
+            daily ? (
+              <DailyQuestTab
+                daily={daily}
+                onClaimTier={handleClaimTier}
+                claimingTier={claimingTier}
+                selectedTier={selectedTier}
+                onSelectTier={setSelectedTier}
+              />
+            ) : (
+              <div className="quest-loading">
+                <div className="loading-spinner" /><span>Loading daily quests...</span>
+              </div>
+            )
           ) : (
-            <>
-              {tab === 'main' && quests && (
-                <MainQuestTab
-                  quests={quests.main_quests}
-                  currentQuest={quests.current_main_quest}
-                  onClaim={handleClaim}
-                  claimingId={claimingId}
-                />
-              )}
-              {tab === 'side' && quests && (
-                <SideQuestTab
-                  quests={quests.side_quests}
-                  onClaim={handleClaim}
-                  claimingId={claimingId}
-                />
-              )}
-              {tab === 'daily' && daily && (
-                <DailyQuestTab
-                  daily={daily}
-                  onClaimTier={handleClaimTier}
-                  claimingTier={claimingTier}
-                />
-              )}
-              {tab === 'daily' && !daily && (
-                <div className="p2-panel-loading">
-                  <div className="loading-spinner" /><span>Loading daily quests...</span>
-                </div>
-              )}
-            </>
+            <QuestTwoColumn
+              quests={visibleQuests}
+              selectedId={selectedId}
+              onSelect={setSelectedId}
+              selectedQuest={selectedQuest}
+              onClaim={handleClaim}
+              claimingId={claimingId}
+              blueprintLookup={blueprintLookup}
+              itemLookup={itemLookup}
+            />
           )}
         </div>
       </div>
@@ -158,113 +213,210 @@ export default function QuestPanel({ onClose }: QuestPanelProps) {
   )
 }
 
-// ============ Main Quest Tab ============
-
-function MainQuestTab({
-  quests,
-  currentQuest,
-  onClaim,
-  claimingId,
+function TabButton({
+  active,
+  count,
+  onClick,
+  children,
 }: {
-  quests: PlayerQuestWithType[]
-  currentQuest: PlayerQuestWithType | null
-  onClaim: (id: string) => void
-  claimingId: string | null
+  active: boolean
+  count: number
+  onClick: () => void
+  children: ReactNode
 }) {
-  const claimed = quests.filter(q => q.status === 'claimed')
-  const locked = quests.filter(q => q.status === 'locked')
-
   return (
-    <div className="quest-content">
-      {/* Current Quest */}
-      {currentQuest && (
-        <div className="quest-section">
-          <div className="quest-section-title">CURRENT MAIN QUEST</div>
-          <QuestCard quest={currentQuest} onClaim={onClaim} claimingId={claimingId} highlight />
-        </div>
+    <button className="ds-tab" aria-selected={active} onClick={onClick}>
+      {children}
+      {count > 0 && (
+        <span className="ds-badge ds-badge--orange quest-tab-badge">{count}</span>
       )}
-
-      {/* Completed but unclaimed quests */}
-      {quests.filter(q => q.status === 'completed' && q.id !== currentQuest?.id).map(q => (
-        <div key={q.id} className="quest-section">
-          <QuestCard quest={q} onClaim={onClaim} claimingId={claimingId} highlight />
-        </div>
-      ))}
-
-      {/* Claimed quests */}
-      {claimed.length > 0 && (
-        <div className="quest-section">
-          <div className="quest-section-title">COMPLETED QUESTS</div>
-          {claimed.map(q => (
-            <QuestCard key={q.id} quest={q} onClaim={onClaim} claimingId={claimingId} />
-          ))}
-        </div>
-      )}
-
-      {/* Locked quests */}
-      {locked.length > 0 && (
-        <div className="quest-section">
-          <div className="quest-section-title">UPCOMING QUESTS</div>
-          {locked.map(q => (
-            <QuestCard key={q.id} quest={q} onClaim={onClaim} claimingId={claimingId} />
-          ))}
-        </div>
-      )}
-
-      {quests.length === 0 && (
-        <div className="p2-empty-state">No main quests available.</div>
-      )}
-    </div>
+    </button>
   )
 }
 
-// ============ Side Quest Tab ============
+// ============ Two-column layout (Main/Side) ============
 
-function SideQuestTab({
+function QuestTwoColumn({
   quests,
+  selectedId,
+  onSelect,
+  selectedQuest,
   onClaim,
   claimingId,
+  blueprintLookup,
+  itemLookup,
 }: {
   quests: PlayerQuestWithType[]
+  selectedId: string | null
+  onSelect: (id: string) => void
+  selectedQuest: PlayerQuestWithType | null
   onClaim: (id: string) => void
   claimingId: string | null
+  blueprintLookup: BlueprintLookup
+  itemLookup: ItemLookup
 }) {
-  // Group side quests by category-like prefix (derive from quest_key)
-  const groups = groupSideQuests(quests)
-
-  return (
-    <div className="quest-content">
-      {groups.length === 0 && (
-        <div className="p2-empty-state">No side quests available.</div>
-      )}
-      {groups.map(group => (
-        <div key={group.label} className="quest-section">
-          <div className="quest-section-title">{group.label}</div>
-          {group.quests.map(q => (
-            <QuestCard key={q.id} quest={q} onClaim={onClaim} claimingId={claimingId} />
-          ))}
-        </div>
-      ))}
-    </div>
-  )
-}
-
-function groupSideQuests(quests: PlayerQuestWithType[]): { label: string; quests: PlayerQuestWithType[] }[] {
-  const groupMap = new Map<string, PlayerQuestWithType[]>()
-  for (const q of quests) {
-    // Derive a group label from the quest display_name (strip trailing tier numbers/roman numerals)
-    const label = deriveGroupLabel(q.display_name)
-    const existing = groupMap.get(label) || []
-    existing.push(q)
-    groupMap.set(label, existing)
+  if (quests.length === 0) {
+    return <div className="quest-empty">No quests available.</div>
   }
-  return Array.from(groupMap.entries()).map(([label, quests]) => ({ label, quests }))
+  return (
+    <div className="quest-two-col">
+      <div className="quest-list">
+        {quests.map(q => (
+          <QuestListItem
+            key={q.id}
+            quest={q}
+            selected={q.id === selectedId}
+            onClick={() => onSelect(q.id)}
+          />
+        ))}
+      </div>
+      <div className="quest-detail">
+        {selectedQuest ? (
+          <QuestDetail
+            quest={selectedQuest}
+            onClaim={onClaim}
+            claimingId={claimingId}
+            blueprintLookup={blueprintLookup}
+            itemLookup={itemLookup}
+          />
+        ) : (
+          <div className="quest-empty">Select a quest to see details.</div>
+        )}
+      </div>
+    </div>
+  )
 }
 
-function deriveGroupLabel(name: string): string {
-  // Strip trailing roman numerals or numbers (e.g. "Harvest Time II" -> "Harvest Time")
-  const stripped = name.replace(/\s+(I{1,3}V?|IV|VI{0,3}|IX|X{0,3}|\d+)\s*$/, '')
-  return stripped || name
+function QuestListItem({
+  quest,
+  selected,
+  onClick,
+}: {
+  quest: PlayerQuestWithType
+  selected: boolean
+  onClick: () => void
+}) {
+  const status = quest.status
+  const isClaimed = status === 'claimed'
+  const isCompleted = status === 'completed'
+  const isLocked = status === 'locked'
+
+  const Icon = isClaimed ? CircleCheck : isLocked ? Lock : isCompleted ? Trophy : ChevronRight
+  const iconColor = isClaimed
+    ? 'var(--ds-text-soft)'
+    : isCompleted
+      ? 'var(--ds-orange)'
+      : isLocked
+        ? 'var(--ds-text-soft)'
+        : 'var(--ds-teal)'
+
+  const badge = isClaimed ? (
+    <span className="ds-badge ds-badge--neutral">CLAIMED</span>
+  ) : isCompleted ? (
+    <span className="ds-badge ds-badge--success">COMPLETE</span>
+  ) : isLocked ? (
+    <span className="ds-badge ds-badge--neutral">LOCKED</span>
+  ) : (
+    <span className="ds-badge ds-badge--teal">ACTIVE</span>
+  )
+
+  return (
+    <button
+      className={`ds-list-item quest-list-item ${selected ? 'is-selected' : ''} ${isLocked || isClaimed ? 'is-dim' : ''}`}
+      aria-selected={selected}
+      onClick={onClick}
+    >
+      <div className="quest-list-item-icon" style={{ color: iconColor }}>
+        <Icon size={18} strokeWidth={1.75} />
+      </div>
+      <div className="quest-list-item-name">{quest.display_name}</div>
+      {badge}
+    </button>
+  )
+}
+
+function QuestDetail({
+  quest,
+  onClaim,
+  claimingId,
+  blueprintLookup,
+  itemLookup,
+}: {
+  quest: PlayerQuestWithType
+  onClaim: (id: string) => void
+  claimingId: string | null
+  blueprintLookup: BlueprintLookup
+  itemLookup: ItemLookup
+}) {
+  const isClaimed = quest.status === 'claimed'
+  const isCompleted = quest.status === 'completed'
+  const isLocked = quest.status === 'locked'
+  const total = Math.max(1, quest.requirement_value)
+  const current = Math.min(total, quest.progress_value)
+
+  const rewards = parseRewards(quest, blueprintLookup, itemLookup)
+
+  return (
+    <div className="ds-panel quest-detail-panel">
+      <div className="quest-detail-header">
+        <h3 className="ds-h3">{quest.display_name}</h3>
+        {isClaimed && <span className="ds-badge ds-badge--neutral">CLAIMED</span>}
+        {isCompleted && <span className="ds-badge ds-badge--success">COMPLETE</span>}
+        {isLocked && <span className="ds-badge ds-badge--neutral">LOCKED</span>}
+        {!isClaimed && !isCompleted && !isLocked && <span className="ds-badge ds-badge--teal">ACTIVE</span>}
+      </div>
+
+      {quest.description && (
+        <p className="quest-detail-desc">{quest.description}</p>
+      )}
+
+      {!isLocked && (
+        <div className="quest-detail-progress">
+          <div className="ds-row--between" style={{ marginBottom: 'var(--sp-1)' }}>
+            <span className="ds-caption">Objective</span>
+            <span className="ds-mono">{formatNumber(current)} / {formatNumber(total)}</span>
+          </div>
+          <SegmentedBar current={current} total={total} />
+        </div>
+      )}
+
+      <div className="quest-detail-rewards">
+        <div className="ds-caption">Rewards</div>
+        <div className="quest-rewards-row">{rewards}</div>
+      </div>
+
+      {isCompleted && (
+        <button
+          className="ds-btn-primary ds-btn--block"
+          onClick={() => onClaim(quest.id)}
+          disabled={claimingId === quest.id}
+        >
+          {claimingId === quest.id ? 'CLAIMING...' : 'CLAIM REWARD'}
+        </button>
+      )}
+    </div>
+  )
+}
+
+function SegmentedBar({ current, total }: { current: number; total: number }) {
+  // For small totals, show segmented; otherwise simple progress.
+  const SEGMENT_LIMIT = 10
+  if (total <= SEGMENT_LIMIT) {
+    const segments: ReactElement[] = []
+    for (let i = 0; i < total; i++) {
+      const filled = i < current
+      segments.push(
+        <span key={i} className={`quest-bar-seg ${filled ? 'is-filled' : ''}`} />,
+      )
+    }
+    return <div className="quest-bar-segmented">{segments}</div>
+  }
+  const pct = Math.min(100, (current / total) * 100)
+  return (
+    <div className="ds-bar">
+      <div className="ds-bar-fill" style={{ width: `${pct}%` }} />
+    </div>
+  )
 }
 
 // ============ Daily Quest Tab ============
@@ -273,36 +425,47 @@ function DailyQuestTab({
   daily,
   onClaimTier,
   claimingTier,
+  selectedTier,
+  onSelectTier,
 }: {
   daily: DailyQuestsResponse
   onClaimTier: (tier: string) => void
   claimingTier: string | null
+  selectedTier: string | null
+  onSelectTier: (tier: string | null) => void
 }) {
   const maxPoints = daily.tier_rewards.length > 0
     ? daily.tier_rewards[daily.tier_rewards.length - 1].points_required
     : 70
+  const pct = Math.min(100, (daily.daily_points / maxPoints) * 100)
 
   return (
-    <div className="quest-content">
-      {/* Today's quests */}
-      <div className="quest-section">
-        <div className="quest-section-title-row">
-          <span className="quest-section-title">TODAY'S QUESTS</span>
-          <span className="quest-daily-points">
-            Points: <strong>{daily.daily_points}</strong>/{maxPoints}
-          </span>
+    <div className="quest-daily">
+      <div className="ds-panel quest-daily-summary">
+        <div className="ds-row--between">
+          <span className="ds-caption">Daily Points</span>
+          <span><span className="ds-mono">{daily.daily_points}</span><span className="ds-text-muted"> / {maxPoints}</span></span>
         </div>
-        <div className="quest-daily-list">
-          {daily.quests.map(q => (
-            <DailyQuestRow key={q.quest_key} quest={q} />
-          ))}
+        <div className="ds-bar" style={{ marginTop: 'var(--sp-2)' }}>
+          <div className="ds-bar-fill" style={{ width: `${pct}%` }} />
+        </div>
+        <div className="quest-daily-reset ds-text-soft">
+          Resets at 1:00 PM server time
         </div>
       </div>
 
-      {/* Tier rewards */}
-      <div className="quest-section">
-        <div className="quest-section-title">REWARD TIERS</div>
+      <div className="quest-daily-cols">
+        <div className="quest-daily-tasks">
+          <div className="ds-caption" style={{ marginBottom: 'var(--sp-2)' }}>Today's Quests</div>
+          <div className="quest-daily-list">
+            {daily.quests.map(q => (
+              <DailyQuestRow key={q.quest_key} quest={q} />
+            ))}
+          </div>
+        </div>
+
         <div className="quest-tier-list">
+          <div className="ds-caption" style={{ marginBottom: 'var(--sp-2)' }}>Reward Tiers</div>
           {daily.tier_rewards.map(tier => (
             <TierRewardRow
               key={tier.tier}
@@ -310,13 +473,11 @@ function DailyQuestTab({
               currentPoints={daily.daily_points}
               onClaim={onClaimTier}
               claiming={claimingTier === tier.tier}
+              selected={selectedTier === tier.tier}
+              onSelect={() => onSelectTier(tier.tier === selectedTier ? null : tier.tier)}
             />
           ))}
         </div>
-      </div>
-
-      <div className="quest-daily-reset">
-        Resets at 1:00 PM server time
       </div>
     </div>
   )
@@ -326,15 +487,15 @@ function DailyQuestRow({ quest }: { quest: DailyQuestEntry }) {
   const isMultiStep = quest.progress !== undefined && quest.required !== undefined
 
   return (
-    <div className={`quest-daily-row ${quest.completed ? 'completed' : ''}`}>
+    <div className={`quest-daily-row ${quest.completed ? 'is-completed' : ''}`}>
       <span className="quest-daily-check">
-        {quest.completed ? '\u2713' : '\u25CB'}
+        {quest.completed ? <CircleCheck size={16} style={{ color: 'var(--ds-success)' }} /> : <span className="quest-daily-circle" />}
       </span>
       <span className="quest-daily-name">
         {quest.display_name}
-        {isMultiStep && ` (${quest.progress}/${quest.required})`}
+        {isMultiStep && <span className="ds-text-muted ds-mono"> ({quest.progress}/{quest.required})</span>}
       </span>
-      <span className="quest-daily-pts">
+      <span className="quest-daily-pts ds-mono">
         +{quest.points} pt{quest.points !== 1 ? 's' : ''}
         {isMultiStep && quest.points_per && ' each'}
       </span>
@@ -347,11 +508,15 @@ function TierRewardRow({
   currentPoints,
   onClaim,
   claiming,
+  selected,
+  onSelect,
 }: {
   tier: DailyTierReward
   currentPoints: number
   onClaim: (tier: string) => void
   claiming: boolean
+  selected: boolean
+  onSelect: () => void
 }) {
   const reachable = currentPoints >= tier.points_required
   const claimable = reachable && !tier.claimed
@@ -363,161 +528,132 @@ function TierRewardRow({
     diamond: 'Raw Gemstone',
   }
 
+  const stateBadge = tier.claimed ? (
+    <span className="ds-badge ds-badge--neutral">CLAIMED</span>
+  ) : claimable ? (
+    <span className="ds-badge ds-badge--success">READY</span>
+  ) : (
+    <span className="ds-badge ds-badge--neutral">{tier.points_required - currentPoints} pts</span>
+  )
+
   return (
-    <div className={`quest-tier-row ${tier.claimed ? 'claimed' : ''} ${claimable ? 'claimable' : ''} ${!reachable ? 'locked' : ''}`}>
-      <span className="quest-tier-pts">{tier.points_required} pts</span>
+    <div
+      className={`ds-list-item quest-tier-row ${selected ? 'is-selected' : ''} ${!reachable && !tier.claimed ? 'is-dim' : ''}`}
+      onClick={onSelect}
+      aria-selected={selected}
+      role="button"
+      tabIndex={0}
+      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') onSelect() }}
+    >
       <span className={`quest-tier-name tier-${tier.tier}`}>
         {tier.tier.charAt(0).toUpperCase() + tier.tier.slice(1)}
       </span>
+      <span className="quest-tier-pts ds-mono ds-text-muted">{tier.points_required} pts</span>
       <span className="quest-tier-reward">{TIER_REWARDS[tier.tier] || ''}</span>
       <span className="quest-tier-status">
-        {tier.claimed ? (
-          <span className="quest-badge claimed">CLAIMED</span>
-        ) : claimable ? (
+        {claimable ? (
           <button
-            className="quest-claim-btn"
-            onClick={() => onClaim(tier.tier)}
+            className="ds-btn-primary ds-btn--sm"
+            onClick={e => { e.stopPropagation(); onClaim(tier.tier) }}
             disabled={claiming}
           >
             {claiming ? '...' : 'CLAIM'}
           </button>
-        ) : (
-          <QuestProgressMini current={currentPoints} required={tier.points_required} />
-        )}
+        ) : stateBadge}
       </span>
     </div>
   )
 }
 
-// ============ Shared Components ============
+// ============ Reward parsing ============
 
-function QuestCard({
-  quest,
-  onClaim,
-  claimingId,
-  highlight,
-}: {
-  quest: PlayerQuestWithType
-  onClaim: (id: string) => void
-  claimingId: string | null
-  highlight?: boolean
-}) {
-  const isClaimed = quest.status === 'claimed'
-  const isCompleted = quest.status === 'completed'
-  const isLocked = quest.status === 'locked'
-  const isAvailable = quest.status === 'available'
-  const progressPct = quest.requirement_value > 0
-    ? Math.min(100, (quest.progress_value / quest.requirement_value) * 100)
-    : 0
-
-  const rewards = parseRewards(quest)
-
-  return (
-    <div className={`quest-card ${isClaimed ? 'dimmed' : ''} ${isCompleted ? 'complete' : ''} ${isLocked ? 'locked' : ''} ${highlight ? 'highlight' : ''}`}>
-      <div className="quest-card-header">
-        <span className="quest-card-icon">
-          {isClaimed && '\u2713'}
-          {isCompleted && '!'}
-          {isAvailable && '\u25B6'}
-          {isLocked && '\u{1F512}'}
-        </span>
-        <span className="quest-card-name">{quest.display_name}</span>
-        <span className="quest-card-badge-area">
-          {isClaimed && <span className="quest-badge claimed">CLAIMED</span>}
-          {isLocked && <span className="quest-badge locked">LOCKED</span>}
-          {isCompleted && !isClaimed && <span className="quest-badge complete">COMPLETE</span>}
-        </span>
-      </div>
-
-      {!isClaimed && !isLocked && (
-        <>
-          <div className="quest-card-desc">{quest.description}</div>
-          {(isAvailable || isCompleted) && (
-            <div className="quest-card-progress">
-              <div className="quest-progress-bar">
-                <div
-                  className="quest-progress-fill"
-                  style={{ width: `${progressPct}%` }}
-                />
-              </div>
-              <span className="quest-progress-text">
-                {formatNumber(quest.progress_value)}/{formatNumber(quest.requirement_value)}
-              </span>
-            </div>
-          )}
-          <div className="quest-card-rewards">
-            <span className="quest-reward-label">Rewards:</span>
-            {rewards}
-          </div>
-        </>
-      )}
-
-      {isCompleted && (
-        <button
-          className="quest-claim-btn"
-          onClick={() => onClaim(quest.id)}
-          disabled={claimingId === quest.id}
-        >
-          {claimingId === quest.id ? 'Claiming...' : 'CLAIM REWARD'}
-        </button>
-      )}
-    </div>
-  )
+type RewardItem = {
+  type?: string
+  blueprint_key?: string
+  item_key?: string
+  quantity?: number
 }
 
-function parseRewards(quest: PlayerQuestWithType) {
-  const parts: JSX.Element[] = []
+function parseRewards(
+  quest: PlayerQuestWithType,
+  blueprintLookup: BlueprintLookup,
+  itemLookup: ItemLookup,
+) {
+  const parts: ReactElement[] = []
   if (quest.reward_metal > 0) {
     parts.push(
-      <span key="metal" className="quest-res">
-        <span className="quest-res-dot metal" />
-        {formatNumber(quest.reward_metal)}
-      </span>
+      <span key="metal" className="quest-reward-chip">
+        <span className="ds-resource-dot ds-resource-dot--metal" />
+        <span className="ds-mono">+{formatNumber(quest.reward_metal)}</span>
+        <span className="ds-text-muted">Metal</span>
+      </span>,
     )
   }
   if (quest.reward_he3 > 0) {
     parts.push(
-      <span key="he3" className="quest-res">
-        <span className="quest-res-dot he3" />
-        {formatNumber(quest.reward_he3)}
-      </span>
+      <span key="he3" className="quest-reward-chip">
+        <span className="ds-resource-dot ds-resource-dot--he3" />
+        <span className="ds-mono">+{formatNumber(quest.reward_he3)}</span>
+        <span className="ds-text-muted">He3</span>
+      </span>,
     )
   }
   if (quest.reward_gold > 0) {
     parts.push(
-      <span key="gold" className="quest-res">
-        <span className="quest-res-dot gold" />
-        {formatNumber(quest.reward_gold)}
-      </span>
+      <span key="gold" className="quest-reward-chip">
+        <span className="ds-resource-dot ds-resource-dot--gold" />
+        <span className="ds-mono">+{formatNumber(quest.reward_gold)}</span>
+        <span className="ds-text-muted">Gold</span>
+      </span>,
     )
   }
   if (quest.reward_item_json) {
     try {
-      const items = JSON.parse(quest.reward_item_json)
+      const raw = quest.reward_item_json
+      const items: RewardItem[] = Array.isArray(raw)
+        ? (raw as RewardItem[])
+        : typeof raw === 'string'
+          ? (JSON.parse(raw) as RewardItem[])
+          : []
       if (Array.isArray(items)) {
-        items.forEach((item: { type: string; quantity: number }, i: number) => {
-          parts.push(
-            <span key={`item-${i}`} className="quest-res item">
-              {item.quantity}x {item.type}
-            </span>
-          )
+        items.forEach((item, i) => {
+          if (item.type === 'blueprint' && item.blueprint_key) {
+            const bp = blueprintLookup[item.blueprint_key]
+            const label = bp?.display_name || snakeToTitle(item.blueprint_key)
+            parts.push(
+              <span key={`item-${i}`} className="quest-reward-chip">
+                <span className="ds-badge ds-badge--info">BP</span>
+                <span>{label}</span>
+              </span>,
+            )
+          } else if (item.type === 'item' && item.item_key) {
+            const qty = item.quantity ?? 1
+            const meta = itemLookup[item.item_key]
+            const label = meta?.display_name || snakeToTitle(item.item_key)
+            parts.push(
+              <span key={`item-${i}`} className="quest-reward-chip">
+                {qty > 1 && <span className="ds-mono">{qty}x</span>}
+                <span>{label}</span>
+              </span>,
+            )
+          } else {
+            const qty = item.quantity ?? 1
+            const fallbackKey = item.blueprint_key || item.item_key || item.type || 'item'
+            parts.push(
+              <span key={`item-${i}`} className="quest-reward-chip">
+                {qty > 1 && <span className="ds-mono">{qty}x</span>}
+                <span>{snakeToTitle(fallbackKey)}</span>
+              </span>,
+            )
+          }
         })
       }
     } catch {
       // ignore parse errors
     }
   }
-  return <span className="quest-rewards-inline">{parts}</span>
-}
-
-function QuestProgressMini({ current, required }: { current: number; required: number }) {
-  const pct = Math.min(100, (current / required) * 100)
-  return (
-    <div className="quest-progress-mini">
-      <div className="quest-progress-mini-bar">
-        <div className="quest-progress-mini-fill" style={{ width: `${pct}%` }} />
-      </div>
-      <span className="quest-progress-mini-text">{current}/{required}</span>
-    </div>
-  )
+  if (parts.length === 0) {
+    return <span className="ds-text-soft">No rewards</span>
+  }
+  return <>{parts}</>
 }

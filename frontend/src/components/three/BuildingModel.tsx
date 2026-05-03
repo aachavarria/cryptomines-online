@@ -201,10 +201,10 @@ export default function BuildingModel({
           occlude={false}
           style={{ pointerEvents: 'none' }}
         >
-          <div className="hover-tooltip-3d">
+          <div className="ds-tooltip ds-tooltip--3d">
             <span>Lv: {building.is_upgrading ? building.level + 1 : building.level} {building.display_name}</span>
             {building.is_upgrading && countdown && (
-              <span className="hover-tooltip-timer">{countdown}</span>
+              <span className="ds-mono ds-tooltip-timer">{countdown}</span>
             )}
           </div>
         </Html>

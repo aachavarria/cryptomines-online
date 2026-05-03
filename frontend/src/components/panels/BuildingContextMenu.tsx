@@ -1,14 +1,18 @@
 import { useEffect, useRef } from 'react'
+import { Eye, Move, Hammer, Sparkles, Users } from 'lucide-react'
 import { useGameContext } from '../../contexts/GameContext.tsx'
 import { useBuildings } from '../../hooks/useBuildings.ts'
 import { useResources } from '../../hooks/useResources.ts'
 import type { BuildingWithType } from '../../types/index.ts'
+
+const ICON_SIZE = 16
 
 export default function BuildingContextMenu() {
   const {
     state,
     deselectAll,
     openDetailPanel,
+    openCommandCenterPanel,
     enterMoveMode,
   } = useGameContext()
   const { upgrade } = useBuildings()
@@ -48,10 +52,14 @@ export default function BuildingContextMenu() {
   if (!showContextMenu || !selectedBuilding || !contextMenuScreenPos) return null
 
   const isWarehouse = selectedBuilding.type_name === 'resource_warehouse'
+  const isCommandCenter = selectedBuilding.type_name === 'command_center'
 
-  // Clamp position so menu stays on screen
-  const menuWidth = 120
-  const menuHeight = isWarehouse ? 180 : 140
+  // Clamp position so menu stays on screen (~140px wide per §7.3).
+  const menuWidth = 140
+  const baseEntries = 3 // View + Move + Upgrade
+  const extraEntries = (isWarehouse ? 1 : 0) + (isCommandCenter ? 1 : 0)
+  // Header (~28px) + items (~32px each) + padding.
+  const menuHeight = 36 + (baseEntries + extraEntries) * 34 + 16
   const x = Math.min(contextMenuScreenPos.x, window.innerWidth - menuWidth - 10)
   const y = Math.min(contextMenuScreenPos.y, window.innerHeight - menuHeight - 10)
 
@@ -59,31 +67,43 @@ export default function BuildingContextMenu() {
     <div
       ref={menuRef}
       className="building-context-menu"
-      style={{ left: x, top: y }}
+      style={{ left: x, top: y, width: menuWidth }}
     >
       <div className="bcm-header">{selectedBuilding.display_name}</div>
       <button
-        className="bcm-btn"
+        className="ds-btn ds-btn-ghost ds-btn--block bcm-item"
         onClick={() => openDetailPanel()}
       >
-        View
+        <Eye size={ICON_SIZE} strokeWidth={1.75} aria-hidden="true" />
+        <span>View</span>
       </button>
       <button
-        className="bcm-btn"
+        className="ds-btn ds-btn-ghost ds-btn--block bcm-item"
         onClick={() => enterMoveMode(selectedBuilding.id)}
       >
-        Move
+        <Move size={ICON_SIZE} strokeWidth={1.75} aria-hidden="true" />
+        <span>Move</span>
       </button>
       <UpgradeButton building={selectedBuilding} onUpgrade={upgrade} />
       {isWarehouse && (
         <button
-          className="bcm-btn bcm-harvest"
+          className="ds-btn ds-btn-ghost ds-btn--block bcm-item"
           onClick={async () => {
             await collect()
             deselectAll()
           }}
         >
-          Harvest
+          <Sparkles size={ICON_SIZE} strokeWidth={1.75} aria-hidden="true" />
+          <span>Harvest</span>
+        </button>
+      )}
+      {isCommandCenter && (
+        <button
+          className="ds-btn ds-btn-ghost ds-btn--block bcm-item"
+          onClick={() => openCommandCenterPanel()}
+        >
+          <Users size={ICON_SIZE} strokeWidth={1.75} aria-hidden="true" />
+          <span>Recruit</span>
         </button>
       )}
     </div>
@@ -123,11 +143,12 @@ function UpgradeButton({
 
   return (
     <button
-      className="bcm-btn"
+      className="ds-btn ds-btn-ghost ds-btn--block bcm-item"
       onClick={handleUpgrade}
       disabled={disabled}
     >
-      {label}
+      <Hammer size={ICON_SIZE} strokeWidth={1.75} aria-hidden="true" />
+      <span>{label}</span>
     </button>
   )
 }

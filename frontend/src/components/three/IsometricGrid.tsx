@@ -10,6 +10,7 @@ import {
   canPlaceBuilding,
   type GridPosition,
 } from '../../contexts/GameContext.tsx'
+import { colors3d, colors3dOpacity } from '../../config/colors3d.ts'
 
 interface IsometricGridProps {
   visible: boolean
@@ -86,7 +87,7 @@ export default function IsometricGrid({
     <group position={[0, 0.05, 0]}>
       {/* Wireframe grid lines — always visible */}
       <lineSegments geometry={gridLinesGeometry}>
-        <lineBasicMaterial color="#224466" transparent opacity={0.12} depthWrite={false} />
+        <lineBasicMaterial color={colors3d.tileHover} transparent opacity={0.12} depthWrite={false} />
       </lineSegments>
 
       {/* Highlight tiles under cursor — only during placement */}
@@ -133,7 +134,9 @@ function SquareTile({
   occupied: boolean
   onClick: () => void
 }) {
-  const color = occupied ? '#ff4444' : '#22cc66'
+  // Per design-system §7.6: valid = teal-success @ 0.35, invalid = danger @ 0.35.
+  const color = occupied ? colors3d.tileInvalid : colors3d.tileValid
+  const opacity = occupied ? colors3dOpacity.tileInvalid : colors3dOpacity.tileValid
 
   return (
     <mesh
@@ -150,7 +153,7 @@ function SquareTile({
         emissive={color}
         emissiveIntensity={0.2}
         transparent
-        opacity={0.25}
+        opacity={opacity}
         side={THREE.DoubleSide}
         depthWrite={false}
       />

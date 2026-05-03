@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import { useGameContext, CATEGORY_COLORS, BUILDING_ABBREVIATIONS } from '../../contexts/GameContext.tsx'
+import { X, Hammer } from 'lucide-react'
+import { useGameContext, BUILDING_ABBREVIATIONS } from '../../contexts/GameContext.tsx'
 import { formatNumber } from '../../hooks/useCountdown.ts'
 
 const GROUND_CATEGORIES = [
@@ -69,6 +70,21 @@ export default function ConstructionPanel() {
     return bt.category === activeCategory
   })
 
+  // Per-category total counts (for the (built/typesShown) tab badge)
+  function categoryCount(catId: string): { built: number; types: number } {
+    let built = 0
+    let types = 0
+    for (const bt of state.buildingTypes) {
+      if (HIDDEN.has(bt.name)) continue
+      if (AUTO_CREATED.has(bt.name)) continue
+      if (resolveBase(bt) !== state.currentBase) continue
+      if (bt.category !== catId) continue
+      types += 1
+      built += buildingCounts[bt.name] || 0
+    }
+    return { built, types }
+  }
+
   function handleBuild(typeName: string) {
     // Enter placement mode - user will click a tile on the isometric grid
     // PlanetScene.handleTileClick will call construct() when a tile is clicked
@@ -77,82 +93,147 @@ export default function ConstructionPanel() {
 
   return (
     <div
-      className="construction-modal-backdrop"
+      className="ds-modal-backdrop"
+      role="dialog"
+      aria-modal="true"
       onClick={(e) => {
         if (e.target === e.currentTarget) closeConstructPanel()
       }}
     >
-      <div className="construction-modal">
-        <div className="cm-header">
-          <span className="cm-title">
+      <div className="ds-modal ds-modal--lg" style={{ maxWidth: 'min(760px, 95vw)' }}>
+        <div className="ds-modal-header">
+          <h2 className="ds-modal-title">
             Build on {state.currentBase === 'space' ? 'Space Base' : 'Ground Base'}
-          </span>
-          <button className="cm-close" onClick={closeConstructPanel}>X</button>
+          </h2>
+          <button
+            type="button"
+            className="ds-btn-icon"
+            aria-label="Close"
+            onClick={closeConstructPanel}
+          >
+            <X size={18} strokeWidth={2} />
+          </button>
         </div>
 
         {state.currentBase === 'ground' && (
-          <div className="cm-tabs">
-            {categories.map(cat => (
-              <button
-                key={cat.id}
-                className={`cm-tab ${cat.id} ${activeCategory === cat.id ? 'active' : ''}`}
-                onClick={() => setActiveCategory(cat.id)}
-              >
-                {cat.label}
-              </button>
-            ))}
+          <div className="ds-tabs" style={{ padding: '0 var(--sp-6)' }}>
+            {categories.map(cat => {
+              const { built, types } = categoryCount(cat.id)
+              const selected = activeCategory === cat.id
+              return (
+                <button
+                  key={cat.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={selected}
+                  className="ds-tab"
+                  onClick={() => setActiveCategory(cat.id)}
+                >
+                  {cat.label}
+                  <span
+                    className="ds-mono ds-text-muted"
+                    style={{ marginLeft: 6, fontSize: 'var(--fs-caption)' }}
+                  >
+                    ({built}/{types})
+                  </span>
+                </button>
+              )
+            })}
           </div>
         )}
 
-        <div className="cm-grid">
-          {filteredTypes.map(bt => {
-            const count = buildingCounts[bt.name] || 0
-            const maxCount = bt.max_count_per_planet
-            const isMaxed = count >= maxCount
-            const color = CATEGORY_COLORS[bt.category] || '#888'
-            const abbr = BUILDING_ABBREVIATIONS[bt.name] || '??'
-            return (
-              <div key={bt.name} className={`cm-card ${isMaxed ? 'dimmed' : ''}`}>
-                <div className="cm-card-header">
-                  <div
-                    className="cm-card-icon"
-                    style={{ background: color, color: '#000' }}
-                  >
-                    {abbr}
-                  </div>
-                  <div className="cm-card-info">
-                    <div className="cm-card-name">{bt.display_name}</div>
-                    <div className="cm-card-count">
-                      Built: {count}/{maxCount}
+        <div className="ds-modal-body">
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+              gap: 'var(--sp-4)',
+            }}
+          >
+            {filteredTypes.map(bt => {
+              const count = buildingCounts[bt.name] || 0
+              const maxCount = bt.max_count_per_planet
+              const isMaxed = count >= maxCount
+              const abbr = BUILDING_ABBREVIATIONS[bt.name] || '??'
+              return (
+                <div
+                  key={bt.name}
+                  className="ds-card"
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 'var(--sp-3)',
+                    opacity: isMaxed ? 0.6 : 1,
+                  }}
+                >
+                  <div className="ds-row" style={{ gap: 'var(--sp-3)' }}>
+                    <div
+                      style={{
+                        width: 44,
+                        height: 44,
+                        borderRadius: 'var(--r-md)',
+                        background: 'var(--ds-surface-3)',
+                        border: '1px solid var(--ds-border)',
+                        color: 'var(--ds-text-muted)',
+                        display: 'grid',
+                        placeItems: 'center',
+                        fontWeight: 600,
+                        fontSize: 13,
+                        letterSpacing: '0.04em',
+                        flexShrink: 0,
+                      }}
+                      aria-hidden="true"
+                    >
+                      {abbr}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div
+                        style={{
+                          fontSize: 'var(--fs-h3)',
+                          fontWeight: 600,
+                          color: 'var(--ds-text)',
+                          lineHeight: 'var(--lh-tight)',
+                        }}
+                      >
+                        {bt.display_name}
+                      </div>
+                      <div
+                        className="ds-text-muted"
+                        style={{ fontSize: 'var(--fs-sm)', marginTop: 2 }}
+                      >
+                        Built <span className="ds-mono">{count}</span>/<span className="ds-mono">{maxCount}</span>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                <div className="cm-card-costs">
-                  <span className="cm-card-cost">
-                    <span className="cm-card-cost-dot metal" />
-                    {formatNumber(bt.base_cost_metal)}
-                  </span>
-                  <span className="cm-card-cost">
-                    <span className="cm-card-cost-dot he3" />
-                    {formatNumber(bt.base_cost_he3)}
-                  </span>
-                  <span className="cm-card-cost">
-                    <span className="cm-card-cost-dot gold" />
-                    {formatNumber(bt.base_cost_gold)}
-                  </span>
-                </div>
+                  <div className="ds-row" style={{ gap: 'var(--sp-3)', flexWrap: 'wrap' }}>
+                    <span className="ds-row" style={{ gap: 6 }}>
+                      <span className="ds-resource-dot ds-resource-dot--metal" />
+                      <span className="ds-mono">{formatNumber(bt.base_cost_metal)}</span>
+                    </span>
+                    <span className="ds-row" style={{ gap: 6 }}>
+                      <span className="ds-resource-dot ds-resource-dot--he3" />
+                      <span className="ds-mono">{formatNumber(bt.base_cost_he3)}</span>
+                    </span>
+                    <span className="ds-row" style={{ gap: 6 }}>
+                      <span className="ds-resource-dot ds-resource-dot--gold" />
+                      <span className="ds-mono">{formatNumber(bt.base_cost_gold)}</span>
+                    </span>
+                  </div>
 
-                <button
-                  className="cm-card-build-btn"
-                  onClick={() => handleBuild(bt.name)}
-                  disabled={isMaxed}
-                >
-                  {isMaxed ? 'MAX BUILT' : 'BUILD'}
-                </button>
-              </div>
-            )
-          })}
+                  <button
+                    type="button"
+                    className="ds-btn-secondary ds-btn--block"
+                    onClick={() => handleBuild(bt.name)}
+                    disabled={isMaxed}
+                  >
+                    <Hammer size={14} strokeWidth={2} />
+                    {isMaxed ? 'Max Built' : 'Build'}
+                  </button>
+                </div>
+              )
+            })}
+          </div>
         </div>
       </div>
     </div>

@@ -1,790 +1,300 @@
-/* ========================================= */
-/* Research Panel Styles                     */
-/* ========================================= */
-
-/* ============ Backdrop & Panel ============ */
+/* ============================================================
+   Research Panel — migrated to design system tokens.
+   Spec: docs/reference/design-system.md §6, §7.8, §11
+   ============================================================ */
 
 .research-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.85);
-  z-index: 400;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  animation: fadeIn 0.2s ease-out;
-  font-family: 'Rajdhani', 'Segoe UI', system-ui, sans-serif;
+  background: var(--ds-overlay);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  z-index: var(--z-modal);
+  display: grid;
+  place-items: center;
+  padding: var(--sp-6);
+  font-family: var(--ff-sans);
+  animation: ds-fade-in var(--motion-base);
 }
 
 .research-panel {
-  width: 840px;
-  max-width: 95vw;
+  width: min(960px, 95vw);
   height: 85vh;
-  background: #1a1a2e;
-  border: 1px solid var(--border-glow);
-  border-radius: 8px;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  box-shadow: 0 0 40px rgba(0, 200, 255, 0.15);
-  animation: modalIn 0.2s ease-out;
+  max-height: 85vh;
 }
 
-/* ============ Header ============ */
-
-.research-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--space-md) var(--space-lg);
-  border-bottom: 1px solid var(--border-frame);
-}
-
-.research-title {
-  font-size: var(--font-lg);
-  font-weight: 700;
-  color: var(--text-bright);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-}
-
-.research-tc-level {
-  font-size: var(--font-sm);
-  color: var(--text-dim);
-  font-weight: 500;
-  margin-left: var(--space-sm);
-  text-transform: none;
-  letter-spacing: 0;
-}
-
-/* ============ Active Bonuses Summary ============ */
-
-.research-bonuses-summary {
-  padding: var(--space-md) var(--space-lg);
-  background: linear-gradient(135deg, rgba(68, 204, 255, 0.05), rgba(34, 136, 204, 0.08));
-  border-bottom: 1px solid var(--border-frame);
-  flex-shrink: 0;
-}
-
-.research-bonuses-title {
-  font-size: var(--font-xs);
-  font-weight: 700;
-  color: var(--text-dim);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  margin-bottom: var(--space-sm);
-}
-
-.research-bonuses-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: var(--space-sm);
-}
-
-.research-bonus-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 6px 10px;
-  background: rgba(68, 204, 255, 0.08);
-  border: 1px solid rgba(68, 204, 255, 0.2);
-  border-radius: 4px;
-  gap: var(--space-sm);
-}
-
-.research-bonus-label {
-  font-size: var(--font-xs);
-  color: var(--text-normal);
-  text-transform: capitalize;
-  flex: 1;
-}
-
-.research-bonus-value {
-  font-size: var(--font-sm);
-  font-weight: 700;
-  color: #44ccff;
-  font-variant-numeric: tabular-nums;
-  flex-shrink: 0;
-}
-
-/* ============ Tree Tabs ============ */
+/* ============ Tabs ============ */
 
 .research-tabs {
-  display: flex;
-  gap: 2px;
-  padding: var(--space-sm) var(--space-lg);
-  border-bottom: 1px solid var(--border-frame);
+  padding: 0 var(--sp-6);
   overflow-x: auto;
   flex-shrink: 0;
-}
-
-.research-tab {
-  display: flex;
-  align-items: center;
-  gap: var(--space-xs);
-  padding: 6px 12px;
-  background: transparent;
-  border: 1px solid var(--border-frame);
-  border-radius: 4px;
-  color: var(--text-dim);
-  font-size: var(--font-xs);
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.15s;
-  font-family: 'Rajdhani', sans-serif;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
+  flex-wrap: nowrap;
   white-space: nowrap;
-  position: relative;
-  flex-shrink: 0;
-}
-
-.research-tab:hover {
-  background: var(--bg-panel-light);
-  color: var(--text-normal);
-}
-
-.research-tab.active {
-  border-color: #44ccff;
-  color: #44ccff;
-  background: rgba(68, 204, 255, 0.08);
 }
 
 .research-tab-dot {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #44ccff;
-  animation: researchDotPulse 2s ease-in-out infinite;
+  background: var(--ds-teal);
+  display: inline-block;
+  margin-left: var(--sp-1);
+}
+
+/* ============ Active bonuses summary ============ */
+
+.research-bonuses-summary {
+  padding: var(--sp-3) var(--sp-6);
+  background: var(--ds-surface-2);
+  border-bottom: 1px solid var(--ds-border);
   flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
 }
 
-@keyframes researchDotPulse {
-  0%, 100% { opacity: 0.5; }
-  50% { opacity: 1; box-shadow: 0 0 6px rgba(68, 204, 255, 0.6); }
+.research-bonuses-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
 }
 
-/* ============ Tree Body ============ */
+/* ============ Body & tree grid ============ */
 
 .research-body {
   flex: 1;
-  overflow-y: auto;
-  overflow-x: auto;
-  padding: var(--space-lg);
   min-height: 0;
+  overflow: auto;
+  padding: var(--sp-5) var(--sp-6);
+  background: var(--ds-surface-2);
 }
 
 .research-tree-grid {
   display: flex;
   flex-direction: column;
-  gap: 40px;
   align-items: center;
+  gap: 0;
   min-width: fit-content;
 }
 
 .research-tree-tier {
   display: flex;
-  gap: 30px;
-  justify-content: center;
-  position: relative;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
 }
 
-/* ============ Tech Card ============ */
+.research-tier-connector {
+  width: 2px;
+  height: 24px;
+  background: var(--ds-border-strong);
+}
+
+.research-tier-cards {
+  display: flex;
+  gap: var(--sp-4);
+  justify-content: center;
+  flex-wrap: wrap;
+  padding: var(--sp-3) 0;
+}
+
+/* ============ Tech card ============ */
 
 .tech-card {
   width: 220px;
-  background: #0d1117;
-  border: 1px solid var(--border-frame);
-  border-radius: 6px;
-  padding: 12px;
-  cursor: default;
-  transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s;
-  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  cursor: pointer;
+  transition: border-color var(--motion-base), box-shadow var(--motion-base), transform var(--motion-fast);
 }
 
 .tech-card:hover {
-  border-color: var(--border-active);
-  box-shadow: 0 0 8px rgba(68, 136, 255, 0.1);
   transform: translateY(-1px);
+  box-shadow: var(--shadow-2);
+}
+
+.tech-card.is-selected,
+.tech-card--available {
+  border-color: var(--ds-orange);
+}
+
+.tech-card--researching {
+  border-color: var(--ds-teal);
+  box-shadow: var(--glow-teal);
+}
+
+.tech-card--completed {
+  border-color: var(--ds-teal);
+  background: var(--ds-teal-tint);
+}
+
+.tech-card--maxed {
+  border-color: var(--ds-orange);
+  background: var(--ds-orange-tint);
 }
 
 .tech-card--locked {
-  opacity: 0.5;
-  filter: grayscale(50%);
+  background: var(--ds-surface-3);
+  border-color: var(--ds-border);
+  color: var(--ds-text-soft);
 }
 
 .tech-card--locked:hover {
   transform: none;
-}
-
-.tech-card--available {
-  border-color: var(--border-active);
-}
-
-.tech-card--researching {
-  border-color: #44ccff;
-  animation: techPulseBorder 2s ease-in-out infinite;
-}
-
-.tech-card--completed {
-  border-color: var(--accent-success);
-}
-
-.tech-card--maxed {
-  border-color: var(--accent-gold);
-  box-shadow: 0 0 8px rgba(255, 200, 0, 0.3);
-}
-
-@keyframes techPulseBorder {
-  0%, 100% { box-shadow: 0 0 4px rgba(68, 204, 255, 0.2); }
-  50% { box-shadow: 0 0 16px rgba(68, 204, 255, 0.5); }
+  box-shadow: none;
 }
 
 .tech-card-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  margin-bottom: var(--space-sm);
+  gap: var(--sp-2);
+}
+
+.tech-card-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--r-sm);
+  background: var(--ds-surface);
+  color: var(--ds-teal);
+  flex-shrink: 0;
+}
+
+.tech-card--locked .tech-card-icon {
+  color: var(--ds-text-soft);
+}
+
+.tech-card--maxed .tech-card-icon {
+  color: var(--ds-orange);
 }
 
 .tech-card-name {
-  font-size: var(--font-base);
-  font-weight: 700;
-  color: var(--text-bright);
+  font-size: var(--fs-body);
+  font-weight: var(--fw-semibold);
+  color: var(--ds-text);
   flex: 1;
-  line-height: 1.2;
+  line-height: var(--lh-tight);
 }
 
 .tech-card-level {
-  font-size: var(--font-xs);
-  font-weight: 700;
-  color: var(--text-dim);
-  font-variant-numeric: tabular-nums;
-  flex-shrink: 0;
-  margin-left: var(--space-sm);
+  font-size: var(--fs-caption);
 }
-
-.tech-card--completed .tech-card-level {
-  color: var(--accent-success);
-}
-
-.tech-card--maxed .tech-card-level {
-  color: var(--accent-gold);
-}
-
-.tech-card-badge {
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  padding: 1px 6px;
-  border-radius: 3px;
-  letter-spacing: 0.05em;
-}
-
-.tech-card-badge.max-badge {
-  color: var(--accent-gold);
-  border: 1px solid var(--accent-gold);
-}
-
-.tech-card-badge.researching-badge {
-  color: #44ccff;
-  border: 1px solid #44ccff;
-}
-
-/* Tech card details */
 
 .tech-card-effect {
-  font-size: var(--font-xs);
-  color: var(--text-normal);
-  margin-bottom: var(--space-xs);
-  line-height: 1.3;
+  font-size: var(--fs-sm);
+  line-height: var(--lh-normal);
 }
 
 .tech-card-next {
-  font-size: var(--font-xs);
-  color: #44ccff;
-  margin-bottom: var(--space-sm);
-  line-height: 1.3;
+  font-size: var(--fs-sm);
+  color: var(--ds-teal-dark);
 }
 
 .tech-card-cost {
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
-  font-size: var(--font-xs);
-  color: var(--text-dim);
-  margin-bottom: 2px;
-}
-
-.tech-card-cost .gold-icon {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--color-gold);
-  display: inline-block;
-  flex-shrink: 0;
-}
-
-.tech-card-cost-value {
-  font-weight: 700;
-  color: var(--text-bright);
-  font-variant-numeric: tabular-nums;
-}
-
-.tech-card-cost-value.insufficient {
-  color: var(--accent-danger);
+  gap: var(--sp-1);
+  font-size: var(--fs-sm);
+  color: var(--ds-text);
 }
 
 .tech-card-time {
-  font-size: var(--font-xs);
-  color: var(--text-dim);
-  margin-bottom: var(--space-sm);
+  font-size: var(--fs-sm);
 }
 
 .tech-card-prereq {
-  font-size: var(--font-xs);
-  color: var(--accent-warning);
+  font-size: var(--fs-sm);
   font-style: italic;
-  margin-bottom: var(--space-sm);
 }
-
-/* Research button on cards */
-
-.tech-card-btn {
-  width: 100%;
-  padding: 5px 0;
-  background: linear-gradient(135deg, #1a3a5c, #2244aa);
-  color: var(--text-bright);
-  border: 1px solid var(--border-active);
-  border-radius: 4px;
-  font-size: var(--font-xs);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  cursor: pointer;
-  transition: box-shadow 0.2s, background 0.15s;
-  font-family: 'Rajdhani', sans-serif;
-}
-
-.tech-card-btn:hover:not(:disabled) {
-  background: linear-gradient(135deg, #2244aa, #3366cc);
-  box-shadow: var(--glow-blue);
-}
-
-.tech-card-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-/* Tech card progress (for researching) */
 
 .tech-card-progress {
-  margin-bottom: var(--space-sm);
-}
-
-.tech-card-progress-bar {
-  height: 4px;
-  background: #21262d;
-  border-radius: 2px;
-  overflow: hidden;
-  margin-bottom: 2px;
-}
-
-.tech-card-progress-fill {
-  height: 100%;
-  background: #44ccff;
-  border-radius: 2px;
-  transition: width 1s linear;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .tech-card-progress-text {
-  font-size: 10px;
-  color: #44ccff;
-  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-caption);
+  color: var(--ds-teal-dark);
 }
 
-/* ============ Tech Tooltip ============ */
-
-.tech-tooltip {
-  position: absolute;
-  left: 100%;
-  top: 0;
-  margin-left: 12px;
-  width: 280px;
-  background: #0a0e1a;
-  border: 1px solid var(--border-glow);
-  border-radius: 6px;
-  padding: var(--space-md);
-  z-index: 1000;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6), 0 0 12px rgba(68, 204, 255, 0.2);
-  pointer-events: none;
-  animation: tooltipFadeIn 0.15s ease-out;
-}
-
-@keyframes tooltipFadeIn {
-  from {
-    opacity: 0;
-    transform: translateX(-8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-.tech-tooltip-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: var(--space-sm);
-  padding-bottom: var(--space-sm);
-  border-bottom: 1px solid var(--border-frame);
-}
-
-.tech-tooltip-name {
-  font-size: var(--font-sm);
-  font-weight: 700;
-  color: var(--text-bright);
-}
-
-.tech-tooltip-level {
-  font-size: var(--font-xs);
-  font-weight: 700;
-  color: #44ccff;
-  font-variant-numeric: tabular-nums;
-}
-
-.tech-tooltip-desc {
-  font-size: var(--font-xs);
-  color: var(--text-dim);
-  line-height: 1.4;
-  margin-bottom: var(--space-sm);
-  font-style: italic;
-}
-
-.tech-tooltip-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: var(--space-xs);
-  gap: var(--space-sm);
-}
-
-.tech-tooltip-label {
-  font-size: var(--font-xs);
-  color: var(--text-dim);
-  font-weight: 600;
-}
-
-.tech-tooltip-value {
-  font-size: var(--font-xs);
-  font-weight: 700;
-  text-align: right;
-}
-
-.tech-tooltip-value.active {
-  color: var(--accent-success);
-}
-
-.tech-tooltip-value.next {
-  color: #44ccff;
-}
-
-.tech-tooltip-prereqs {
-  margin-top: var(--space-sm);
-  padding-top: var(--space-sm);
-  border-top: 1px solid var(--border-frame);
-}
-
-.tech-tooltip-prereq {
-  font-size: var(--font-xs);
-  color: var(--accent-warning);
-  margin-top: 2px;
-  line-height: 1.3;
-}
-
-/* Adjust tooltip position when card is on the right edge */
-.research-tree-tier:last-child .tech-card:last-child .tech-tooltip {
-  left: auto;
-  right: 100%;
-  margin-left: 0;
-  margin-right: 12px;
-}
-
-/* ============ Connector Lines (SVG/CSS) ============ */
-
-.research-connector {
-  position: absolute;
-  width: 2px;
-  background: var(--border-frame);
-  left: 50%;
-  transform: translateX(-50%);
-}
-
-/* ============ Active Research Bar (bottom) ============ */
+/* ============ Active research bar ============ */
 
 .research-active-bar {
   flex-shrink: 0;
-  padding: var(--space-md) var(--space-lg);
-  background: #0d1117;
-  border-top: 1px solid var(--border-frame);
+  padding: var(--sp-3) var(--sp-6);
+  background: var(--ds-surface);
+  border-top: 1px solid var(--ds-border);
   display: flex;
   flex-direction: column;
-  gap: var(--space-sm);
+  gap: var(--sp-2);
 }
 
 .research-active-info {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-md);
+  gap: var(--sp-3);
 }
 
 .research-active-name {
-  font-size: var(--font-base);
-  font-weight: 700;
-  color: var(--text-bright);
-}
-
-.research-active-level {
-  font-size: var(--font-sm);
-  color: #44ccff;
-  font-weight: 600;
+  font-size: var(--fs-body);
+  font-weight: var(--fw-semibold);
+  color: var(--ds-text);
 }
 
 .research-active-timer {
-  font-size: var(--font-timer);
-  color: #44ccff;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-body);
+  color: var(--ds-teal-dark);
+  font-weight: var(--fw-semibold);
 }
 
 .research-active-progress {
   display: flex;
   align-items: center;
-  gap: var(--space-md);
+  gap: var(--sp-3);
 }
 
-.research-progress-bar {
-  flex: 1;
-  height: 6px;
-  background: #21262d;
-  border-radius: 3px;
-  overflow: hidden;
-}
-
-.research-progress-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #2288cc, #44ccff);
-  border-radius: 3px;
-  transition: width 1s linear;
-}
-
-.research-progress-pct {
-  font-size: var(--font-xs);
-  color: var(--text-dim);
-  min-width: 36px;
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-}
+.research-active-progress > .ds-bar { flex: 1; }
 
 .research-active-actions {
   display: flex;
-  gap: var(--space-sm);
-  align-items: center;
+  gap: var(--sp-2);
 }
 
-.research-speedup-btn {
-  padding: 4px 14px;
-  background: linear-gradient(135deg, #b8860b, #d4a017);
-  color: #000;
-  border: none;
-  border-radius: 4px;
-  font-size: var(--font-xs);
-  font-weight: 700;
-  text-transform: uppercase;
-  cursor: pointer;
-  transition: box-shadow 0.2s;
-  font-family: 'Rajdhani', sans-serif;
-}
+/* ============ Confirm modal extras ============ */
 
-.research-speedup-btn:hover:not(:disabled) {
-  box-shadow: var(--glow-gold);
-}
+.research-confirm-modal { /* sizing handled by ds-modal--sm */ }
 
-.research-speedup-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.research-cancel-btn {
-  padding: 4px 14px;
-  background: transparent;
-  color: var(--accent-danger);
-  border: 1px solid var(--accent-danger);
-  border-radius: 4px;
-  font-size: var(--font-xs);
-  font-weight: 700;
-  text-transform: uppercase;
-  cursor: pointer;
-  transition: background 0.15s;
-  font-family: 'Rajdhani', sans-serif;
-}
-
-.research-cancel-btn:hover:not(:disabled) {
-  background: rgba(255, 68, 68, 0.1);
-}
-
-.research-cancel-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/* ============ Confirmation Modal ============ */
-
-.research-confirm-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.7);
-  z-index: 500;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  animation: fadeIn 0.15s ease-out;
-}
-
-.research-confirm-modal {
-  width: 380px;
-  max-width: 90vw;
-  background: #1a1a2e;
-  border: 1px solid var(--border-glow);
-  border-radius: 8px;
-  overflow: hidden;
-  box-shadow: 0 0 30px rgba(68, 204, 255, 0.15);
-  animation: modalIn 0.15s ease-out;
-}
-
-.research-confirm-header {
-  padding: var(--space-md) var(--space-lg);
-  border-bottom: 1px solid var(--border-frame);
-  font-size: var(--font-base);
-  font-weight: 700;
-  color: var(--text-bright);
-  text-align: center;
-  text-transform: uppercase;
-}
-
-.research-confirm-body {
-  padding: var(--space-lg);
+.research-confirm-rows {
   display: flex;
   flex-direction: column;
-  gap: var(--space-sm);
+  gap: var(--sp-2);
 }
 
 .research-confirm-row {
   display: flex;
   justify-content: space-between;
-  font-size: var(--font-sm);
+  gap: var(--sp-3);
+  font-size: var(--fs-sm);
 }
 
-.research-confirm-label {
-  color: var(--text-dim);
-}
-
-.research-confirm-value {
-  color: var(--text-bright);
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-}
-
-.research-confirm-value.insufficient {
-  color: var(--accent-danger);
-}
-
-.research-confirm-value.gold {
-  color: var(--color-gold);
-}
-
-.research-confirm-sep {
-  height: 1px;
-  background: var(--border-frame);
-  margin: var(--space-xs) 0;
-}
-
-.research-confirm-actions {
-  display: flex;
-  gap: var(--space-md);
-  padding: var(--space-md) var(--space-lg) var(--space-lg);
-  justify-content: center;
-}
-
-.research-confirm-cancel {
-  flex: 1;
-  padding: 8px 0;
-  background: transparent;
-  color: var(--text-normal);
-  border: 1px solid var(--border-frame);
-  border-radius: 4px;
-  font-size: var(--font-sm);
-  font-weight: 700;
-  text-transform: uppercase;
-  cursor: pointer;
-  transition: border-color 0.15s;
-  font-family: 'Rajdhani', sans-serif;
-}
-
-.research-confirm-cancel:hover {
-  border-color: var(--border-active);
-}
-
-.research-confirm-ok {
-  flex: 1;
-  padding: 8px 0;
-  background: linear-gradient(135deg, #1a3a5c, #2244aa);
-  color: var(--text-bright);
-  border: 1px solid var(--border-active);
-  border-radius: 4px;
-  font-size: var(--font-sm);
-  font-weight: 700;
-  text-transform: uppercase;
-  cursor: pointer;
-  transition: box-shadow 0.2s, background 0.15s;
-  font-family: 'Rajdhani', sans-serif;
-}
-
-.research-confirm-ok:hover:not(:disabled) {
-  background: linear-gradient(135deg, #2244aa, #3366cc);
-  box-shadow: var(--glow-blue);
-}
-
-.research-confirm-ok:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-/* ============ No Active Bar ============ */
+/* ============ No active / empty ============ */
 
 .research-no-active {
   flex-shrink: 0;
-  padding: var(--space-sm) var(--space-lg);
-  background: #0d1117;
-  border-top: 1px solid var(--border-frame);
+  padding: var(--sp-2) var(--sp-6);
+  background: var(--ds-surface-2);
+  border-top: 1px solid var(--ds-border);
   text-align: center;
-  font-size: var(--font-xs);
-  color: var(--text-dim);
-  font-style: italic;
+  font-size: var(--fs-caption);
+  color: var(--ds-text-muted);
 }
 
-/* ============ Empty State ============ */
-
-.research-empty {
-  text-align: center;
-  padding: var(--space-xxl);
-  color: var(--text-dim);
-  font-size: var(--font-sm);
-}
-
-/* ============ Research Nav Badge ============ */
+/* ============ Nav badge ============ */
 
 .nav-research-badge {
   position: absolute;
@@ -792,15 +302,9 @@
   right: 2px;
   width: 10px;
   height: 10px;
-  background: #44ccff;
+  background: var(--ds-teal);
   border-radius: 50%;
-  border: 2px solid var(--bg-panel-solid);
-  animation: researchNavPulse 2s ease-in-out infinite;
-}
-
-@keyframes researchNavPulse {
-  0%, 100% { opacity: 0.6; transform: scale(1); }
-  50% { opacity: 1; transform: scale(1.2); }
+  border: 2px solid var(--ds-surface);
 }
 
 /* ============ Responsive ============ */
@@ -813,17 +317,11 @@
     max-height: 100vh;
     border-radius: 0;
   }
-
-  .research-tabs {
-    overflow-x: auto;
-  }
-
   .tech-card {
     width: 100%;
     max-width: 320px;
   }
-
-  .research-tree-tier {
+  .research-tier-cards {
     flex-direction: column;
     align-items: center;
   }
@@ -831,6 +329,6 @@
 
 @media (min-width: 768px) and (max-width: 1199px) {
   .tech-card {
-    width: 180px;
+    width: 200px;
   }
 }

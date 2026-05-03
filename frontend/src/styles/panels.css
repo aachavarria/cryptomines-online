@@ -1,18 +1,23 @@
-/* Building Detail Panel - right slide-in */
+/* ============================================================
+   Building Detail Panel — right slide-in (380px, flush)
+   Migrated to design system tokens. See docs/reference/design-system.md §7.4
+   ============================================================ */
 .building-detail-panel {
   position: fixed;
-  top: 56px;
+  top: var(--hud-height);
   right: 0;
   bottom: 0;
-  width: 360px;
-  z-index: 200;
-  background: var(--bg-panel-solid);
-  border-left: 1px solid var(--border-glow);
-  box-shadow: -4px 0 20px rgba(51, 102, 204, 0.15);
+  width: 380px;
+  z-index: var(--z-panel);
+  background: var(--ds-surface);
+  border-left: 1px solid var(--ds-border);
+  border-radius: 0;
+  box-shadow: var(--shadow-3);
   overflow-y: auto;
   transform: translateX(100%);
-  transition: transform 0.25s ease-out;
-  font-family: 'Rajdhani', 'Segoe UI', system-ui, sans-serif;
+  transition: transform var(--motion-slow);
+  font-family: var(--ff-sans);
+  color: var(--ds-text);
 }
 
 .building-detail-panel.open {
@@ -20,131 +25,111 @@
 }
 
 .bdp-header {
-  padding: var(--space-lg);
-  border-bottom: 1px solid var(--border-frame);
   position: relative;
+  padding: var(--sp-5);
+  border-bottom: 1px solid var(--ds-border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-2);
 }
 
 .bdp-close {
   position: absolute;
-  top: var(--space-sm);
-  right: var(--space-sm);
-  width: 28px;
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  border: 1px solid var(--border-frame);
-  border-radius: 4px;
-  color: var(--text-dim);
+  top: var(--sp-3);
+  right: var(--sp-3);
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  background: var(--ds-surface-3);
+  border: 1px solid transparent;
+  border-radius: var(--r-md);
+  color: var(--ds-text-muted);
   cursor: pointer;
-  font-size: 14px;
-  transition: border-color 0.15s, color 0.15s;
+  display: inline-grid;
+  place-items: center;
+  transition: background var(--motion-fast), color var(--motion-fast);
 }
 
 .bdp-close:hover {
-  border-color: var(--accent-danger);
-  color: var(--accent-danger);
-}
-
-.bdp-category-badge {
-  display: inline-block;
-  font-size: var(--font-xs);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  padding: 2px 8px;
-  border-radius: 3px;
-  font-weight: 600;
-  margin-bottom: var(--space-sm);
-}
-
-.bdp-category-badge.resource {
-  color: var(--accent-success);
-  border: 1px solid var(--accent-success);
-}
-
-.bdp-category-badge.core {
-  color: var(--accent-primary);
-  border: 1px solid var(--accent-primary);
-}
-
-.bdp-category-badge.military {
-  color: var(--accent-danger);
-  border: 1px solid var(--accent-danger);
-}
-
-.bdp-category-badge.space,
-.bdp-category-badge.defense {
-  color: var(--color-he3);
-  border: 1px solid var(--color-he3);
+  background: var(--ds-border);
+  color: var(--ds-text);
 }
 
 .bdp-icon {
-  width: 64px;
-  height: 64px;
-  margin: var(--space-sm) auto;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 8px;
-  font-size: 24px;
-  font-weight: 700;
+  width: 56px;
+  height: 56px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--r-lg);
+  background: var(--ds-surface-2);
+  border: 1px solid var(--ds-border);
+  color: var(--ds-teal);
 }
 
+.bdp-icon svg { width: 28px; height: 28px; }
+
 .bdp-name {
-  font-size: var(--font-lg);
-  font-weight: 700;
-  color: var(--text-bright);
+  font-size: var(--fs-h2);
+  font-weight: var(--fw-semibold);
+  color: var(--ds-text);
   text-align: center;
+  line-height: var(--lh-tight);
+  margin: 0;
 }
 
 .bdp-level {
-  font-size: var(--font-base);
-  color: var(--text-normal);
+  font-size: var(--fs-sm);
+  color: var(--ds-text-muted);
   text-align: center;
-  margin-top: var(--space-xs);
 }
 
 .bdp-level-bar {
-  height: 3px;
-  background: var(--border-frame);
-  border-radius: 2px;
-  margin-top: var(--space-sm);
+  width: 100%;
+  height: 6px;
+  background: var(--ds-border);
+  border-radius: var(--r-pill);
+  margin-top: var(--sp-1);
   overflow: hidden;
 }
 
 .bdp-level-bar-fill {
   height: 100%;
-  background: var(--accent-primary);
-  border-radius: 2px;
-  transition: width 0.5s ease-out;
+  background: var(--ds-teal);
+  border-radius: inherit;
+  transition: width var(--motion-slow);
 }
 
 /* Panel sections */
 .bdp-section {
-  padding: var(--space-md) var(--space-lg);
-  border-bottom: 1px solid var(--border-frame);
+  padding: var(--sp-5);
+  border-bottom: 1px solid var(--ds-border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.bdp-section:last-child {
+  border-bottom: 0;
 }
 
 .bdp-section-title {
-  font-size: var(--font-xs);
+  font-size: var(--fs-caption);
+  font-weight: var(--fw-semibold);
   text-transform: uppercase;
-  letter-spacing: 0.15em;
-  color: var(--text-label);
-  margin-bottom: var(--space-sm);
-  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--ds-text-muted);
+  margin-bottom: var(--sp-2);
 }
 
 .bdp-production-current {
-  font-size: var(--font-base);
-  color: var(--text-bright);
+  font-size: var(--fs-body);
+  color: var(--ds-text);
 }
 
 .bdp-production-next {
-  font-size: var(--font-sm);
-  color: var(--accent-success);
-  margin-top: 2px;
+  font-size: var(--fs-sm);
+  color: var(--ds-success);
 }
 
 /* Upgrade cost rows */
@@ -152,583 +137,268 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 3px 0;
+  gap: var(--sp-2);
+  padding: 4px 0;
 }
 
 .bdp-cost-left {
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
+  gap: var(--sp-2);
 }
-
-.bdp-cost-icon {
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  display: inline-block;
-}
-
-.bdp-cost-icon.metal { background: var(--color-metal); }
-.bdp-cost-icon.he3 { background: var(--color-he3); }
-.bdp-cost-icon.gold { background: var(--color-gold); }
 
 .bdp-cost-name {
-  font-size: var(--font-sm);
-  color: var(--text-normal);
-  min-width: 40px;
+  font-size: var(--fs-sm);
+  color: var(--ds-text-muted);
+  min-width: 44px;
 }
 
 .bdp-cost-amount {
-  font-size: var(--font-base);
-  font-weight: 600;
-  color: var(--text-bright);
-  font-variant-numeric: tabular-nums;
+  margin-left: auto;
+  font-size: var(--fs-body);
+  font-weight: var(--fw-semibold);
+  color: var(--ds-text);
 }
 
 .bdp-cost-status {
-  font-size: var(--font-sm);
-  font-weight: 700;
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
 }
 
-.bdp-cost-status.ok { color: var(--accent-success); }
-.bdp-cost-status.insufficient { color: var(--accent-danger); }
+.bdp-cost-status.ok { color: var(--ds-success); }
+.bdp-cost-status.insufficient { color: var(--ds-danger); }
 
 .bdp-time-row {
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
-  padding: 3px 0;
-  color: var(--text-normal);
-  font-size: var(--font-sm);
+  justify-content: space-between;
+  gap: var(--sp-2);
+  padding: 4px 0;
+  color: var(--ds-text-muted);
+  font-size: var(--fs-sm);
 }
 
 .bdp-time-value {
-  font-family: 'JetBrains Mono', 'Fira Code', monospace;
-  font-size: var(--font-timer);
-  color: var(--text-bright);
+  color: var(--ds-text);
 }
 
-/* Upgrade button */
+/* Upgrade button — uses .ds-btn-secondary.ds-btn--block on the element directly.
+   Legacy .bdp-upgrade-btn kept only for the upgrading/cancel state styling. */
 .bdp-upgrade-btn {
-  display: block;
   width: 100%;
-  padding: 10px;
-  margin-top: var(--space-md);
-  border: none;
-  border-radius: 4px;
-  font-size: var(--font-base);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  cursor: pointer;
-  transition: box-shadow 0.2s, transform 0.1s;
-  font-family: 'Rajdhani', sans-serif;
-}
-
-.bdp-upgrade-btn.can-upgrade {
-  background: linear-gradient(135deg, #2255bb, var(--accent-primary));
-  color: #fff;
-}
-
-.bdp-upgrade-btn.can-upgrade:hover {
-  box-shadow: var(--glow-blue);
-  transform: translateY(-1px);
 }
 
 .bdp-upgrade-btn.upgrading,
 .bdp-upgrade-btn.upgrading-cancel {
-  background: linear-gradient(135deg, #886611, var(--accent-warning));
-  color: #fff;
-  cursor: pointer;
+  background: var(--ds-warning-tint);
+  color: var(--ds-orange-strong);
+  border: 1px solid var(--ds-orange);
 }
 
-.bdp-upgrade-btn.max-level {
-  background: transparent;
-  border: 2px solid var(--accent-gold);
-  color: var(--accent-gold);
-  cursor: default;
+.bdp-upgrade-btn.upgrading-cancel:hover:not(:disabled) {
+  background: var(--ds-orange);
+  color: var(--ds-text-inverse);
 }
 
-.bdp-upgrade-btn.disabled {
-  background: var(--border-frame);
-  color: var(--text-dim);
-  cursor: not-allowed;
-}
-
-/* ===================== */
-/* Building Context Menu */
-/* ===================== */
+/* ============================================================
+   Building Context Menu (popover)
+   Migrated to design system tokens. See docs/reference/design-system.md §7.3
+   Chrome from .ds-panel surface; items composed with .ds-btn-ghost.
+   ============================================================ */
 .building-context-menu {
   position: fixed;
   z-index: 150;
-  background: var(--bg-panel);
-  backdrop-filter: blur(8px);
-  border: 1px solid var(--border-active);
-  border-radius: 6px;
-  padding: var(--space-xs);
+  background: var(--ds-surface);
+  border: 1px solid var(--ds-border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-3);
+  padding: var(--sp-2);
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  min-width: 110px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
-  font-family: 'Rajdhani', 'Segoe UI', system-ui, sans-serif;
-  animation: contextMenuIn 0.15s ease-out;
-}
-
-@keyframes contextMenuIn {
-  from {
-    opacity: 0;
-    transform: scale(0.9);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
+  gap: var(--sp-1);
+  min-width: 140px;
+  font-family: var(--ff-sans);
+  color: var(--ds-text);
+  animation: ds-popover-in var(--motion-fast);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 
 .bcm-header {
-  font-size: var(--font-xs);
-  color: var(--text-label);
+  font-size: var(--fs-caption);
+  font-weight: var(--fw-semibold);
+  color: var(--ds-text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.1em;
-  padding: 2px var(--space-sm);
-  border-bottom: 1px solid var(--border-frame);
-  margin-bottom: 2px;
+  letter-spacing: 0.06em;
+  padding: var(--sp-1) var(--sp-2) var(--sp-2);
+  border-bottom: 1px solid var(--ds-border);
+  margin-bottom: var(--sp-1);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.bcm-btn {
-  display: block;
-  width: 100%;
-  padding: 6px var(--space-sm);
+/* Override .ds-btn defaults for menu items: left-aligned, no caps. */
+.bcm-item.ds-btn-ghost {
+  justify-content: flex-start;
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: var(--fw-medium);
+  font-size: var(--fs-sm);
+  padding: 6px var(--sp-2);
+  gap: var(--sp-2);
   background: transparent;
-  border: 1px solid transparent;
-  border-radius: 4px;
-  color: var(--text-bright);
-  font-size: var(--font-base);
-  font-weight: 600;
-  cursor: pointer;
-  text-align: left;
-  transition: background 0.1s, border-color 0.1s;
-  font-family: 'Rajdhani', sans-serif;
+  border-color: transparent;
 }
 
-.bcm-btn:hover:not(:disabled) {
-  background: rgba(68, 136, 255, 0.15);
-  border-color: var(--accent-primary);
+.bcm-item.ds-btn-ghost:hover:not(:disabled) {
+  background: var(--ds-surface-3);
+  border-color: var(--ds-border);
 }
 
-.bcm-btn:disabled {
-  color: var(--text-dim);
-  cursor: not-allowed;
+.bcm-item.ds-btn-ghost > svg {
+  flex-shrink: 0;
+  color: var(--ds-text-muted);
 }
 
-.bcm-btn.bcm-harvest {
-  color: var(--accent-success);
+.bcm-item.ds-btn-ghost:hover:not(:disabled) > svg {
+  color: var(--ds-teal);
 }
 
-.bcm-btn.bcm-harvest:hover {
-  background: rgba(34, 204, 102, 0.15);
-  border-color: var(--accent-success);
-}
-
-/* ========================= */
-/* Construction Info Panel    */
-/* (bottom-right, compact)   */
-/* ========================= */
-.construction-info-panel {
+/* ============================================================
+   Construction Info Panel — bottom-right compact panel
+   Migrated to design system tokens. See docs/reference/design-system.md §6.1
+   Chrome composed via .ds-panel; .ds-bar drives the progress fill.
+   ============================================================ */
+.construction-info-panel.ds-panel {
   position: fixed;
   bottom: 70px;
-  right: var(--space-lg);
+  right: var(--sp-5);
   z-index: 60;
-  background: var(--bg-panel);
-  backdrop-filter: blur(8px);
-  border: 1px solid var(--border-frame);
-  border-radius: 6px;
-  padding: var(--space-sm);
-  min-width: 220px;
-  max-width: 280px;
-  font-family: 'Rajdhani', 'Segoe UI', system-ui, sans-serif;
+  padding: var(--sp-3) var(--sp-4);
+  min-width: 240px;
+  max-width: 300px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
 }
 
 .cip-header {
-  font-size: var(--font-xs);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--text-label);
-  padding-bottom: var(--space-xs);
-  border-bottom: 1px solid var(--border-frame);
-  margin-bottom: var(--space-xs);
+  padding-bottom: var(--sp-2);
+  border-bottom: 1px solid var(--ds-border);
 }
 
 .cip-entry {
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
-  padding: var(--space-xs) 0;
+  gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-1);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--r-md);
   cursor: pointer;
-  border-radius: 3px;
-  transition: background 0.1s;
+  transition: background var(--motion-fast), border-color var(--motion-fast);
+  width: 100%;
+  text-align: left;
+  font-family: inherit;
+  color: inherit;
 }
 
 .cip-entry:hover {
-  background: rgba(68, 136, 255, 0.08);
+  background: var(--ds-surface-2);
+  border-color: var(--ds-border);
+}
+
+.cip-entry:focus-visible {
+  outline: none;
+  box-shadow: var(--glow-teal);
 }
 
 .cip-entry-info {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .cip-entry-name {
-  font-size: var(--font-sm);
-  font-weight: 600;
-  color: var(--text-bright);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+  color: var(--ds-text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   display: block;
 }
 
-.cip-progress {
-  height: 2px;
-  background: var(--border-frame);
-  border-radius: 1px;
-  margin-top: 2px;
-  overflow: hidden;
-}
-
-.cip-progress-fill {
-  height: 100%;
-  background: var(--accent-warning);
-  border-radius: 1px;
-  transition: width 1s linear;
+/* Slim variant of .ds-bar for the compact entry. */
+.cip-progress.ds-bar {
+  height: 4px;
 }
 
 .cip-entry-timer {
-  font-family: 'JetBrains Mono', 'Fira Code', monospace;
-  font-size: var(--font-timer);
-  color: var(--accent-warning);
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-caption);
+  color: var(--ds-orange-strong);
+  font-weight: var(--fw-semibold);
   white-space: nowrap;
 }
 
-/* ========================= */
-/* Construction Panel - modal */
-/* ========================= */
-.construction-modal-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.7);
-  z-index: 300;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-family: 'Rajdhani', 'Segoe UI', system-ui, sans-serif;
-}
-
-.construction-modal {
-  width: 680px;
-  max-width: 95vw;
-  max-height: 80vh;
-  background: var(--bg-panel-solid);
-  border: 1px solid var(--border-glow);
-  border-radius: 8px;
-  overflow: hidden;
+/* ============================================================
+   3D hover tooltip — uses .ds-tooltip primitive (§6.8).
+   This modifier adds the multi-line stack used by BuildingModel.
+   ============================================================ */
+.ds-tooltip--3d {
+  position: static; /* drei <Html> handles positioning */
   display: flex;
   flex-direction: column;
-  box-shadow: 0 0 40px rgba(51, 102, 204, 0.15);
-}
-
-.cm-header {
-  display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: var(--space-md) var(--space-lg);
-  border-bottom: 1px solid var(--border-frame);
-}
-
-.cm-title {
-  font-size: var(--font-lg);
-  font-weight: 700;
-  color: var(--text-bright);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-}
-
-.cm-close {
-  width: 28px;
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  border: 1px solid var(--border-frame);
-  border-radius: 4px;
-  color: var(--text-dim);
-  cursor: pointer;
-  font-size: 14px;
-  transition: border-color 0.15s, color 0.15s;
-}
-
-.cm-close:hover {
-  border-color: var(--accent-danger);
-  color: var(--accent-danger);
-}
-
-/* Category tabs */
-.cm-tabs {
-  display: flex;
   gap: 2px;
-  padding: var(--space-sm) var(--space-lg);
-  border-bottom: 1px solid var(--border-frame);
+  text-align: center;
+  user-select: none;
 }
 
-.cm-tab {
-  flex: 1;
-  padding: 6px 12px;
-  background: transparent;
-  border: 1px solid var(--border-frame);
-  border-radius: 4px;
-  color: var(--text-dim);
-  font-size: var(--font-sm);
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.15s;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  font-family: 'Rajdhani', sans-serif;
-}
-
-.cm-tab:hover {
-  background: var(--bg-panel-light);
-  color: var(--text-normal);
-}
-
-.cm-tab.active {
-  border-color: var(--accent-primary);
-  color: var(--accent-primary);
-  background: rgba(68, 136, 255, 0.1);
-}
-
-.cm-tab.resource.active {
-  border-color: var(--accent-success);
-  color: var(--accent-success);
-  background: rgba(34, 204, 102, 0.1);
-}
-
-.cm-tab.military.active {
-  border-color: var(--accent-danger);
-  color: var(--accent-danger);
-  background: rgba(255, 68, 68, 0.1);
-}
-
-.cm-tab.space.active {
-  border-color: var(--color-he3);
-  color: var(--color-he3);
-  background: rgba(68, 204, 255, 0.1);
-}
-
-/* Building cards grid */
-.cm-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: var(--space-md);
-  padding: var(--space-lg);
-  overflow-y: auto;
-}
-
-.cm-card {
-  background: var(--bg-panel-light);
-  border: 1px solid var(--border-frame);
-  border-radius: 6px;
-  padding: var(--space-md);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-  transition: border-color 0.15s;
-}
-
-.cm-card:hover {
-  border-color: var(--border-active);
-}
-
-.cm-card.dimmed {
-  opacity: 0.5;
-}
-
-.cm-card-header {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-}
-
-.cm-card-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
-  font-weight: 700;
-  flex-shrink: 0;
-}
-
-.cm-card-info {
-  flex: 1;
-}
-
-.cm-card-name {
-  font-size: var(--font-base);
-  font-weight: 600;
-  color: var(--text-bright);
-}
-
-.cm-card-count {
-  font-size: var(--font-xs);
-  color: var(--text-dim);
-}
-
-.cm-card-costs {
-  display: flex;
-  gap: var(--space-md);
-  flex-wrap: wrap;
-  font-size: var(--font-sm);
-  color: var(--text-normal);
-}
-
-.cm-card-cost {
-  display: flex;
-  align-items: center;
-  gap: 3px;
-}
-
-.cm-card-cost-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  display: inline-block;
-}
-
-.cm-card-cost-dot.metal { background: var(--color-metal); }
-.cm-card-cost-dot.he3 { background: var(--color-he3); }
-.cm-card-cost-dot.gold { background: var(--color-gold); }
-
-.cm-card-build-btn {
-  width: 100%;
-  padding: 6px;
-  border: none;
-  border-radius: 4px;
-  font-size: var(--font-sm);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  cursor: pointer;
-  transition: box-shadow 0.2s;
-  font-family: 'Rajdhani', sans-serif;
-  background: linear-gradient(135deg, #1a6633, var(--accent-success));
-  color: #fff;
-}
-
-.cm-card-build-btn:hover:not(:disabled) {
-  box-shadow: var(--glow-green);
-}
-
-.cm-card-build-btn:disabled {
-  background: var(--border-frame);
-  color: var(--text-dim);
-  cursor: not-allowed;
+.ds-tooltip-timer {
+  font-size: 10px;
+  color: var(--ds-orange);
 }
 
 /* ===================== */
-/* Hover tooltip in 3D   */
+/* Fleet marker labels   */
 /* ===================== */
-.hover-tooltip-3d {
-  background: rgba(12, 12, 32, 0.9);
-  border: 1px solid var(--border-frame);
+.fleet-marker-label {
+  background: rgba(8, 16, 40, 0.85);
+  border: 1px solid #44ccff;
   border-radius: 4px;
   padding: 3px 8px;
   text-align: center;
   pointer-events: none;
   user-select: none;
   white-space: nowrap;
-  font-family: 'Rajdhani', sans-serif;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-bright);
+  font-family: var(--ff-sans);
+  color: #cce8ff;
   display: flex;
   flex-direction: column;
   gap: 1px;
+  box-shadow: 0 0 6px rgba(68, 204, 255, 0.4);
+  transition: transform 120ms ease-out, box-shadow 120ms ease-out;
 }
 
-.hover-tooltip-timer {
-  font-size: 9px;
-  color: var(--accent-warning);
-  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+.fleet-marker-label.hovered {
+  transform: scale(1.08);
+  box-shadow: 0 0 14px rgba(68, 204, 255, 0.8);
 }
 
-/* ===================== */
-/* Bottom action buttons */
-/* ===================== */
-.bottom-actions {
-  position: fixed;
-  bottom: var(--space-lg);
-  right: var(--space-lg);
-  z-index: 55;
-  display: flex;
-  gap: var(--space-sm);
-}
-
-.build-action-btn {
-  padding: 10px 24px;
-  background: linear-gradient(135deg, #2255bb, var(--accent-primary));
-  color: #fff;
-  border: 1px solid var(--accent-primary);
-  border-radius: 6px;
-  font-size: var(--font-md);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  cursor: pointer;
-  transition: box-shadow 0.2s, transform 0.1s;
-  font-family: 'Rajdhani', sans-serif;
-  box-shadow: 0 2px 10px rgba(68, 136, 255, 0.3);
-}
-
-.build-action-btn:hover {
-  box-shadow: var(--glow-blue), 0 4px 20px rgba(68, 136, 255, 0.4);
-  transform: translateY(-1px);
-}
-
-/* Placement mode indicator */
-.placement-indicator {
-  position: fixed;
-  bottom: var(--space-xxl);
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 55;
-  background: var(--bg-panel);
-  backdrop-filter: blur(8px);
-  border: 1px solid var(--accent-primary);
-  border-radius: 6px;
-  padding: var(--space-sm) var(--space-lg);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  font-family: 'Rajdhani', sans-serif;
-  color: var(--text-bright);
-  font-size: var(--font-base);
+.fleet-marker-name {
+  font-size: 11px;
   font-weight: 600;
-  animation: fadeIn 0.2s ease-out;
+  color: #ffffff;
 }
 
-.placement-hint {
-  font-size: var(--font-xs);
-  color: var(--text-dim);
+.fleet-marker-meta {
+  font-size: 9px;
+  color: #88bbdd;
 }
 

@@ -2,6 +2,16 @@ import { useState, useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useResearch } from '../../hooks/useResearch.ts'
 import { useCountdown, formatDuration, formatNumber } from '../../hooks/useCountdown.ts'
+import {
+  FlaskConical,
+  Microscope,
+  Lightbulb,
+  Lock,
+  Check,
+  Sparkles,
+  X,
+  Zap,
+} from 'lucide-react'
 import type { TechTree, TechWithProgress } from '../../types'
 
 const TREES: { key: TechTree; label: string }[] = [
@@ -23,6 +33,7 @@ export default function ResearchPanel({ onClose }: ResearchPanelProps) {
   const [confirmTech, setConfirmTech] = useState<TechWithProgress | null>(null)
   const [actionPending, setActionPending] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
+  const [selectedId, setSelectedId] = useState<number | null>(null)
 
   const { trees, active, loading, error, start, cancel, speedup, refreshAll } = useResearch()
 
@@ -58,13 +69,25 @@ export default function ResearchPanel({ onClose }: ResearchPanelProps) {
   // Group techs by tiers based on prerequisite depth
   const tiers = useMemo(() => buildTiers(currentTreeTechs), [currentTreeTechs])
 
+  // Auto-select first available tech when tab changes
+  useEffect(() => {
+    if (currentTreeTechs.length === 0) {
+      setSelectedId(null)
+      return
+    }
+    if (!selectedId || !currentTreeTechs.find(t => t.id === selectedId)) {
+      const first = currentTreeTechs.find(t => getCardState(t) === 'available')
+        ?? currentTreeTechs[0]
+      setSelectedId(first.id)
+    }
+  }, [currentTreeTechs, selectedId])
+
   // Check which tree has active research
   const activeTreeKey = active?.tree || null
 
   // Calculate active bonuses across all trees
   const activeBonuses = useMemo(() => {
     const results: { text: string; key: string }[] = []
-
     Object.values(trees).forEach(treeTechs => {
       treeTechs.forEach(tech => {
         if (tech.current_level > 0 && tech.effects?.type) {
@@ -75,7 +98,6 @@ export default function ResearchPanel({ onClose }: ResearchPanelProps) {
         }
       })
     })
-
     return results
   }, [trees])
 
@@ -131,43 +153,49 @@ export default function ResearchPanel({ onClose }: ResearchPanelProps) {
 
   return createPortal(
     <div className="research-backdrop" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <div className="research-panel">
+      <div className="research-panel ds-modal ds-modal--lg">
         {/* Header */}
-        <div className="research-header">
-          <span className="research-title">
-            TECHNOLOGY CENTER
-          </span>
-          <button className="p2-modal-close" onClick={onClose}>X</button>
+        <div className="ds-modal-header">
+          <div className="ds-row">
+            <Microscope size={22} strokeWidth={1.75} style={{ color: 'var(--ds-teal)' }} />
+            <h2 className="ds-modal-title">Technology Center</h2>
+          </div>
+          <button className="ds-btn-icon" onClick={onClose} aria-label="Close">
+            <X size={16} />
+          </button>
         </div>
 
         {/* Tabs */}
-        <div className="research-tabs">
+        <div className="ds-tabs research-tabs">
           {TREES.map(t => (
             <button
               key={t.key}
-              className={`research-tab ${tab === t.key ? 'active' : ''}`}
-              onClick={() => setTab(t.key)}
+              className="ds-tab"
+              aria-selected={tab === t.key}
+              onClick={() => { setTab(t.key); setSelectedId(null) }}
             >
               {t.label}
-              {activeTreeKey === t.key && <span className="research-tab-dot" />}
+              {activeTreeKey === t.key && <span className="research-tab-dot" aria-label="active research" />}
             </button>
           ))}
         </div>
 
         {/* Toast */}
         {toast && (
-          <div className="quest-reward-flash">{toast}</div>
+          <div className="quest-reward-flash">
+            <Sparkles size={14} /> {toast}
+          </div>
         )}
 
         {/* Active Bonuses Summary */}
         {activeBonuses.length > 0 && (
           <div className="research-bonuses-summary">
-            <div className="research-bonuses-title">ACTIVE BONUSES</div>
+            <div className="ds-caption">Active Bonuses</div>
             <div className="research-bonuses-grid">
               {activeBonuses.map(bonus => (
-                <div key={bonus.key} className="research-bonus-item">
-                  <span className="research-bonus-value">{bonus.text}</span>
-                </div>
+                <span key={bonus.key} className="ds-badge ds-badge--teal">
+                  {bonus.text}
+                </span>
               ))}
             </div>
           </div>
@@ -176,25 +204,30 @@ export default function ResearchPanel({ onClose }: ResearchPanelProps) {
         {/* Body */}
         <div className="research-body">
           {loading ? (
-            <div className="p2-panel-loading">
+            <div className="quest-loading">
               <div className="loading-spinner" /><span>Loading research...</span>
             </div>
           ) : error ? (
-            <div className="p2-panel-error">{error}</div>
+            <div className="quest-error">{error}</div>
           ) : currentTreeTechs.length === 0 ? (
-            <div className="research-empty">No technologies available in this tree.</div>
+            <div className="quest-empty">No technologies available in this tree.</div>
           ) : (
             <div className="research-tree-grid">
               {tiers.map((tierTechs, tierIndex) => (
                 <div key={tierIndex} className="research-tree-tier">
-                  {tierTechs.map(tech => (
-                    <TechCard
-                      key={tech.id}
-                      tech={tech}
-                      active={active}
-                      onResearch={handleStartResearch}
-                    />
-                  ))}
+                  {tierIndex > 0 && <div className="research-tier-connector" aria-hidden />}
+                  <div className="research-tier-cards">
+                    {tierTechs.map(tech => (
+                      <TechCard
+                        key={tech.id}
+                        tech={tech}
+                        active={active}
+                        onResearch={handleStartResearch}
+                        selected={tech.id === selectedId}
+                        onSelect={() => setSelectedId(tech.id)}
+                      />
+                    ))}
+                  </div>
                 </div>
               ))}
             </div>
@@ -237,13 +270,15 @@ function TechCard({
   tech,
   active,
   onResearch,
+  selected,
+  onSelect,
 }: {
   tech: TechWithProgress
   active: { tech_type_id: number } | null
   onResearch: (tech: TechWithProgress) => void
+  selected: boolean
+  onSelect: () => void
 }) {
-  const [showTooltip, setShowTooltip] = useState(false)
-
   const isMaxed = tech.current_level >= tech.max_level
   const isResearching = tech.is_researching
   const isLocked = getCardState(tech) === 'locked'
@@ -267,27 +302,35 @@ function TechCard({
 
   const hasActiveElsewhere = active !== null && active.tech_type_id !== tech.id
 
+  // Pick an icon by tree-agnostic state.
+  const Icon = isMaxed ? Sparkles : isLocked ? Lock : isCompleted ? Lightbulb : FlaskConical
+
   return (
     <div
-      className={`tech-card ${stateClass}`}
-      onMouseEnter={() => setShowTooltip(true)}
-      onMouseLeave={() => setShowTooltip(false)}
+      className={`ds-card tech-card ${stateClass} ${selected ? 'is-selected' : ''}`}
+      onClick={onSelect}
+      role="button"
+      tabIndex={0}
+      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') onSelect() }}
     >
       <div className="tech-card-header">
+        <div className="tech-card-icon">
+          <Icon size={16} strokeWidth={1.75} />
+        </div>
         <span className="tech-card-name">{tech.display_name}</span>
         {isMaxed ? (
-          <span className="tech-card-badge max-badge">MAX</span>
+          <span className="ds-badge ds-badge--orange">MAX</span>
         ) : isResearching ? (
-          <span className="tech-card-badge researching-badge">...</span>
+          <span className="ds-badge ds-badge--teal">…</span>
         ) : (
-          <span className="tech-card-level">
-            Lv {tech.current_level}/{tech.max_level}
+          <span className="ds-mono ds-text-muted tech-card-level">
+            {tech.current_level}/{tech.max_level}
           </span>
         )}
       </div>
 
       {effectText && (
-        <div className="tech-card-effect">{effectText}</div>
+        <div className="tech-card-effect ds-text-muted">{effectText}</div>
       )}
 
       {isResearching && tech.research_finish_at && (
@@ -297,24 +340,25 @@ function TechCard({
       {!isMaxed && !isResearching && !isLocked && (
         <>
           {nextEffectText && (
-            <div className="tech-card-next">Next: {nextEffectText}</div>
+            <div className="tech-card-next">
+              <span className="ds-caption">Next</span> <span>{nextEffectText}</span>
+            </div>
           )}
           {tech.cost_next_level && (
             <div className="tech-card-cost">
-              <span className="gold-icon" />
-              <span className="tech-card-cost-value">
-                {formatNumber(tech.cost_next_level.gold)} Gold
-              </span>
+              <span className="ds-resource-dot ds-resource-dot--gold" />
+              <span className="ds-mono">{formatNumber(tech.cost_next_level.gold)}</span>
+              <span className="ds-text-muted">Gold</span>
             </div>
           )}
           {tech.time_next_level_seconds != null && (
-            <div className="tech-card-time">
-              Time: {formatDuration(tech.time_next_level_seconds)}
+            <div className="tech-card-time ds-text-muted">
+              Time <span className="ds-mono">{formatDuration(tech.time_next_level_seconds)}</span>
             </div>
           )}
           <button
-            className="tech-card-btn"
-            onClick={() => onResearch(tech)}
+            className="ds-btn-secondary ds-btn--sm ds-btn--block"
+            onClick={e => { e.stopPropagation(); onResearch(tech) }}
             disabled={hasActiveElsewhere}
           >
             {hasActiveElsewhere ? 'BUSY' : 'RESEARCH'}
@@ -323,65 +367,8 @@ function TechCard({
       )}
 
       {isLocked && (
-        <div className="tech-card-prereq">
+        <div className="tech-card-prereq ds-text-soft">
           {getPrereqText(tech)}
-        </div>
-      )}
-
-      {/* Tooltip */}
-      {showTooltip && (
-        <TechTooltip tech={tech} effectText={effectText} nextEffectText={nextEffectText} />
-      )}
-    </div>
-  )
-}
-
-// ============ Tech Tooltip ============
-
-function TechTooltip({
-  tech,
-  effectText,
-  nextEffectText,
-}: {
-  tech: TechWithProgress
-  effectText: string
-  nextEffectText: string | null
-}) {
-  return (
-    <div className="tech-tooltip">
-      <div className="tech-tooltip-header">
-        <span className="tech-tooltip-name">{tech.display_name}</span>
-        <span className="tech-tooltip-level">
-          Lv {tech.current_level}/{tech.max_level}
-        </span>
-      </div>
-
-      {tech.description && (
-        <div className="tech-tooltip-desc">{tech.description}</div>
-      )}
-
-      {tech.current_level > 0 && effectText && (
-        <div className="tech-tooltip-row">
-          <span className="tech-tooltip-label">Current Bonus:</span>
-          <span className="tech-tooltip-value active">{effectText}</span>
-        </div>
-      )}
-
-      {nextEffectText && tech.current_level < tech.max_level && (
-        <div className="tech-tooltip-row">
-          <span className="tech-tooltip-label">Next Level:</span>
-          <span className="tech-tooltip-value next">{nextEffectText}</span>
-        </div>
-      )}
-
-      {tech.prerequisites.length > 0 && (
-        <div className="tech-tooltip-prereqs">
-          <div className="tech-tooltip-label">Prerequisites:</div>
-          {tech.prerequisites.map((p, i) => (
-            <div key={i} className="tech-tooltip-prereq">
-              • {p.tech.replace(/_/g, ' ')} Lv {p.level}
-            </div>
-          ))}
         </div>
       )}
     </div>
@@ -392,20 +379,18 @@ function TechCardResearchProgress({ finishAt }: { finishAt: string }) {
   const countdown = useCountdown(finishAt)
   const now = Date.now()
   const end = new Date(finishAt).getTime()
-  // Rough progress calculation - we don't know original duration but can estimate
   const remaining = Math.max(0, end - now)
-  // We'll show the countdown instead of percentage since we don't have start time
   const pctText = countdown || 'Complete!'
 
   return (
     <div className="tech-card-progress">
-      <div className="tech-card-progress-bar">
+      <div className="ds-bar">
         <div
-          className="tech-card-progress-fill"
+          className="ds-bar-fill"
           style={{ width: remaining > 0 ? '60%' : '100%' }}
         />
       </div>
-      <span className="tech-card-progress-text">{pctText}</span>
+      <span className="tech-card-progress-text ds-mono">{pctText}</span>
     </div>
   )
 }
@@ -427,34 +412,32 @@ function ActiveResearchBar({
   const now = Date.now()
   const end = new Date(active.research_finish_at).getTime()
   const totalEstimate = Math.max(end - now, 0)
-  // We can't know the original total from the API response alone, but we can
-  // show remaining time as the progress. For a better UX, show percentage based
-  // on a rough estimate (original time might be in the tree data).
   const pct = totalEstimate <= 0 ? 100 : Math.max(5, 100 - Math.round((totalEstimate / (totalEstimate + 60000)) * 100))
 
   return (
     <div className="research-active-bar">
       <div className="research-active-info">
-        <div>
+        <div className="ds-row">
+          <FlaskConical size={16} strokeWidth={1.75} style={{ color: 'var(--ds-teal)' }} />
           <span className="research-active-name">{active.display_name}</span>
-          <span className="research-active-level"> Lv {active.level - 1} &rarr; {active.level}</span>
+          <span className="ds-text-muted ds-mono"> Lv {active.level - 1} → {active.level}</span>
         </div>
-        <span className="research-active-timer">{countdown || 'Completing...'}</span>
+        <span className="ds-mono research-active-timer">{countdown || 'Completing…'}</span>
       </div>
       <div className="research-active-progress">
-        <div className="research-progress-bar">
-          <div className="research-progress-fill" style={{ width: `${pct}%` }} />
+        <div className="ds-bar">
+          <div className="ds-bar-fill" style={{ width: `${pct}%` }} />
         </div>
         <div className="research-active-actions">
           <button
-            className="research-speedup-btn"
+            className="ds-btn-ghost ds-btn--sm"
             onClick={onSpeedup}
             disabled={pending}
           >
-            SPEEDUP
+            <Zap size={14} /> SPEEDUP
           </button>
           <button
-            className="research-cancel-btn"
+            className="ds-btn-danger ds-btn--sm"
             onClick={onCancel}
             disabled={pending}
           >
@@ -489,61 +472,54 @@ function ResearchConfirmModal({
   const nextEffectText = formatNextEffect(tech)
 
   return createPortal(
-    <div className="research-confirm-backdrop" onClick={e => { if (e.target === e.currentTarget) onCancel() }}>
-      <div className="research-confirm-modal">
-        <div className="research-confirm-header">
-          Research: {tech.display_name} Lv {nextLevel}
+    <div className="ds-modal-backdrop research-confirm-backdrop" onClick={e => { if (e.target === e.currentTarget) onCancel() }}>
+      <div className="ds-modal ds-modal--sm research-confirm-modal">
+        <div className="ds-modal-header">
+          <h3 className="ds-modal-title">Research: {tech.display_name} Lv {nextLevel}</h3>
         </div>
-        <div className="research-confirm-body">
-          {effectText && (
-            <div className="research-confirm-row">
-              <span className="research-confirm-label">Current</span>
-              <span className="research-confirm-value">{effectText}</span>
-            </div>
-          )}
-          {nextEffectText && (
-            <div className="research-confirm-row">
-              <span className="research-confirm-label">Next</span>
-              <span className="research-confirm-value" style={{ color: '#44ccff' }}>{nextEffectText}</span>
-            </div>
-          )}
-
-          <div className="research-confirm-sep" />
-
-          <div className="research-confirm-row">
-            <span className="research-confirm-label">Cost</span>
-            <span className="research-confirm-value gold">
-              {formatNumber(goldCost)} Gold
-            </span>
-          </div>
-          <div className="research-confirm-row">
-            <span className="research-confirm-label">Time</span>
-            <span className="research-confirm-value">
-              {formatDuration(timeSeconds)}
-            </span>
-          </div>
-
-          {hasActiveResearch && (
-            <>
-              <div className="research-confirm-sep" />
+        <div className="ds-modal-body">
+          <div className="research-confirm-rows">
+            {effectText && (
               <div className="research-confirm-row">
-                <span className="research-confirm-label" style={{ color: 'var(--accent-warning)' }}>
-                  Warning: This will replace current research
-                </span>
+                <span className="ds-text-muted">Current</span>
+                <span>{effectText}</span>
               </div>
-            </>
-          )}
+            )}
+            {nextEffectText && (
+              <div className="research-confirm-row">
+                <span className="ds-text-muted">Next</span>
+                <span style={{ color: 'var(--ds-teal-dark)' }}>{nextEffectText}</span>
+              </div>
+            )}
+            <hr className="ds-divider" />
+            <div className="research-confirm-row">
+              <span className="ds-text-muted">Cost</span>
+              <span><span className="ds-mono">{formatNumber(goldCost)}</span> Gold</span>
+            </div>
+            <div className="research-confirm-row">
+              <span className="ds-text-muted">Time</span>
+              <span className="ds-mono">{formatDuration(timeSeconds)}</span>
+            </div>
+            {hasActiveResearch && (
+              <>
+                <hr className="ds-divider" />
+                <div className="research-confirm-row">
+                  <span style={{ color: 'var(--ds-orange-strong)' }}>
+                    Warning: This will replace current research
+                  </span>
+                </div>
+              </>
+            )}
+          </div>
         </div>
-        <div className="research-confirm-actions">
-          <button className="research-confirm-cancel" onClick={onCancel}>
-            CANCEL
-          </button>
+        <div className="ds-modal-footer">
+          <button className="ds-btn-ghost" onClick={onCancel}>CANCEL</button>
           <button
-            className="research-confirm-ok"
+            className="ds-btn-primary"
             onClick={onConfirm}
             disabled={pending}
           >
-            {pending ? '...' : 'CONFIRM'}
+            {pending ? '…' : <><Check size={14} /> CONFIRM</>}
           </button>
         </div>
       </div>
@@ -562,8 +538,6 @@ function getTreeLabel(tree: string): string {
 function getCardState(tech: TechWithProgress): 'locked' | 'available' | 'researching' | 'completed' | 'maxed' {
   if (tech.is_researching) return 'researching'
   if (tech.current_level >= tech.max_level) return 'maxed'
-  // A tech is locked if it has prerequisites and cost_next_level is null
-  // (the backend returns null cost when prerequisites aren't met)
   if (tech.prerequisites.length > 0 && tech.cost_next_level === null) return 'locked'
   if (tech.current_level > 0) return 'completed'
   return 'available'
@@ -593,19 +567,16 @@ function formatEffectAtLevel(eff: Record<string, any>, levelIdx: number): string
   const unit = getUnitSuffix(eff)
   const label = formatLabel(eff.type)
 
-  // Boolean toggle (e.g. piercing_critical enabled)
   if (typeof eff.enabled === 'boolean') {
     return eff.enabled ? `${label} enabled` : ''
   }
 
-  // Values array (e.g. augment_shield values:[6,12,20])
   if (Array.isArray(eff.values)) {
     if (levelIdx < 0) return ''
     const val = levelIdx < eff.values.length ? eff.values[levelIdx] : eff.values[eff.values.length - 1]
     return `+${val}${unit} ${label}`
   }
 
-  // Range damage (e.g. victory_rush ranges:[220,180,150,120])
   if (eff.type === 'range_damage' && Array.isArray(eff.ranges)) {
     const parts = [`Range dmg: ${eff.ranges.join('/')}%`]
     if (eff.crit_rate) parts.push(`+${eff.crit_rate}% crit rate`)
@@ -613,7 +584,6 @@ function formatEffectAtLevel(eff: Record<string, any>, levelIdx: number): string
     return parts.join(', ')
   }
 
-  // Multi-bonus composite (e.g. ingenuity swarm:5, attack:5, he3:-5 ...)
   if (eff.type === 'multi_bonus') {
     const skip = new Set(['type', 'unit'])
     const parts: string[] = []
@@ -629,24 +599,20 @@ function formatEffectAtLevel(eff: Record<string, any>, levelIdx: number): string
     return parts.join(', ')
   }
 
-  // applies_to (no numeric value, e.g. defense_range)
   if (Array.isArray(eff.applies_to)) {
     return `${label}: ${eff.applies_to.map((s: string) => formatLabel(s)).join(', ')}`
   }
 
-  // Flat value (single-level techs like shield_bypass flat:15)
   if (eff.flat !== undefined) {
     const sign = eff.flat >= 0 ? '+' : ''
     return `${sign}${eff.flat}${unit} ${label}`
   }
 
-  // Per-level (standard path) with possible extra bonus keys
   if (eff.per_level !== undefined) {
     const total = eff.per_level * (levelIdx + 1)
     const sign = total >= 0 ? '+' : ''
     const parts = [`${sign}${total}${unit} ${label}`]
 
-    // Gather extra numeric bonus keys (e.g. collateral_reduction, light_bonus, chance)
     const skip = new Set(['type', 'per_level', 'unit'])
     for (const [k, v] of Object.entries(eff)) {
       if (skip.has(k)) continue
@@ -657,15 +623,12 @@ function formatEffectAtLevel(eff: Record<string, any>, levelIdx: number): string
       const s = val >= 0 ? '+' : ''
       parts.push(`${s}${val}${unit} ${cleanKey}`)
     }
-    // Extra boolean flags
     if (typeof eff.chance_for_half === 'boolean' && eff.chance_for_half) {
       parts.push('50% cost reduction')
     }
     return parts.join(', ')
   }
 
-  // Armor bonus / other multi-key per-level effects without explicit per_level
-  // e.g. {"type":"armor_bonus","neutral":10,"light":1,"unit":"percent_per_level"}
   const skip = new Set(['type', 'unit'])
   const parts: string[] = []
   for (const [k, v] of Object.entries(eff)) {
@@ -692,13 +655,11 @@ function formatNextEffect(tech: TechWithProgress): string {
 function buildTiers(techs: TechWithProgress[]): TechWithProgress[][] {
   if (techs.length === 0) return []
 
-  // Build a map of tech name -> tech
   const byName = new Map<string, TechWithProgress>()
   for (const t of techs) {
     byName.set(t.name, t)
   }
 
-  // Calculate depth for each tech (longest prerequisite chain)
   const depthCache = new Map<string, number>()
   function getDepth(techName: string): number {
     if (depthCache.has(techName)) return depthCache.get(techName)!
@@ -717,12 +678,10 @@ function buildTiers(techs: TechWithProgress[]): TechWithProgress[][] {
     return maxDepth
   }
 
-  // Calculate all depths
   for (const t of techs) {
     getDepth(t.name)
   }
 
-  // Group by depth
   const tierMap = new Map<number, TechWithProgress[]>()
   for (const t of techs) {
     const d = depthCache.get(t.name) ?? 0
@@ -731,7 +690,6 @@ function buildTiers(techs: TechWithProgress[]): TechWithProgress[][] {
     tierMap.set(d, existing)
   }
 
-  // Sort by tier index
   const maxTier = Math.max(...Array.from(tierMap.keys()))
   const result: TechWithProgress[][] = []
   for (let i = 0; i <= maxTier; i++) {

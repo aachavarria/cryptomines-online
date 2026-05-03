@@ -1,5 +1,17 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, type ComponentType } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
+import {
+  Globe2,
+  Rocket,
+  FlaskConical,
+  Shield,
+  Box,
+  Scroll,
+  MessageSquare,
+  UserCircle2,
+  Map,
+  Users,
+} from 'lucide-react'
 import { useQuests } from '../../hooks/useQuests.ts'
 import { useGameContext } from '../../contexts/GameContext.tsx'
 import QuestPanel from '../panels/QuestPanel.tsx'
@@ -10,25 +22,25 @@ import CommandersListPanel from '../panels/CommandersListPanel.tsx'
 import CorpsPanel from '../panels/CorpsPanel.tsx'
 import GalaxyMapPanel from '../panels/GalaxyMapPanel.tsx'
 
+type LucideIcon = ComponentType<{ size?: number | string; strokeWidth?: number | string; 'aria-hidden'?: boolean | 'true' | 'false' }>
+
 interface NavItemConfig {
   id: string
-  icon: string
+  Icon: LucideIcon
   label: string
   route: string | null
   locked: boolean
 }
 
 const NAV_ITEMS: NavItemConfig[] = [
-  { id: 'base', icon: '\u{1F30D}', label: 'Ground', route: null, locked: false },
-  { id: 'space', icon: '\u{1F6F0}', label: 'Space', route: null, locked: false },
-  { id: 'research', icon: '\u{1F52C}', label: 'Research', route: null, locked: false },
-  { id: 'fleet', icon: '\u{1F680}', label: 'Military', route: '/military', locked: false },
-  { id: 'inventory', icon: '\u{1F4E6}', label: 'Inventory', route: null, locked: false },
-  { id: 'quest', icon: '\u{1F4DC}', label: 'Quests', route: null, locked: false },
-  { id: 'chat', icon: '\u{1F4AC}', label: 'Chat', route: null, locked: false },
-  { id: 'commander', icon: '\u{1F464}', label: 'Cmdr', route: null, locked: false },
-  { id: 'galaxy', icon: '\u{1F5FA}', label: 'Galaxy', route: null, locked: false },
-  { id: 'corp', icon: '\u{1F6E1}', label: 'Corp', route: null, locked: false },
+  { id: 'research', Icon: FlaskConical, label: 'Research', route: null, locked: false },
+  { id: 'fleet', Icon: Shield, label: 'Military', route: '/military', locked: false },
+  { id: 'inventory', Icon: Box, label: 'Inventory', route: null, locked: false },
+  { id: 'quest', Icon: Scroll, label: 'Quests', route: null, locked: false },
+  { id: 'chat', Icon: MessageSquare, label: 'Chat', route: null, locked: false },
+  { id: 'commander', Icon: UserCircle2, label: 'Cmdr', route: null, locked: false },
+  { id: 'galaxy', Icon: Map, label: 'Galaxy', route: null, locked: false },
+  { id: 'corp', Icon: Users, label: 'Corp', route: null, locked: false },
 ]
 
 export default function SideNav() {
@@ -98,12 +110,6 @@ export default function SideNav() {
   }, [navigate])
 
   function isActive(item: NavItemConfig): boolean {
-    if (item.id === 'base') {
-      return location.pathname.startsWith('/planet') && gameState.currentBase === 'ground'
-    }
-    if (item.id === 'space') {
-      return location.pathname.startsWith('/planet') && gameState.currentBase === 'space'
-    }
     if (item.id === 'quest') return questOpen
     if (item.id === 'research') return researchOpen
     if (item.id === 'chat') return chatOpen
@@ -187,50 +193,87 @@ export default function SideNav() {
       setCorpOpen(false)
       return
     }
-    if (item.id === 'base') {
-      setBaseView('ground')
-      const storedPlanetId = localStorage.getItem('current_planet_id')
-      if (!location.pathname.startsWith('/planet')) {
-        if (storedPlanetId) navigate(`/planet/${storedPlanetId}`)
-        else navigate('/')
-      }
-      return
-    }
-    if (item.id === 'space') {
-      setBaseView('space')
-      const storedPlanetId = localStorage.getItem('current_planet_id')
-      if (!location.pathname.startsWith('/planet')) {
-        if (storedPlanetId) navigate(`/planet/${storedPlanetId}`)
-        else navigate('/')
-      }
-      return
-    }
     if (item.route) {
       navigate(item.route)
     }
   }
 
+  function handleBaseSwitch(view: 'ground' | 'space') {
+    setBaseView(view)
+    const storedPlanetId = localStorage.getItem('current_planet_id')
+    if (!location.pathname.startsWith('/planet')) {
+      if (storedPlanetId) navigate(`/planet/${storedPlanetId}`)
+      else navigate('/')
+    }
+  }
+
+  const onPlanet = location.pathname.startsWith('/planet')
+  const groundActive = onPlanet && gameState.currentBase === 'ground'
+  const spaceActive = onPlanet && gameState.currentBase === 'space'
+
   return (
     <>
       <nav className="side-nav">
-        {NAV_ITEMS.map(item => (
+        {/* Ground / Space pill switcher */}
+        <div className="nav-base-switcher" role="tablist" aria-label="Base view">
           <button
-            key={item.id}
-            className={`nav-item ${isActive(item) ? 'active' : ''} ${item.locked ? 'locked' : ''}`}
-            onMouseEnter={() => setTooltip(item.id)}
+            type="button"
+            role="tab"
+            aria-selected={groundActive}
+            className={`nav-base-pill ${groundActive ? 'active' : ''}`}
+            onClick={() => handleBaseSwitch('ground')}
+            onMouseEnter={() => setTooltip('base')}
             onMouseLeave={() => setTooltip(null)}
-            onClick={() => handleClick(item)}
+            title="Ground Base"
           >
-            <span>{item.icon}</span>
-            <span className="nav-item-label">{item.label}</span>
-            {item.id === 'quest' && claimableCount > 0 && (
-              <span className="nav-quest-badge" />
-            )}
-            {tooltip === item.id && item.locked && (
-              <span className="nav-tooltip">Coming Soon</span>
-            )}
+            <Globe2 size={20} strokeWidth={1.75} aria-hidden="true" />
+            <span className="nav-base-pill-label">Ground</span>
+            {tooltip === 'base' && <span className="ds-tooltip nav-tooltip">Ground Base</span>}
           </button>
-        ))}
+          <button
+            type="button"
+            role="tab"
+            aria-selected={spaceActive}
+            className={`nav-base-pill ${spaceActive ? 'active' : ''}`}
+            onClick={() => handleBaseSwitch('space')}
+            onMouseEnter={() => setTooltip('space')}
+            onMouseLeave={() => setTooltip(null)}
+            title="Space Base"
+          >
+            <Rocket size={20} strokeWidth={1.75} aria-hidden="true" />
+            <span className="nav-base-pill-label">Space</span>
+            {tooltip === 'space' && <span className="ds-tooltip nav-tooltip">Space Base</span>}
+          </button>
+        </div>
+
+        <div className="nav-divider" />
+
+        {NAV_ITEMS.map(item => {
+          const Icon = item.Icon
+          const active = isActive(item)
+          return (
+            <button
+              key={item.id}
+              type="button"
+              className={`nav-item ${active ? 'active' : ''} ${item.locked ? 'locked' : ''}`}
+              aria-pressed={active}
+              onMouseEnter={() => setTooltip(item.id)}
+              onMouseLeave={() => setTooltip(null)}
+              onClick={() => handleClick(item)}
+            >
+              <Icon size={22} strokeWidth={1.75} aria-hidden="true" />
+              <span className="nav-item-label">{item.label}</span>
+              {item.id === 'quest' && claimableCount > 0 && (
+                <span className="nav-quest-badge" aria-label={`${claimableCount} claimable quests`} />
+              )}
+              {tooltip === item.id && (
+                <span className="ds-tooltip nav-tooltip">
+                  {item.locked ? 'Coming Soon' : item.label}
+                </span>
+              )}
+            </button>
+          )
+        })}
 
         <div className="dev-mode-toggle">
           <label>

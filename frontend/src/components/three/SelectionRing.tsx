@@ -1,6 +1,7 @@
 import { useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import type { Mesh, MeshStandardMaterial } from 'three'
+import { colors3d } from '../../config/colors3d.ts'
 
 interface SelectionRingProps {
   visible: boolean
@@ -21,12 +22,13 @@ export default function SelectionRing({ visible, radius = 2.5 }: SelectionRingPr
 
   if (!visible) return null
 
+  // Per design-system §7.6: selected = white outline + teal-light fill.
   return (
     <mesh ref={ref} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.1, 0]}>
       <torusGeometry args={[radius, 0.12, 8, 32]} />
       <meshStandardMaterial
-        color="#4488ff"
-        emissive="#4488ff"
+        color={colors3d.tileSelected}
+        emissive={colors3d.tileSelectedFill}
         emissiveIntensity={0.8}
         transparent
         opacity={0.7}

@@ -1,547 +1,331 @@
-/* ========================================= */
-/* Quest Panel Styles                        */
-/* ========================================= */
-
-/* ============ Backdrop & Panel ============ */
+/* ============================================================
+   Quest Panel — migrated to design system tokens.
+   Spec: docs/reference/design-system.md §6, §7.8, §11
+   ============================================================ */
 
 .quest-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.85);
-  z-index: 400;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  animation: fadeIn 0.2s ease-out;
-  font-family: 'Rajdhani', 'Segoe UI', system-ui, sans-serif;
+  background: var(--ds-overlay);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  z-index: var(--z-modal);
+  display: grid;
+  place-items: center;
+  padding: var(--sp-6);
+  font-family: var(--ff-sans);
+  animation: ds-fade-in var(--motion-base);
 }
 
 .quest-panel {
-  width: 800px;
-  max-width: 95vw;
+  /* Inherits ds-modal / ds-modal--lg via TSX. Use locally for sizing tweaks. */
+  width: min(960px, 95vw);
   max-height: 85vh;
-  background: #1a1a2e;
-  border: 1px solid var(--border-glow);
-  border-radius: 8px;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  box-shadow: 0 0 40px rgba(74, 144, 217, 0.2);
-  animation: modalIn 0.2s ease-out;
 }
 
-/* ============ Header ============ */
-
-.quest-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--space-md) var(--space-lg);
-  border-bottom: 1px solid var(--border-frame);
-}
-
-.quest-title {
-  font-size: var(--font-lg);
-  font-weight: 700;
-  color: var(--text-bright);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-}
-
-/* ============ Tabs ============ */
+/* ============ Tabs row spacing ============ */
 
 .quest-tabs {
-  display: flex;
-  gap: 2px;
-  padding: var(--space-sm) var(--space-lg);
-  border-bottom: 1px solid var(--border-frame);
-}
-
-.quest-tab {
-  display: flex;
-  align-items: center;
-  gap: var(--space-xs);
-  padding: 8px 16px;
-  background: transparent;
-  border: 1px solid var(--border-frame);
-  border-radius: 4px;
-  color: var(--text-dim);
-  font-size: var(--font-sm);
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.15s;
-  font-family: 'Rajdhani', sans-serif;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.quest-tab:hover {
-  background: var(--bg-panel-light);
-  color: var(--text-normal);
-}
-
-.quest-tab.active {
-  border-color: #4a90d9;
-  color: #4a90d9;
-  background: rgba(74, 144, 217, 0.1);
+  padding: 0 var(--sp-6);
 }
 
 .quest-tab-badge {
-  background: var(--accent-danger);
-  color: #fff;
-  font-size: 10px;
-  font-weight: 700;
-  min-width: 16px;
-  height: 16px;
-  border-radius: 8px;
+  margin-left: var(--sp-1);
+}
+
+/* ============ Reward flash ============ */
+
+.quest-reward-flash {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0 4px;
+  gap: var(--sp-2);
+  background: var(--ds-success-tint);
+  border-bottom: 1px solid var(--ds-border);
+  color: #15803D;
+  font-weight: var(--fw-semibold);
+  font-size: var(--fs-sm);
+  padding: var(--sp-2) var(--sp-6);
+  animation: ds-fade-in var(--motion-base);
 }
 
-/* ============ Body ============ */
+/* ============ Body / loading / empty ============ */
 
 .quest-body {
   flex: 1;
-  overflow-y: auto;
-  padding: var(--space-lg);
   min-height: 0;
-}
-
-.quest-content {
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-  gap: var(--space-md);
+  padding: var(--sp-5) var(--sp-6);
 }
 
-/* ============ Section ============ */
-
-.quest-section {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-}
-
-.quest-section-title {
-  font-size: var(--font-xs);
-  text-transform: uppercase;
-  letter-spacing: 0.15em;
-  color: var(--text-label);
-  font-weight: 600;
-}
-
-.quest-section-title-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.quest-daily-points {
-  font-size: var(--font-sm);
-  color: var(--text-normal);
-}
-
-.quest-daily-points strong {
-  color: #4a90d9;
-  font-weight: 700;
-}
-
-/* ============ Quest Card ============ */
-
-.quest-card {
-  background: #0d1117;
-  border: 1px solid var(--border-frame);
-  border-radius: 6px;
-  padding: var(--space-md);
-  transition: border-color 0.15s, box-shadow 0.15s;
-}
-
-.quest-card:hover {
-  border-color: var(--border-active);
-  box-shadow: 0 0 8px rgba(68, 136, 255, 0.1);
-}
-
-.quest-card.highlight {
-  border-color: #4a90d9;
-  box-shadow: 0 0 12px rgba(74, 144, 217, 0.15);
-}
-
-.quest-card.complete {
-  border-color: var(--accent-gold);
-  box-shadow: 0 0 12px rgba(255, 215, 0, 0.1);
-}
-
-.quest-card.dimmed {
-  opacity: 0.5;
-}
-
-.quest-card.locked {
-  opacity: 0.4;
-}
-
-.quest-card-header {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  margin-bottom: var(--space-xs);
-}
-
-.quest-card-icon {
-  width: 24px;
-  height: 24px;
+.quest-loading,
+.quest-error,
+.quest-empty {
+  flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
-  flex-shrink: 0;
+  gap: var(--sp-2);
+  color: var(--ds-text-muted);
+  font-size: var(--fs-sm);
+  padding: var(--sp-8);
 }
+.quest-error { color: var(--ds-danger); }
 
-.quest-card.complete .quest-card-icon {
-  color: var(--accent-gold);
-}
+/* ============ Two-column layout ============ */
 
-.quest-card.dimmed .quest-card-icon {
-  color: var(--accent-success);
-}
-
-.quest-card.locked .quest-card-icon {
-  color: var(--text-dim);
-  font-size: 12px;
-}
-
-.quest-card-name {
-  font-size: var(--font-base);
-  font-weight: 600;
-  color: var(--text-bright);
+.quest-two-col {
+  display: grid;
+  grid-template-columns: minmax(280px, 320px) 1fr;
+  gap: var(--sp-5);
   flex: 1;
+  min-height: 0;
 }
 
-.quest-card-badge-area {
+.quest-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  overflow-y: auto;
+  padding-right: var(--sp-2);
+}
+
+.quest-list-item {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: var(--sp-3);
+  align-items: center;
+  background: var(--ds-surface);
+  text-align: left;
+  font-family: inherit;
+  font-size: var(--fs-body);
+  color: var(--ds-text);
+  cursor: pointer;
+}
+
+.quest-list-item.is-dim {
+  opacity: 0.6;
+}
+
+.quest-list-item-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
   flex-shrink: 0;
 }
 
-/* ============ Badges ============ */
-
-.quest-badge {
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  padding: 2px 8px;
-  border-radius: 3px;
-  letter-spacing: 0.05em;
+.quest-list-item-name {
+  font-weight: var(--fw-semibold);
+  color: var(--ds-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.quest-badge.claimed {
-  color: var(--accent-success);
-  border: 1px solid var(--accent-success);
+.quest-detail {
+  min-width: 0;
+  overflow-y: auto;
 }
 
-.quest-badge.locked {
-  color: var(--text-dim);
-  border: 1px solid var(--text-dim);
+.quest-detail-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
 }
 
-.quest-badge.complete {
-  color: var(--accent-gold);
-  border: 1px solid var(--accent-gold);
-}
-
-/* ============ Quest Details ============ */
-
-.quest-card-desc {
-  font-size: var(--font-sm);
-  color: var(--text-normal);
-  margin-bottom: var(--space-sm);
-  font-weight: 400;
-  line-height: 1.4;
-}
-
-.quest-card-progress {
+.quest-detail-header {
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
-  margin-bottom: var(--space-sm);
+  justify-content: space-between;
+  gap: var(--sp-2);
 }
 
-.quest-progress-bar {
+.quest-detail-desc {
+  color: var(--ds-text-muted);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-normal);
+  margin: 0;
+}
+
+.quest-detail-progress {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.quest-detail-rewards {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.quest-rewards-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-3);
+}
+
+.quest-reward-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: 4px 10px;
+  background: var(--ds-surface-2);
+  border: 1px solid var(--ds-border);
+  border-radius: var(--r-pill);
+  font-size: var(--fs-sm);
+  color: var(--ds-text);
+}
+
+/* ============ Segmented progress bar ============ */
+
+.quest-bar-segmented {
+  display: flex;
+  gap: 2px;
+  height: 6px;
+}
+
+.quest-bar-seg {
   flex: 1;
-  height: 8px;
-  background: #21262d;
-  border-radius: 4px;
-  overflow: hidden;
+  background: var(--ds-border);
+  border-radius: var(--r-sm);
+  transition: background var(--motion-base);
 }
 
-.quest-progress-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #3366aa, #4a90d9);
-  border-radius: 4px;
-  transition: width 0.3s ease;
+.quest-bar-seg.is-filled {
+  background: var(--ds-teal);
 }
 
-.quest-progress-text {
-  font-size: var(--font-sm);
-  color: var(--text-dim);
-  font-variant-numeric: tabular-nums;
-  min-width: 60px;
+/* ============ Daily tab ============ */
+
+.quest-daily {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.quest-daily-summary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.quest-daily-reset {
+  font-size: var(--fs-caption);
   text-align: right;
 }
 
-.quest-card-rewards {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  font-size: var(--font-sm);
-  margin-bottom: var(--space-sm);
+.quest-daily-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sp-5);
 }
 
-.quest-reward-label {
-  color: var(--text-label);
-  font-weight: 600;
-  text-transform: uppercase;
-  font-size: var(--font-xs);
+@media (max-width: 720px) {
+  .quest-two-col,
+  .quest-daily-cols {
+    grid-template-columns: 1fr;
+  }
 }
 
-.quest-rewards-inline {
-  display: flex;
-  gap: var(--space-md);
-  flex-wrap: wrap;
-}
-
-.quest-res {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  color: var(--text-bright);
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-}
-
-.quest-res.item {
-  color: var(--accent-gold);
-}
-
-.quest-res-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  display: inline-block;
-}
-
-.quest-res-dot.metal { background: var(--color-metal); }
-.quest-res-dot.he3 { background: var(--color-he3); }
-.quest-res-dot.gold { background: var(--color-gold); }
-
-/* ============ Claim Button ============ */
-
-.quest-claim-btn {
-  background: linear-gradient(135deg, #b8860b, #d4a017);
-  color: #000;
-  border: none;
-  padding: 6px 20px;
-  font-size: var(--font-sm);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: box-shadow 0.2s, transform 0.1s;
-  font-family: 'Rajdhani', sans-serif;
-  animation: claimPulse 2s ease-in-out infinite;
-}
-
-.quest-claim-btn:hover:not(:disabled) {
-  box-shadow: var(--glow-gold);
-  transform: translateY(-1px);
-}
-
-.quest-claim-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  animation: none;
-}
-
-@keyframes claimPulse {
-  0%, 100% { box-shadow: 0 0 4px rgba(212, 160, 23, 0.3); }
-  50% { box-shadow: 0 0 16px rgba(212, 160, 23, 0.6); }
-}
-
-/* ============ Reward Flash ============ */
-
-.quest-reward-flash {
-  background: rgba(34, 204, 102, 0.15);
-  border-bottom: 1px solid var(--accent-success);
-  color: var(--accent-success);
-  font-size: var(--font-sm);
-  font-weight: 700;
-  text-align: center;
-  padding: var(--space-sm) var(--space-lg);
-  animation: flashIn 0.3s ease-out;
-}
-
-@keyframes flashIn {
-  from { opacity: 0; transform: translateY(-4px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-/* ============ Daily Quest List ============ */
-
-.quest-daily-list {
+.quest-daily-list,
+.quest-tier-list {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--sp-2);
+}
+
+.quest-daily-tasks {
+  display: flex;
+  flex-direction: column;
 }
 
 .quest-daily-row {
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
-  padding: var(--space-sm) var(--space-md);
-  background: #0d1117;
-  border-radius: 4px;
-  font-size: var(--font-sm);
+  gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--ds-surface-2);
+  border: 1px solid var(--ds-border);
+  border-radius: var(--r-md);
+  font-size: var(--fs-sm);
+  color: var(--ds-text);
 }
 
-.quest-daily-row.completed {
-  opacity: 0.6;
+.quest-daily-row.is-completed {
+  background: var(--ds-success-tint);
+  border-color: rgba(34, 197, 94, 0.32);
 }
 
 .quest-daily-check {
+  display: inline-grid;
+  place-items: center;
   width: 20px;
   height: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
   flex-shrink: 0;
 }
 
-.quest-daily-row.completed .quest-daily-check {
-  color: var(--accent-success);
-}
-
-.quest-daily-row:not(.completed) .quest-daily-check {
-  color: var(--text-dim);
+.quest-daily-circle {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1.5px solid var(--ds-text-soft);
 }
 
 .quest-daily-name {
   flex: 1;
-  color: var(--text-bright);
-  font-weight: 500;
+  color: var(--ds-text);
 }
 
 .quest-daily-pts {
-  color: #4a90d9;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
+  font-weight: var(--fw-semibold);
+  color: var(--ds-teal-dark);
   text-align: right;
-  min-width: 80px;
 }
 
-/* ============ Tier Rewards ============ */
-
-.quest-tier-list {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
+/* ============ Tier rewards ============ */
 
 .quest-tier-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: 90px auto 1fr auto;
+  gap: var(--sp-3);
   align-items: center;
-  gap: var(--space-md);
-  padding: var(--space-sm) var(--space-md);
-  background: #0d1117;
-  border: 1px solid var(--border-frame);
-  border-radius: 4px;
-  font-size: var(--font-sm);
-  transition: border-color 0.15s;
+  cursor: pointer;
 }
 
-.quest-tier-row.claimable {
-  border-color: var(--accent-gold);
-  box-shadow: 0 0 8px rgba(255, 215, 0, 0.1);
-}
-
-.quest-tier-row.claimed {
+.quest-tier-row.is-dim {
   opacity: 0.6;
 }
 
-.quest-tier-row.locked {
-  opacity: 0.5;
-}
-
-.quest-tier-pts {
-  font-size: var(--font-xs);
-  font-weight: 700;
-  color: var(--text-dim);
-  min-width: 48px;
-  font-variant-numeric: tabular-nums;
-}
-
 .quest-tier-name {
-  font-weight: 700;
+  font-weight: var(--fw-semibold);
   text-transform: uppercase;
-  min-width: 70px;
+  letter-spacing: 0.04em;
+  font-size: var(--fs-sm);
 }
 
-.quest-tier-name.tier-bronze { color: #cd7f32; }
-.quest-tier-name.tier-silver { color: #c0c0c0; }
-.quest-tier-name.tier-gold { color: var(--accent-gold); }
-.quest-tier-name.tier-diamond { color: #b9f2ff; }
+.quest-tier-name.tier-bronze   { color: #CD7F32; }
+.quest-tier-name.tier-silver   { color: #9CA3AF; }
+.quest-tier-name.tier-gold     { color: var(--ds-orange); }
+.quest-tier-name.tier-diamond  { color: var(--ds-info); }
 
-.quest-tier-reward {
-  flex: 1;
-  color: var(--text-normal);
-  font-weight: 500;
-}
+.quest-tier-pts { font-size: var(--fs-sm); }
+.quest-tier-reward { font-size: var(--fs-sm); color: var(--ds-text); }
 
 .quest-tier-status {
   display: flex;
   align-items: center;
-  min-width: 100px;
   justify-content: flex-end;
+  min-width: 96px;
 }
 
-/* ============ Mini Progress ============ */
-
-.quest-progress-mini {
-  display: flex;
-  align-items: center;
-  gap: var(--space-xs);
-}
-
-.quest-progress-mini-bar {
-  width: 50px;
-  height: 4px;
-  background: #21262d;
-  border-radius: 2px;
-  overflow: hidden;
-}
-
-.quest-progress-mini-fill {
-  height: 100%;
-  background: #4a90d9;
-  border-radius: 2px;
-}
-
-.quest-progress-mini-text {
-  font-size: 10px;
-  color: var(--text-dim);
-  font-variant-numeric: tabular-nums;
-}
-
-/* ============ Reset Timer ============ */
-
-.quest-daily-reset {
-  text-align: center;
-  font-size: var(--font-xs);
-  color: var(--text-dim);
-  padding-top: var(--space-md);
-  font-style: italic;
-}
-
-/* ============ Sidebar Quest Badge ============ */
+/* ============ Sidebar quest badge (kept for nav indicator) ============ */
 
 .nav-quest-badge {
   position: absolute;
@@ -549,15 +333,9 @@
   right: 2px;
   width: 10px;
   height: 10px;
-  background: var(--accent-danger);
+  background: var(--ds-orange);
   border-radius: 50%;
-  border: 2px solid var(--bg-panel-solid);
-  animation: questBadgePulse 2s ease-in-out infinite;
-}
-
-@keyframes questBadgePulse {
-  0%, 100% { opacity: 0.7; transform: scale(1); }
-  50% { opacity: 1; transform: scale(1.2); }
+  border: 2px solid var(--ds-surface);
 }
 
 /* ============ Responsive ============ */
@@ -570,12 +348,7 @@
     max-height: 100vh;
     border-radius: 0;
   }
-
   .quest-tabs {
     overflow-x: auto;
-  }
-
-  .quest-tier-row {
-    flex-wrap: wrap;
   }
 }

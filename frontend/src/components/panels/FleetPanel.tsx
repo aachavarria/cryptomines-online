@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useState, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
+import { Rocket, X, Plus, Trash2, Pencil } from 'lucide-react'
 import { useFleets } from '../../hooks/useFleets.ts'
 import { useShipDesigns } from '../../hooks/useShipDesigns.ts'
-import type { Fleet, FleetStack, ShipDesign } from '../../types'
+import type { Fleet, FleetStack, ShipDesign, CreateFleetRequest } from '../../types'
 import { formatNumber } from '../../hooks/useCountdown.ts'
 
 const FORMATIONS = ['Phalanx', 'Diamond', 'Arrow', 'Defensive', 'Spread']
@@ -12,6 +13,129 @@ const GRID_LABELS = [
   ['Mid-L', 'Mid-C', 'Mid-R'],
   ['Back-L', 'Back-C', 'Back-R'],
 ]
+
+const styles: Record<string, CSSProperties> = {
+  panel: {
+    maxWidth: 720,
+    margin: '0 auto',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 'var(--sp-4)',
+  },
+  header: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 'var(--sp-3)',
+  },
+  headerIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 'var(--r-md)',
+    background: 'var(--ds-teal-tint)',
+    color: 'var(--ds-teal)',
+    display: 'inline-grid',
+    placeItems: 'center',
+  },
+  loading: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 'var(--sp-3)',
+    justifyContent: 'center',
+  },
+  createRow: {
+    display: 'flex',
+    gap: 'var(--sp-2)',
+    alignItems: 'center',
+  },
+  fleetList: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 'var(--sp-2)',
+  },
+  cardHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 'var(--sp-2)',
+  },
+  cardName: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 'var(--sp-2)',
+    fontWeight: 600,
+    color: 'var(--ds-text)',
+  },
+  cardInfo: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: 'var(--sp-3)',
+    fontSize: 'var(--fs-sm)',
+    color: 'var(--ds-text-muted)',
+    marginBottom: 'var(--sp-3)',
+  },
+  cardActions: {
+    display: 'flex',
+    gap: 'var(--sp-2)',
+  },
+  config: {
+    display: 'flex',
+    gap: 'var(--sp-3)',
+    marginBottom: 'var(--sp-4)',
+  },
+  formGroup: {
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 'var(--sp-1)',
+  },
+  grid: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 'var(--sp-1)',
+    marginBottom: 'var(--sp-4)',
+  },
+  gridRow: {
+    display: 'flex',
+    gap: 'var(--sp-1)',
+  },
+  cell: {
+    flex: 1,
+    aspectRatio: '1.2',
+    minHeight: 88,
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 2,
+    position: 'relative',
+    cursor: 'pointer',
+    padding: 'var(--sp-2)',
+    textAlign: 'center',
+  },
+  cellOccupied: {
+    background: 'var(--ds-teal-tint)',
+    borderColor: 'var(--ds-teal)',
+  },
+  cellTarget: {
+    background: 'var(--ds-orange-tint)',
+    borderColor: 'var(--ds-orange)',
+  },
+  cellRemove: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+  },
+  assignForm: {
+    borderColor: 'var(--ds-teal)',
+    background: 'var(--ds-teal-tint)',
+  },
+  assignRow: {
+    display: 'flex',
+    gap: 'var(--sp-2)',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+  },
+}
 
 interface FleetEditorProps {
   fleet: Fleet
@@ -40,29 +164,31 @@ function FleetEditor({ fleet, designs, onAssign, onRemove, onUpdate, onClose }: 
   }
 
   return createPortal(
-    <div className="p2-modal-backdrop" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <div className="p2-modal p2-modal-lg">
-        <div className="p2-modal-header">
-          <span className="p2-modal-title">Fleet: {fleet.name}</span>
-          <button className="p2-modal-close" onClick={onClose}>X</button>
+    <div className="ds-modal-backdrop" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
+      <div className="ds-modal ds-modal--lg" role="dialog" aria-modal="true">
+        <div className="ds-modal-header">
+          <h2 className="ds-modal-title">Fleet: {fleet.name}</h2>
+          <button className="ds-btn-icon" onClick={onClose} aria-label="Close">
+            <X size={16} strokeWidth={2} aria-hidden="true" />
+          </button>
         </div>
-        <div className="p2-modal-body">
+        <div className="ds-modal-body">
           {/* Formation & Targeting */}
-          <div className="fleet-config">
-            <div className="p2-form-group">
-              <label className="p2-label">Formation</label>
+          <div style={styles.config}>
+            <div style={styles.formGroup}>
+              <label className="ds-caption">Formation</label>
               <select
-                className="p2-select"
+                className="ds-select"
                 value={fleet.formation}
                 onChange={e => onUpdate(fleet.id, { formation: e.target.value })}
               >
                 {FORMATIONS.map(f => <option key={f} value={f}>{f}</option>)}
               </select>
             </div>
-            <div className="p2-form-group">
-              <label className="p2-label">Targeting</label>
+            <div style={styles.formGroup}>
+              <label className="ds-caption">Targeting</label>
               <select
-                className="p2-select"
+                className="ds-select"
                 value={fleet.targeting_command}
                 onChange={e => onUpdate(fleet.id, { targeting_command: e.target.value })}
               >
@@ -72,34 +198,46 @@ function FleetEditor({ fleet, designs, onAssign, onRemove, onUpdate, onClose }: 
           </div>
 
           {/* 3x3 Grid */}
-          <div className="fleet-grid">
+          <div style={styles.grid}>
             {[0, 1, 2].map(row => (
-              <div key={row} className="fleet-grid-row">
+              <div key={row} style={styles.gridRow}>
                 {[0, 1, 2].map(col => {
                   const stack = getStack(row, col)
                   const isAssignTarget = assignTarget?.row === row && assignTarget?.col === col
+                  const cellStyle: CSSProperties = {
+                    ...styles.cell,
+                    ...(stack ? styles.cellOccupied : {}),
+                    ...(isAssignTarget ? styles.cellTarget : {}),
+                  }
                   return (
                     <div
                       key={col}
-                      className={`fleet-cell ${stack ? 'occupied' : 'empty'} ${isAssignTarget ? 'target' : ''}`}
+                      className="ds-card"
+                      style={cellStyle}
                       onClick={() => {
                         if (!stack) setAssignTarget({ row, col })
                       }}
                     >
-                      <div className="fleet-cell-label">{GRID_LABELS[row][col]}</div>
+                      <div className="ds-caption">{GRID_LABELS[row][col]}</div>
                       {stack ? (
                         <>
-                          <div className="fleet-cell-design">{stack.ship_design_name || 'Ships'}</div>
-                          <div className="fleet-cell-count">x{formatNumber(stack.ship_count)}</div>
+                          <div style={{ fontSize: 'var(--fs-sm)', fontWeight: 600 }}>
+                            {stack.ship_design_name || 'Ships'}
+                          </div>
+                          <div className="ds-mono" style={{ color: 'var(--ds-teal-dark)', fontWeight: 600 }}>
+                            x{formatNumber(stack.ship_count)}
+                          </div>
                           <button
-                            className="fleet-cell-remove"
+                            className="ds-btn-icon ds-btn-icon--sm"
+                            style={styles.cellRemove}
                             onClick={e => { e.stopPropagation(); onRemove(fleet.id, row, col) }}
+                            aria-label="Remove stack"
                           >
-                            X
+                            <X size={12} strokeWidth={2} aria-hidden="true" />
                           </button>
                         </>
                       ) : (
-                        <div className="fleet-cell-empty">Empty</div>
+                        <div className="ds-text-soft" style={{ fontSize: 'var(--fs-caption)' }}>Empty</div>
                       )}
                     </div>
                   )
@@ -110,40 +248,45 @@ function FleetEditor({ fleet, designs, onAssign, onRemove, onUpdate, onClose }: 
 
           {/* Assign Stack Form */}
           {assignTarget && (
-            <div className="fleet-assign-form">
-              <div className="p2-section-title">
+            <div className="ds-card" style={styles.assignForm}>
+              <div className="ds-h3" style={{ marginBottom: 'var(--sp-3)' }}>
                 Assign Ships to {GRID_LABELS[assignTarget.row][assignTarget.col]}
               </div>
-              <div className="fleet-assign-row">
+              <div style={styles.assignRow}>
                 <select
-                  className="p2-select"
+                  className="ds-select"
+                  style={{ flex: 1, minWidth: 180 }}
                   value={selectedDesign}
                   onChange={e => setSelectedDesign(e.target.value)}
                 >
                   <option value="">-- Select Design --</option>
-                  {designs.map(d => (
-                    <option key={d.id} value={d.id}>
-                      {d.name} ({d.ships_built} available)
-                    </option>
-                  ))}
+                  {designs.map(d => {
+                    const built = (d as ShipDesign & { ships_built?: number }).ships_built ?? 0
+                    return (
+                      <option key={d.id} value={d.id}>
+                        {d.name} ({built} available)
+                      </option>
+                    )
+                  })}
                 </select>
                 <input
                   type="number"
-                  className="p2-input p2-input-sm"
+                  className="ds-input"
+                  style={{ width: 100 }}
                   value={shipCount}
                   min={1}
                   max={3000}
                   onChange={e => setShipCount(Math.max(1, Math.min(3000, parseInt(e.target.value) || 1)))}
                 />
                 <button
-                  className="p2-btn p2-btn-primary p2-btn-sm"
+                  className="ds-btn ds-btn-primary ds-btn--sm"
                   onClick={handleAssign}
                   disabled={!selectedDesign || shipCount < 1}
                 >
                   Assign
                 </button>
                 <button
-                  className="p2-btn p2-btn-secondary p2-btn-sm"
+                  className="ds-btn ds-btn-ghost ds-btn--sm"
                   onClick={() => setAssignTarget(null)}
                 >
                   Cancel
@@ -166,14 +309,32 @@ export default function FleetPanel() {
   const [newName, setNewName] = useState('')
 
   if (loading) {
-    return <div className="p2-panel-loading"><div className="loading-spinner" /><span>Loading Fleets...</span></div>
+    return (
+      <div className="ds-panel" style={styles.loading}>
+        <div className="loading-spinner" />
+        <span className="ds-text-muted">Loading Fleets...</span>
+      </div>
+    )
   }
 
   async function handleCreate() {
     if (!newName) return
     setCreating(true)
     try {
-      const fleet = await create({ name: newName, formation: 'Phalanx', targeting_command: 'Weakest First' })
+      const req: CreateFleetRequest = {
+        name: newName,
+        formation: 'Phalanx',
+        targeting_command: 'Weakest First',
+      }
+      try {
+        const planetId = typeof localStorage !== 'undefined' && typeof localStorage.getItem === 'function'
+          ? localStorage.getItem('current_planet_id')
+          : null
+        if (planetId) req.planet_id = planetId
+      } catch {
+        // localStorage may be unavailable in some test environments
+      }
+      const fleet = await create(req)
       setNewName('')
       setEditFleet(fleet)
     } finally {
@@ -182,13 +343,12 @@ export default function FleetPanel() {
   }
 
   async function handleAssign(fleetId: string, designId: string, row: number, col: number, count: number) {
-    const result = await addStack(fleetId, {
+    await addStack(fleetId, {
       ship_design_id: designId,
       grid_row: row,
       grid_col: col,
       ship_count: count,
     })
-    // Refresh the edit fleet data
     const updated = fleets.find(f => f.id === fleetId)
     if (updated) setEditFleet({ ...updated })
   }
@@ -200,43 +360,48 @@ export default function FleetPanel() {
   }
 
   return (
-    <div className="p2-panel">
-      <div className="p2-panel-header">
-        <div className="p2-panel-icon fleet-icon">FL</div>
+    <div className="ds-panel" style={styles.panel}>
+      <div style={styles.header}>
+        <span style={styles.headerIcon} aria-hidden="true">
+          <Rocket size={22} strokeWidth={1.75} />
+        </span>
         <div>
-          <div className="p2-panel-title">Fleet Management</div>
-          <div className="p2-panel-subtitle">{fleets.length} fleet{fleets.length !== 1 ? 's' : ''}</div>
+          <h2 className="ds-h2" style={{ margin: 0 }}>Fleet Management</h2>
+          <div className="ds-text-muted" style={{ fontSize: 'var(--fs-sm)' }}>
+            {fleets.length} fleet{fleets.length !== 1 ? 's' : ''}
+          </div>
         </div>
       </div>
 
-      {error && <div className="p2-error-msg">{error}</div>}
+      {error && (
+        <div className="ds-badge ds-badge--danger" role="alert">{error}</div>
+      )}
 
-      {/* Create Fleet */}
-      <div className="p2-section">
-        <div className="fleet-create-row">
-          <input
-            className="p2-input"
-            value={newName}
-            placeholder="New fleet name..."
-            onChange={e => setNewName(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') handleCreate() }}
-          />
-          <button
-            className="p2-btn p2-btn-primary"
-            onClick={handleCreate}
-            disabled={!newName || creating}
-          >
-            {creating ? '...' : 'Create Fleet'}
-          </button>
-        </div>
+      <div style={styles.createRow}>
+        <input
+          className="ds-input"
+          value={newName}
+          placeholder="New fleet name..."
+          onChange={e => setNewName(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') handleCreate() }}
+        />
+        <button
+          className="ds-btn ds-btn-primary"
+          onClick={handleCreate}
+          disabled={!newName || creating}
+        >
+          <Plus size={16} strokeWidth={2} aria-hidden="true" />
+          {creating ? '...' : 'Create Fleet'}
+        </button>
       </div>
 
-      {/* Fleet List */}
-      <div className="p2-section">
+      <div>
         {fleets.length === 0 ? (
-          <div className="p2-empty-state">No fleets yet. Create a fleet and assign ships.</div>
+          <div className="ds-text-muted" style={{ textAlign: 'center', padding: 'var(--sp-6)' }}>
+            No fleets yet. Create a fleet and assign ships.
+          </div>
         ) : (
-          <div className="fleet-list">
+          <div style={styles.fleetList}>
             {fleets.map(fleet => (
               <FleetCard
                 key={fleet.id}
@@ -276,21 +441,46 @@ function FleetCard({ fleet, onEdit, onDisband }: {
     ? Math.min(...fleet.stacks.filter(s => s.total_movement !== undefined).map(s => s.total_movement ?? 0))
     : 0
 
+  const statusBadge =
+    fleet.status === 'stationed' ? 'ds-badge--teal' :
+    fleet.status === 'traveling' ? 'ds-badge--info' :
+    fleet.status === 'combat' ? 'ds-badge--danger' :
+    'ds-badge--neutral'
+
   return (
-    <div className="fleet-card" onClick={onEdit}>
-      <div className="fleet-card-header">
-        <span className="fleet-card-name">{fleet.name}</span>
-        <span className={`fleet-card-status ${fleet.status}`}>{fleet.status}</span>
+    <div className="ds-list-item" onClick={onEdit}>
+      <div style={styles.cardHeader}>
+        <span style={styles.cardName}>
+          <Rocket size={16} strokeWidth={1.75} aria-hidden="true" />
+          {fleet.name}
+        </span>
+        <span className={`ds-badge ${statusBadge}`}>{fleet.status}</span>
       </div>
-      <div className="fleet-card-info">
+      <div style={styles.cardInfo}>
         <span>{stackCount}/9 positions</span>
         <span>{formatNumber(totalShips)} ships</span>
         <span>{fleet.formation}</span>
-        {fleetMOV > 0 && <span title="Fleet speed (slowest ship)">MOV: {fleetMOV}</span>}
+        {fleetMOV > 0 && (
+          <span title="Fleet speed (slowest ship)">
+            MOV: <span className="ds-mono">{fleetMOV}</span>
+          </span>
+        )}
       </div>
-      <div className="fleet-card-actions">
-        <button className="p2-btn p2-btn-primary p2-btn-xs" onClick={e => { e.stopPropagation(); onEdit() }}>Edit</button>
-        <button className="p2-btn p2-btn-danger p2-btn-xs" onClick={e => { e.stopPropagation(); onDisband() }}>Disband</button>
+      <div style={styles.cardActions}>
+        <button
+          className="ds-btn ds-btn-ghost ds-btn--sm"
+          onClick={e => { e.stopPropagation(); onEdit() }}
+        >
+          <Pencil size={14} strokeWidth={2} aria-hidden="true" />
+          Edit
+        </button>
+        <button
+          className="ds-btn ds-btn-danger ds-btn--sm"
+          onClick={e => { e.stopPropagation(); onDisband() }}
+        >
+          <Trash2 size={14} strokeWidth={2} aria-hidden="true" />
+          Disband
+        </button>
       </div>
     </div>
   )

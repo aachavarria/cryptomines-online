@@ -1,5 +1,18 @@
-import { useState, Suspense } from 'react'
+import { useState, Suspense, useEffect } from 'react'
 import { Canvas } from '@react-three/fiber'
+import { useLocation } from 'react-router-dom'
+import {
+  Factory,
+  PenTool,
+  ScrollText,
+  Rocket,
+  Layers,
+  Anchor,
+  Recycle,
+  Crosshair,
+  ClipboardList,
+  type LucideIcon,
+} from 'lucide-react'
 import ResourceHUD from '../components/layout/ResourceHUD.tsx'
 import SideNav from '../components/layout/SideNav.tsx'
 import ShipFactoryPanel from '../components/panels/ShipFactoryPanel.tsx'
@@ -13,17 +26,19 @@ import PvPPanel from '../components/panels/PvPPanel.tsx'
 import { CombatReportsPanel } from '../components/panels/CombatReportsPanel.tsx'
 import { FrigateModel, CruiserModel, BattleshipModel } from '../components/three/ships/index.ts'
 
+type TabDef = { id: string; label: string; Icon: LucideIcon }
+
 const TABS = [
-  { id: 'factory', label: 'Ship Factory', icon: 'SF' },
-  { id: 'designs', label: 'Designs', icon: 'DS' },
-  { id: 'blueprints', label: 'Blueprints', icon: 'BP' },
-  { id: 'fleets', label: 'Fleets', icon: 'FL' },
-  { id: 'instances', label: 'Instances', icon: 'IN' },
-  { id: 'spacedock', label: 'Spacedock', icon: 'SD' },
-  { id: 'recycling', label: 'Recycling Plant', icon: 'RP' },
-  { id: 'pvp', label: 'PvP Combat', icon: 'PV' },
-  { id: 'reports', label: 'Combat Reports', icon: 'CR' },
-] as const
+  { id: 'factory',    label: 'Ship Factory',    Icon: Factory },
+  { id: 'designs',    label: 'Designs',         Icon: PenTool },
+  { id: 'blueprints', label: 'Blueprints',      Icon: ScrollText },
+  { id: 'fleets',     label: 'Fleets',          Icon: Rocket },
+  { id: 'instances',  label: 'Instances',       Icon: Layers },
+  { id: 'spacedock',  label: 'Spacedock',       Icon: Anchor },
+  { id: 'recycling',  label: 'Recycling Plant', Icon: Recycle },
+  { id: 'pvp',        label: 'PvP Combat',      Icon: Crosshair },
+  { id: 'reports',    label: 'Combat Reports',  Icon: ClipboardList },
+] as const satisfies readonly TabDef[]
 
 type TabId = typeof TABS[number]['id']
 
@@ -57,7 +72,20 @@ function ShipShowcase() {
 }
 
 export default function Military() {
-  const [activeTab, setActiveTab] = useState<TabId>('factory')
+  const location = useLocation()
+  const [activeTab, setActiveTab] = useState<TabId>(() => {
+    const params = new URLSearchParams(location.search)
+    const tab = params.get('tab')
+    return TABS.some(t => t.id === tab) ? (tab as TabId) : 'factory'
+  })
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search)
+    const tab = params.get('tab')
+    if (tab && TABS.some(t => t.id === tab)) {
+      setActiveTab(tab as TabId)
+    }
+  }, [location.search])
 
   function renderPanel() {
     switch (activeTab) {
@@ -93,25 +121,82 @@ export default function Military() {
 
         <div className="military-layout">
           {/* Tab navigation */}
-          <div className="mil-tabs">
-            {TABS.map(tab => (
-              <button
-                key={tab.id}
-                className={`mil-tab ${activeTab === tab.id ? 'active' : ''}`}
-                onClick={() => setActiveTab(tab.id)}
-              >
-                <span className="mil-tab-icon">{tab.icon}</span>
-                <span className="mil-tab-label">{tab.label}</span>
-              </button>
-            ))}
+          <div
+            className="ds-tabs military-tabs"
+            role="tablist"
+            aria-label="Military sections"
+          >
+            {TABS.map(({ id, label, Icon }) => {
+              const selected = activeTab === id
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  role="tab"
+                  className="ds-tab"
+                  aria-selected={selected}
+                  aria-controls={`mil-panel-${id}`}
+                  id={`mil-tab-${id}`}
+                  onClick={() => setActiveTab(id)}
+                >
+                  <Icon
+                    size={16}
+                    strokeWidth={selected ? 2 : 1.75}
+                    aria-hidden="true"
+                  />
+                  <span>{label}</span>
+                </button>
+              )
+            })}
           </div>
 
           {/* Active panel */}
-          <div className="mil-content">
+          <div
+            className="military-content"
+            role="tabpanel"
+            id={`mil-panel-${activeTab}`}
+            aria-labelledby={`mil-tab-${activeTab}`}
+          >
             {renderPanel()}
           </div>
         </div>
       </div>
+
+      <style>{`
+        .military-canvas { opacity: 0.3; }
+        .military-layout {
+          position: fixed;
+          top: var(--hud-height);
+          left: var(--sidenav-width);
+          right: 0;
+          bottom: 0;
+          display: flex;
+          flex-direction: column;
+          z-index: 50;
+        }
+        .military-tabs {
+          padding: var(--sp-2) var(--sp-5) 0;
+          background: var(--ds-surface);
+          border-bottom: 1px solid var(--ds-border);
+          flex-shrink: 0;
+          overflow-x: auto;
+          gap: var(--sp-1);
+        }
+        .military-tabs .ds-tab {
+          display: inline-flex;
+          align-items: center;
+          gap: var(--sp-2);
+          white-space: nowrap;
+        }
+        .military-content {
+          flex: 1;
+          overflow-y: auto;
+          padding: var(--sp-5);
+        }
+        @media (max-width: 768px) {
+          .military-tabs .ds-tab span { display: none; }
+        }
+      `}</style>
     </div>
   )
 }

@@ -23,8 +23,8 @@ export default function ConstructionInfoPanel() {
   if (upgradingBuildings.length === 0) return null
 
   return (
-    <div className="construction-info-panel">
-      <div className="cip-header">
+    <div className="ds-panel construction-info-panel">
+      <div className="ds-caption cip-header">
         Construction ({upgradingBuildings.length}/{maxSlots})
       </div>
       {upgradingBuildings.map(b => (
@@ -59,16 +59,19 @@ function ConstructionEntry({ building, onClick }: { building: BuildingWithType; 
   }
 
   return (
-    <div className="cip-entry" onClick={onClick}>
+    <button type="button" className="cip-entry" onClick={onClick}>
       <div className="cip-entry-info">
         <span className="cip-entry-name">
           {building.display_name} Lv: {building.level + 1}
         </span>
-        <div className="cip-progress">
-          <div className="cip-progress-fill" style={{ width: `${progress}%` }} />
+        <div className="ds-bar cip-progress">
+          <div
+            className="ds-bar-fill ds-bar-fill--orange cip-progress-fill"
+            style={{ width: `${progress}%` }}
+          />
         </div>
       </div>
-      <span className="cip-entry-timer">{countdown || 'Done!'}</span>
-    </div>
+      <span className="ds-mono cip-entry-timer">{countdown || 'Done!'}</span>
+    </button>
   )
 }

@@ -6,18 +6,23 @@ import BuildingModel from './BuildingModel.tsx'
 import IsometricGrid from './IsometricGrid.tsx'
 import GhostPreview from './GhostPreview.tsx'
 import CameraController from './CameraController.tsx'
+import FleetMarker from './FleetMarker.tsx'
 import {
   useGameContext,
   getBuildingTiles,
   canPlaceBuilding,
   getBuildingWorldCenter,
+  gridToWorld,
+  GRID_SIZE,
   type GridPosition,
 } from '../../contexts/GameContext.tsx'
 import { useBuildings } from '../../hooks/useBuildings.ts'
+import { useFleets } from '../../hooks/useFleets.ts'
 
 export default function PlanetScene() {
   const { state, selectBuilding, dispatch, exitPlacementMode } = useGameContext()
   const { construct, move } = useBuildings()
+  const { fleets } = useFleets()
   const [cursorGridPos, setCursorGridPos] = useState<GridPosition | null>(null)
   const {
     buildings: allBuildings,
@@ -123,6 +128,44 @@ export default function PlanetScene() {
 
   const modalOpen = showConstructPanel || showDetailPanel
 
+  // Fleets visible on the space base: filter to current planet (if known) and
+  // those not currently traveling away from us. If a fleet has no planet_id
+  // (legacy data), still show it so the player isn't left with a blank base.
+  const currentPlanetId = typeof window !== 'undefined'
+    ? localStorage.getItem('current_planet_id')
+    : null
+  const stationedHere = useMemo(() => {
+    if (currentBase !== 'space') return []
+    return fleets.filter(f => {
+      if (f.status !== 'stationed') return false
+      if (!currentPlanetId) return true
+      if (!f.planet_id) return true
+      return f.planet_id === currentPlanetId
+    })
+  }, [fleets, currentBase, currentPlanetId])
+
+  // Lay fleets out along the top edge of the grid, hovering above the platform.
+  // Spacing of 2 tiles keeps them legible without colliding with buildings.
+  const fleetSlots = useMemo(() => {
+    const slots: Array<{ fleet: typeof stationedHere[number]; pos: [number, number, number] }> = []
+    const startCol = 1
+    const row = 0
+    const spacing = 2
+    stationedHere.forEach((f, i) => {
+      const col = startCol + i * spacing
+      if (col >= GRID_SIZE - 1) return
+      const [wx, , wz] = gridToWorld(col, row)
+      slots.push({ fleet: f, pos: [wx, 2.5, wz] })
+    })
+    return slots
+  }, [stationedHere])
+
+  function openFleetManagement() {
+    window.dispatchEvent(
+      new CustomEvent('game:navigate', { detail: { path: '/military?tab=fleets' } }),
+    )
+  }
+
   return (
     <>
       <SceneLighting />
@@ -172,6 +215,16 @@ export default function PlanetScene() {
           />
         )
       })}
+
+      {/* Fleet markers - only on the space base */}
+      {currentBase === 'space' && fleetSlots.map(({ fleet, pos }) => (
+        <FleetMarker
+          key={fleet.id}
+          fleet={fleet}
+          position={pos}
+          onClick={openFleetManagement}
+        />
+      ))}
 
       <CameraController
         target={cameraTarget}

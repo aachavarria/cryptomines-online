@@ -4,6 +4,7 @@ import { getBuildingSize } from '../../config/buildingConfig.ts'
 import { TILE_WORLD_SIZE, gridToWorld } from '../../contexts/GameContext.tsx'
 import type { GridPosition } from '../../contexts/GameContext.tsx'
 import { BUILDING_MODELS } from './buildings/index.ts'
+import { colors3d, colors3dOpacity } from '../../config/colors3d.ts'
 
 interface GhostPreviewProps {
   typeName: string       // building type being placed
@@ -29,7 +30,9 @@ export default function GhostPreview({ typeName, gridPosition, isValid, visible 
   const boxDepth = size.rows * TILE_WORLD_SIZE * 0.95
   const boxHeight = Math.max(size.cols, size.rows) * 2 + 2
 
-  const color = isValid ? '#22cc66' : '#ff4444'
+  // Per design-system §7.6: valid = teal-success, invalid = danger.
+  const color = isValid ? colors3d.tileValid : colors3d.tileInvalid
+  const footprintOpacity = isValid ? colors3dOpacity.tileValid : colors3dOpacity.tileInvalid
 
   if (!visible || !worldPos) return null
 
@@ -90,7 +93,7 @@ export default function GhostPreview({ typeName, gridPosition, isValid, visible 
           emissive={color}
           emissiveIntensity={0.4}
           transparent
-          opacity={0.3}
+          opacity={footprintOpacity}
           depthWrite={false}
           side={THREE.DoubleSide}
         />
@@ -100,9 +103,9 @@ export default function GhostPreview({ typeName, gridPosition, isValid, visible 
 }
 
 // Component to apply hologram effect to building models
-function HologramBuilding({ TypeModel, color, isValid }: {
+function HologramBuilding({ TypeModel, color, isValid: _isValid }: {
   TypeModel: any,
-  color: string,
+  color: number,
   isValid: boolean
 }) {
   useEffect(() => {
@@ -112,9 +115,6 @@ function HologramBuilding({ TypeModel, color, isValid }: {
     }
   }, [])
 
-  // Convert hex color to number for hologramColor
-  const colorNum = parseInt(color.replace('#', ''), 16)
-
   return (
     <TypeModel
       position={[0, 0, 0]}
@@ -122,7 +122,7 @@ function HologramBuilding({ TypeModel, color, isValid }: {
       level={1}
       animate={false}
       isUnderConstruction={true}
-      hologramColor={colorNum}
+      hologramColor={color}
     />
   )
 }

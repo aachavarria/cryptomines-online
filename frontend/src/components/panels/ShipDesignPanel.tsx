@@ -2,16 +2,16 @@ import { useState, useMemo, Suspense } from 'react'
 import { createPortal } from 'react-dom'
 import { Canvas } from '@react-three/fiber'
 import { OrbitControls, useGLTF, Environment } from '@react-three/drei'
+import { Wrench, Cog, Plus, Minus, Trash2, X, Lock } from 'lucide-react'
 import { useShipDesigns } from '../../hooks/useShipDesigns.ts'
 import { useBlueprints } from '../../hooks/useBlueprints.ts'
 import LoadingButton from '../common/LoadingButton.tsx'
 import type { HullType, ModuleType, ShipDesignModule, ShipDesign } from '../../types'
-import '../../styles/common.css'
 
-const HULL_CLASS_COLORS: Record<string, string> = {
-  frigate: '#44aaff',
-  cruiser: '#cc8844',
-  battleship: '#aa4444',
+const HULL_CLASS_TINT: Record<string, string> = {
+  frigate: 'var(--ds-info)',
+  cruiser: 'var(--ds-orange-strong)',
+  battleship: 'var(--ds-danger)',
 }
 
 const HULL_CLASS_MODELS: Record<string, string> = {
@@ -32,19 +32,11 @@ const CATEGORY_LABELS: Record<string, string> = {
   electronic: 'ELC', storage: 'STO', transmission: 'TRN',
 }
 
-// --- Tier helpers ---
-
-const TIER_LABELS: Record<number, string> = {
-  1: 'I',
-  2: 'II',
-  3: 'III',
-}
+const TIER_LABELS: Record<number, string> = { 1: 'I', 2: 'II', 3: 'III' }
 
 function getTierLabel(tier: number): string {
   return TIER_LABELS[tier] || `T${tier}`
 }
-
-// --- Stat helpers (matches backend ship_formulas.go) ---
 
 function getModuleAvgAttack(mt: ModuleType): number {
   return Math.round((mt.min_damage + mt.max_damage) / 2)
@@ -53,7 +45,9 @@ function getModuleAvgAttack(mt: ModuleType): number {
 function parseEffects(mt: ModuleType): Record<string, number> {
   try {
     return JSON.parse(mt.effects_json || '{}')
-  } catch { return {} }
+  } catch {
+    return {}
+  }
 }
 
 function getModuleStat(mt: ModuleType): string {
@@ -68,7 +62,7 @@ function getModuleStat(mt: ModuleType): string {
   return `+${val} ${label}`
 }
 
-// --- 3D Ship Preview ---
+// 3D Ship Preview ----------------------------------------------------------
 
 function ShipModel({ url }: { url: string }) {
   const { scene } = useGLTF(url)
@@ -78,7 +72,7 @@ function ShipModel({ url }: { url: string }) {
 function ShipPreview({ hullClass }: { hullClass: string }) {
   const modelUrl = HULL_CLASS_MODELS[hullClass] || HULL_CLASS_MODELS.frigate
   return (
-    <div className={`de-preview-3d ${hullClass}`}>
+    <div className="de-preview">
       <Canvas camera={{ position: [0, 5, 25], fov: 50 }}>
         <ambientLight intensity={0.4} />
         <pointLight position={[5, 5, 5]} intensity={1} />
@@ -93,7 +87,7 @@ function ShipPreview({ hullClass }: { hullClass: string }) {
   )
 }
 
-// --- Design Editor Props ---
+// Design Editor ------------------------------------------------------------
 
 interface DesignEditorProps {
   hullTypes: HullType[]
@@ -106,7 +100,16 @@ interface DesignEditorProps {
   onClose: () => void
 }
 
-function DesignEditor({ hullTypes, moduleTypes, hasHullBlueprint, hasModuleBlueprint, getHullBlueprintResearchLevel, getModuleBlueprintResearchLevel, onSave, onClose }: DesignEditorProps) {
+function DesignEditor({
+  hullTypes,
+  moduleTypes,
+  hasHullBlueprint,
+  hasModuleBlueprint,
+  getHullBlueprintResearchLevel,
+  getModuleBlueprintResearchLevel,
+  onSave,
+  onClose,
+}: DesignEditorProps) {
   const [name, setName] = useState('')
   const [selectedHull, setSelectedHull] = useState<number | null>(null)
   const [modules, setModules] = useState<ShipDesignModule[]>([])
@@ -118,11 +121,9 @@ function DesignEditor({ hullTypes, moduleTypes, hasHullBlueprint, hasModuleBluep
   const hull = hullTypes.find(h => h.id === selectedHull)
   const filteredHulls = hullTypes.filter(h => {
     if (h.hull_class !== hullClassFilter) return false
-    // Player must have the blueprint activated
     if (!hasHullBlueprint(h.id)) return false
-    const researchLevel = getHullBlueprintResearchLevel(h.id)
-    // Show hull if research_level >= tier
-    return researchLevel >= h.tier
+    const lvl = getHullBlueprintResearchLevel(h.id)
+    return lvl >= h.tier
   })
 
   const groupCategories = MODULE_GROUPS[moduleGroup]?.categories || []
@@ -130,11 +131,9 @@ function DesignEditor({ hullTypes, moduleTypes, hasHullBlueprint, hasModuleBluep
     return moduleTypes.filter(mt => {
       if (!groupCategories.includes(mt.category)) return false
       if (moduleSubCategory && mt.category !== moduleSubCategory) return false
-      // Player must have the blueprint activated
       if (!hasModuleBlueprint(mt.id)) return false
-      const researchLevel = getModuleBlueprintResearchLevel(mt.id)
-      // Show module if research_level >= tier
-      return researchLevel >= mt.tier
+      const lvl = getModuleBlueprintResearchLevel(mt.id)
+      return lvl >= mt.tier
     })
   }, [moduleTypes, groupCategories, moduleSubCategory, hasModuleBlueprint, getModuleBlueprintResearchLevel])
 
@@ -162,13 +161,11 @@ function DesignEditor({ hullTypes, moduleTypes, hasHullBlueprint, hasModuleBluep
     for (const m of modules) {
       const mt = moduleTypes.find(mt => mt.id === m.module_type_id)
       if (!mt) continue
-
       attack += getModuleAvgAttack(mt) * m.quantity
       he3 += mt.he3_per_round * m.quantity
       metalCost += mt.metal_cost * m.quantity
       he3Cost += mt.he3_cost * m.quantity
       goldCost += mt.gold_cost * m.quantity
-
       const effects = parseEffects(mt)
       if (effects.shield_bonus) shield += effects.shield_bonus * m.quantity
       if (effects.structure_bonus) structure += effects.structure_bonus * m.quantity
@@ -194,16 +191,13 @@ function DesignEditor({ hullTypes, moduleTypes, hasHullBlueprint, hasModuleBluep
     if (mt.max_per_ship > 0 && currentQty >= mt.max_per_ship) return
     if (existing) {
       setModules(modules.map(m =>
-        m.module_type_id === moduleTypeId
-          ? { ...m, quantity: m.quantity + 1 }
-          : m
+        m.module_type_id === moduleTypeId ? { ...m, quantity: m.quantity + 1 } : m,
       ))
     } else {
-      setModules([...modules, {
-        module_type_id: moduleTypeId,
-        quantity: 1,
-        placement_order: modules.length + 1,
-      }])
+      setModules([
+        ...modules,
+        { module_type_id: moduleTypeId, quantity: 1, placement_order: modules.length + 1 },
+      ])
     }
   }
 
@@ -214,9 +208,7 @@ function DesignEditor({ hullTypes, moduleTypes, hasHullBlueprint, hasModuleBluep
       setModules(modules.filter(m => m.module_type_id !== moduleTypeId))
     } else {
       setModules(modules.map(m =>
-        m.module_type_id === moduleTypeId
-          ? { ...m, quantity: m.quantity - 1 }
-          : m
+        m.module_type_id === moduleTypeId ? { ...m, quantity: m.quantity - 1 } : m,
       ))
     }
   }
@@ -232,37 +224,50 @@ function DesignEditor({ hullTypes, moduleTypes, hasHullBlueprint, hasModuleBluep
     }
   }
 
-  const isValid = name.length > 0 && name.length <= 20 && /^[a-zA-Z0-9._-]+$/.test(name) &&
-    selectedHull !== null && modules.length > 0 && hull && !isOverVolume
+  const isValid =
+    name.length > 0 &&
+    name.length <= 20 &&
+    /^[a-zA-Z0-9._-]+$/.test(name) &&
+    selectedHull !== null &&
+    modules.length > 0 &&
+    hull &&
+    !isOverVolume
 
   return createPortal(
-    <div className="de-fullscreen-backdrop" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <div className="de-fullscreen">
-        {/* Header */}
-        <div className="de-header">
-          <span className="de-header-title">Ship Design Editor</span>
-          <button className="p2-modal-close" onClick={onClose}>X</button>
-        </div>
+    <div
+      className="ds-modal-backdrop de-backdrop"
+      onClick={e => {
+        if (e.target === e.currentTarget) onClose()
+      }}
+    >
+      <div className="ds-panel ds-panel--flush de-shell" role="dialog" aria-modal="true">
+        <header className="de-header">
+          <div className="de-title">
+            <Wrench size={22} strokeWidth={1.75} />
+            <h2 className="ds-h2">Ship Design Editor</h2>
+          </div>
+          <button className="ds-btn-icon" onClick={onClose} aria-label="Close editor">
+            <X size={18} strokeWidth={1.75} />
+          </button>
+        </header>
 
         <div className="de-body">
           {/* Column 1: Hull Selection */}
-          <div className="de-col de-col-hull">
-            <div className="de-col-title">Select Hull</div>
-            <div className="de-class-tabs">
+          <section className="de-col de-col--hull">
+            <div className="ds-caption">Select Hull</div>
+            <div className="ds-tabs de-tabs">
               {(['frigate', 'cruiser', 'battleship'] as const).map(cls => (
                 <button
                   key={cls}
-                  className={`de-class-tab ${hullClassFilter === cls ? 'active' : ''}`}
-                  style={{
-                    borderColor: hullClassFilter === cls ? HULL_CLASS_COLORS[cls] : undefined,
-                    color: hullClassFilter === cls ? HULL_CLASS_COLORS[cls] : undefined,
+                  className="ds-tab"
+                  aria-selected={hullClassFilter === cls}
+                  onClick={() => {
+                    setHullClassFilter(cls)
+                    setSelectedHull(null)
+                    setModules([])
                   }}
-                  onClick={() => { setHullClassFilter(cls); setSelectedHull(null); setModules([]) }}
                 >
-                  <span className="de-class-icon" style={{ background: HULL_CLASS_COLORS[cls] }}>
-                    {cls.charAt(0).toUpperCase()}
-                  </span>
-                  <span className="de-class-label">{cls.charAt(0).toUpperCase() + cls.slice(1)}</span>
+                  {cls.charAt(0).toUpperCase() + cls.slice(1)}
                 </button>
               ))}
             </div>
@@ -270,46 +275,66 @@ function DesignEditor({ hullTypes, moduleTypes, hasHullBlueprint, hasModuleBluep
             <div className="de-hull-list">
               {filteredHulls.map(h => {
                 const hasBp = hasHullBlueprint(h.id)
-                const researchLevel = getHullBlueprintResearchLevel(h.id)
-                const tierUnlocked = researchLevel >= h.tier
+                const lvl = getHullBlueprintResearchLevel(h.id)
+                const tierUnlocked = lvl >= h.tier
+                const isSelected = selectedHull === h.id
                 return (
                   <button
                     key={h.id}
-                    className={`de-hull-card ${selectedHull === h.id ? 'selected' : ''} ${!tierUnlocked ? 'locked' : ''}`}
-                    onClick={() => { if (tierUnlocked) { setSelectedHull(h.id); setModules([]) } }}
+                    type="button"
+                    className={`ds-list-item de-hull-card ${isSelected ? 'is-selected' : ''} ${!tierUnlocked ? 'is-disabled' : ''}`}
+                    aria-selected={isSelected}
+                    onClick={() => {
+                      if (tierUnlocked) {
+                        setSelectedHull(h.id)
+                        setModules([])
+                      }
+                    }}
                     disabled={!tierUnlocked}
-                    title={!tierUnlocked ? `Tier ${getTierLabel(h.tier)} locked - Research blueprint to level ${h.tier}` : ''}
+                    title={
+                      !tierUnlocked
+                        ? `Tier ${getTierLabel(h.tier)} locked - Research blueprint to level ${h.tier}`
+                        : ''
+                    }
                   >
                     <div className="de-hull-top">
                       <span className="de-hull-name">{h.display_name}</span>
-                      <span className={`de-hull-tier tier-${h.tier}`}>{getTierLabel(h.tier)}</span>
+                      <span className="ds-badge ds-badge--neutral">{getTierLabel(h.tier)}</span>
                     </div>
-                    <div className="de-hull-stats">
+                    <div className="de-hull-stats ds-mono">
                       <span>SH:{h.base_shield}</span>
                       <span>ST:{h.base_structure}</span>
                       <span>Slots:{h.installation_slots}</span>
                     </div>
-                    {!hasBp && <div className="de-hull-lock">🔒 No Blueprint</div>}
-                    {hasBp && !tierUnlocked && <div className="de-hull-lock">🔒 Tier {getTierLabel(h.tier)} Locked</div>}
+                    {!hasBp && (
+                      <span className="ds-badge ds-badge--neutral de-lock">
+                        <Lock size={12} strokeWidth={2} /> No Blueprint
+                      </span>
+                    )}
+                    {hasBp && !tierUnlocked && (
+                      <span className="ds-badge ds-badge--warning de-lock">
+                        <Lock size={12} strokeWidth={2} /> Tier {getTierLabel(h.tier)} Locked
+                      </span>
+                    )}
                   </button>
                 )
               })}
               {filteredHulls.length === 0 && (
-                <div className="de-empty">No hulls of this class unlocked</div>
+                <div className="de-empty ds-text-muted">No hulls of this class unlocked.</div>
               )}
             </div>
-          </div>
+          </section>
 
-          {/* Column 2: Ship Preview + Design */}
-          <div className="de-col de-col-center">
+          {/* Column 2: Preview & Design */}
+          <section className="de-col de-col--center">
             {hull ? (
               <>
                 <ShipPreview hullClass={hull.hull_class} />
 
-                <div className="p2-form-group">
-                  <label className="p2-label">Design Name</label>
+                <div className="de-form-group">
+                  <label className="ds-caption">Design Name</label>
                   <input
-                    className="p2-input"
+                    className="ds-input"
                     value={name}
                     maxLength={20}
                     placeholder="e.g. Frigate-Ballistic-V1"
@@ -317,27 +342,44 @@ function DesignEditor({ hullTypes, moduleTypes, hasHullBlueprint, hasModuleBluep
                   />
                 </div>
 
-                {/* Installed modules */}
                 <div className="de-installed">
-                  <div className="de-installed-header">
-                    <span className="p2-section-title">Installed Modules</span>
-                    <span className="de-installed-count">{modules.reduce((s, m) => s + m.quantity, 0)} items</span>
+                  <div className="de-installed-head">
+                    <span className="ds-caption">Installed Modules</span>
+                    <span className="ds-badge ds-badge--neutral ds-mono">
+                      {modules.reduce((s, m) => s + m.quantity, 0)} items
+                    </span>
                   </div>
                   {modules.length === 0 ? (
-                    <div className="de-empty">Select modules from the right panel</div>
+                    <div className="de-empty ds-text-muted">
+                      Select modules from the right panel.
+                    </div>
                   ) : (
                     <div className="de-module-list">
                       {modules.map(m => {
                         const mt = moduleTypes.find(mt => mt.id === m.module_type_id)
                         if (!mt) return null
                         return (
-                          <div key={m.module_type_id} className="de-module-installed">
-                            <span className={`de-mod-cat ${mt.category}`}>{CATEGORY_LABELS[mt.category] || mt.category.slice(0, 3).toUpperCase()}</span>
+                          <div key={m.module_type_id} className="ds-card de-mi">
+                            <span className="ds-badge ds-badge--neutral ds-mono">
+                              {CATEGORY_LABELS[mt.category] || mt.category.slice(0, 3).toUpperCase()}
+                            </span>
                             <span className="de-mi-name">{mt.display_name}</span>
-                            <span className="de-mi-qty">x{m.quantity}</span>
-                            <span className="de-mi-vol">{mt.volume * m.quantity}v</span>
-                            <button className="de-mi-remove" onClick={() => removeModule(m.module_type_id)}>-</button>
-                            <button className="de-mi-add" onClick={() => addModule(m.module_type_id)}>+</button>
+                            <span className="ds-mono ds-text-muted">×{m.quantity}</span>
+                            <span className="ds-mono ds-text-muted">{mt.volume * m.quantity}v</span>
+                            <button
+                              className="ds-btn-icon ds-btn-icon--sm"
+                              onClick={() => removeModule(m.module_type_id)}
+                              aria-label={`Remove ${mt.display_name}`}
+                            >
+                              <Minus size={14} strokeWidth={2} />
+                            </button>
+                            <button
+                              className="ds-btn-icon ds-btn-icon--sm"
+                              onClick={() => addModule(m.module_type_id)}
+                              aria-label={`Add ${mt.display_name}`}
+                            >
+                              <Plus size={14} strokeWidth={2} />
+                            </button>
                           </div>
                         )
                       })}
@@ -345,25 +387,27 @@ function DesignEditor({ hullTypes, moduleTypes, hasHullBlueprint, hasModuleBluep
                   )}
                 </div>
 
-                {/* Volume bar */}
-                <div className="de-volume-section">
-                  <div className="de-volume-label">
-                    <span>Volume</span>
-                    <span className={isOverVolume ? 'de-over' : ''}>{volumeUsed} / {volumeMax}</span>
+                <div className="de-volume">
+                  <div className="de-volume-row">
+                    <span className="ds-caption">Volume</span>
+                    <span className={`ds-mono${isOverVolume ? ' de-volume-over' : ''}`}>
+                      {volumeUsed} / {volumeMax}
+                    </span>
                   </div>
-                  <div className="de-volume-bar">
+                  <div className="ds-bar">
                     <div
-                      className={`de-volume-fill ${isOverVolume ? 'over' : isNearCapacity ? 'warning' : ''}`}
+                      className={`ds-bar-fill${isOverVolume ? ' ds-bar-fill--danger' : isNearCapacity ? ' ds-bar-fill--warning' : ''}`}
                       style={{ width: `${Math.min(100, volumePct)}%` }}
                     />
                   </div>
                 </div>
 
-                {/* Action buttons */}
                 <div className="de-actions">
-                  <button className="p2-btn p2-btn-secondary" onClick={onClose}>Cancel</button>
+                  <button className="ds-btn ds-btn-ghost" onClick={onClose}>
+                    Cancel
+                  </button>
                   <LoadingButton
-                    className="p2-btn p2-btn-primary"
+                    className="ds-btn ds-btn-secondary"
                     disabled={!isValid}
                     loading={saving}
                     onClick={handleSave}
@@ -373,33 +417,35 @@ function DesignEditor({ hullTypes, moduleTypes, hasHullBlueprint, hasModuleBluep
                 </div>
               </>
             ) : (
-              <div className="de-placeholder">
-                <div className="de-placeholder-text">Select a hull to begin designing</div>
+              <div className="de-placeholder ds-text-muted">
+                Select a hull to begin designing.
               </div>
             )}
-          </div>
+          </section>
 
           {/* Column 3: Module Selection */}
-          <div className="de-col de-col-modules">
-            <div className="de-col-title">Modules</div>
+          <section className="de-col de-col--modules">
+            <div className="ds-caption">Modules</div>
 
-            {/* Module group tabs */}
-            <div className="de-group-tabs">
+            <div className="ds-tabs de-tabs">
               {Object.entries(MODULE_GROUPS).map(([key, group]) => (
                 <button
                   key={key}
-                  className={`de-group-tab ${moduleGroup === key ? 'active' : ''}`}
-                  onClick={() => { setModuleGroup(key); setModuleSubCategory(null) }}
+                  className="ds-tab"
+                  aria-selected={moduleGroup === key}
+                  onClick={() => {
+                    setModuleGroup(key)
+                    setModuleSubCategory(null)
+                  }}
                 >
                   {group.label}
                 </button>
               ))}
             </div>
 
-            {/* Sub-category tabs */}
             <div className="de-sub-tabs">
               <button
-                className={`de-sub-tab ${moduleSubCategory === null ? 'active' : ''}`}
+                className={`ds-badge ${moduleSubCategory === null ? 'ds-badge--teal' : 'ds-badge--neutral'} de-sub-tab`}
                 onClick={() => setModuleSubCategory(null)}
               >
                 All
@@ -407,114 +453,281 @@ function DesignEditor({ hullTypes, moduleTypes, hasHullBlueprint, hasModuleBluep
               {groupCategories.map(cat => (
                 <button
                   key={cat}
-                  className={`de-sub-tab ${moduleSubCategory === cat ? 'active' : ''}`}
+                  className={`ds-badge ${moduleSubCategory === cat ? 'ds-badge--teal' : 'ds-badge--neutral'} de-sub-tab`}
                   onClick={() => setModuleSubCategory(cat)}
                 >
-                  <span className={`de-mod-cat ${cat}`}>{CATEGORY_LABELS[cat] || cat.slice(0, 3).toUpperCase()}</span>
+                  {CATEGORY_LABELS[cat] || cat.slice(0, 3).toUpperCase()}
                 </button>
               ))}
             </div>
 
-            {/* Module list */}
-            <div className="de-module-catalog">
+            <div className="de-catalog">
               {filteredModules.length === 0 ? (
-                <div className="de-empty">No modules unlocked in this category</div>
+                <div className="de-empty ds-text-muted">
+                  No modules unlocked in this category.
+                </div>
               ) : (
                 filteredModules.map(mt => {
                   const hasBp = hasModuleBlueprint(mt.id)
-                  const researchLevel = getModuleBlueprintResearchLevel(mt.id)
-                  const tierUnlocked = researchLevel >= mt.tier
+                  const lvl = getModuleBlueprintResearchLevel(mt.id)
+                  const tierUnlocked = lvl >= mt.tier
                   const installed = modules.find(m => m.module_type_id === mt.id)
                   const atMax = mt.max_per_ship > 0 && (installed?.quantity || 0) >= mt.max_per_ship
+                  const disabled = !tierUnlocked || !hull || atMax
                   return (
                     <button
                       key={mt.id}
-                      className={`de-catalog-module ${!tierUnlocked ? 'locked' : ''} ${installed ? 'installed' : ''} ${atMax ? 'at-max' : ''}`}
-                      onClick={() => { if (tierUnlocked && hull && !atMax) addModule(mt.id) }}
-                      disabled={!tierUnlocked || !hull || atMax}
-                      title={!tierUnlocked ? `Tier ${getTierLabel(mt.tier)} locked - Research blueprint to level ${mt.tier}` : ''}
+                      type="button"
+                      className={`ds-list-item de-catalog-mod ${installed ? 'is-selected' : ''} ${disabled ? 'is-disabled' : ''}`}
+                      aria-selected={!!installed}
+                      disabled={disabled}
+                      onClick={() => {
+                        if (tierUnlocked && hull && !atMax) addModule(mt.id)
+                      }}
+                      title={
+                        !tierUnlocked
+                          ? `Tier ${getTierLabel(mt.tier)} locked - Research blueprint to level ${mt.tier}`
+                          : ''
+                      }
                     >
-                      <span className={`de-mod-cat ${mt.category}`}>{CATEGORY_LABELS[mt.category] || mt.category.slice(0, 3).toUpperCase()}</span>
+                      <span className="ds-badge ds-badge--neutral ds-mono">
+                        {CATEGORY_LABELS[mt.category] || mt.category.slice(0, 3).toUpperCase()}
+                      </span>
                       <div className="de-catalog-info">
                         <span className="de-catalog-name">
                           {mt.display_name}
-                          <span className={`de-mod-tier tier-${mt.tier}`}>{getTierLabel(mt.tier)}</span>
+                          <span className="ds-badge ds-badge--neutral de-tier">
+                            {getTierLabel(mt.tier)}
+                          </span>
                         </span>
-                        <span className="de-catalog-stat">{getModuleStat(mt)}</span>
+                        <span className="ds-text-muted de-catalog-stat">{getModuleStat(mt)}</span>
                       </div>
                       <div className="de-catalog-right">
-                        <span className="de-catalog-vol">v{mt.volume}</span>
-                        {installed && <span className="de-catalog-qty">x{installed.quantity}</span>}
-                        {!hasBp && <span className="de-catalog-lock">🔒 No BP</span>}
-                        {hasBp && !tierUnlocked && <span className="de-catalog-lock">🔒 Tier {getTierLabel(mt.tier)}</span>}
+                        <span className="ds-mono ds-text-muted">v{mt.volume}</span>
+                        {installed && (
+                          <span className="ds-badge ds-badge--teal ds-mono">×{installed.quantity}</span>
+                        )}
+                        {!hasBp && (
+                          <span className="ds-badge ds-badge--neutral">
+                            <Lock size={10} strokeWidth={2} /> No BP
+                          </span>
+                        )}
+                        {hasBp && !tierUnlocked && (
+                          <span className="ds-badge ds-badge--warning">
+                            <Lock size={10} strokeWidth={2} /> {getTierLabel(mt.tier)}
+                          </span>
+                        )}
                       </div>
                     </button>
                   )
                 })
               )}
             </div>
-          </div>
+          </section>
         </div>
 
-        {/* Bottom stats bar */}
         {hull && (
-          <div className="de-bottom-bar">
-            <div className="de-stats-row">
-              <div className="de-stat-cell">
-                <span className="de-stat-label">Attack</span>
-                <span className="de-stat-value atk">{totalStats.attack}</span>
-              </div>
-              <div className="de-stat-cell">
-                <span className="de-stat-label">Shield</span>
-                <span className="de-stat-value shd">{totalStats.shield}</span>
-              </div>
-              <div className="de-stat-cell">
-                <span className="de-stat-label">Atk/Rnd</span>
-                <span className="de-stat-value atk">{totalStats.attack}</span>
-              </div>
-              <div className="de-stat-cell">
-                <span className="de-stat-label">Structure</span>
-                <span className="de-stat-value str">{totalStats.structure}</span>
-              </div>
-              <div className="de-stat-cell">
-                <span className="de-stat-label">Agility</span>
-                <span className="de-stat-value">{totalStats.agility}</span>
-              </div>
-              <div className="de-stat-cell">
-                <span className="de-stat-label">Storage</span>
-                <span className="de-stat-value">{totalStats.storage}</span>
-              </div>
-              <div className="de-stat-cell">
-                <span className="de-stat-label">Stability</span>
-                <span className="de-stat-value">{totalStats.stability}</span>
-              </div>
-              <div className="de-stat-cell">
-                <span className="de-stat-label">Mobility</span>
-                <span className="de-stat-value">{totalStats.mobility}</span>
-              </div>
-              <div className="de-stat-cell">
-                <span className="de-stat-label">Defense</span>
-                <span className="de-stat-value">{totalStats.defense}</span>
-              </div>
-              <div className="de-stat-cell">
-                <span className="de-stat-label">He3/Rnd</span>
-                <span className="de-stat-value he3">{totalStats.he3}</span>
-              </div>
+          <footer className="de-footer">
+            <div className="de-stats">
+              <Stat label="Attack" value={totalStats.attack} accent="orange" />
+              <Stat label="Shield" value={totalStats.shield} accent="info" />
+              <Stat label="Atk/Rnd" value={totalStats.attack} accent="orange" />
+              <Stat label="Structure" value={totalStats.structure} />
+              <Stat label="Agility" value={totalStats.agility} />
+              <Stat label="Storage" value={totalStats.storage} />
+              <Stat label="Stability" value={totalStats.stability} />
+              <Stat label="Mobility" value={totalStats.mobility} />
+              <Stat label="Defense" value={totalStats.defense} />
+              <Stat label="He3/Rnd" value={totalStats.he3} accent="info" />
             </div>
-            <div className="de-cost-row">
-              <span className="de-cost"><span className="de-cost-dot metal" />Metal: {totalStats.metalCost.toLocaleString()}</span>
-              <span className="de-cost"><span className="de-cost-dot he3" />He3: {totalStats.he3Cost.toLocaleString()}</span>
-              <span className="de-cost"><span className="de-cost-dot gold" />Gold: {totalStats.goldCost.toLocaleString()}</span>
+            <div className="de-costs">
+              <span className="de-cost">
+                <span className="ds-resource-dot ds-resource-dot--metal" />
+                Metal: <span className="ds-mono">{totalStats.metalCost.toLocaleString()}</span>
+              </span>
+              <span className="de-cost">
+                <span className="ds-resource-dot ds-resource-dot--he3" />
+                He3: <span className="ds-mono">{totalStats.he3Cost.toLocaleString()}</span>
+              </span>
+              <span className="de-cost">
+                <span className="ds-resource-dot ds-resource-dot--gold" />
+                Gold: <span className="ds-mono">{totalStats.goldCost.toLocaleString()}</span>
+              </span>
             </div>
-          </div>
+          </footer>
         )}
+
+        <style>{`
+          .de-backdrop { padding: 0; }
+          .de-shell {
+            width: 100vw; height: 100vh; max-width: 100vw; max-height: 100vh;
+            display: flex; flex-direction: column;
+            border: 0;
+          }
+          .de-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: var(--sp-3) var(--sp-5);
+            border-bottom: 1px solid var(--ds-border);
+            flex-shrink: 0;
+          }
+          .de-title { display: flex; align-items: center; gap: var(--sp-2); color: var(--ds-text); }
+          .de-title h2 { margin: 0; }
+          .de-body {
+            flex: 1; min-height: 0;
+            display: grid;
+            grid-template-columns: 280px minmax(0, 1fr) 320px;
+            gap: var(--sp-4);
+            padding: var(--sp-4) var(--sp-5);
+            overflow: hidden;
+          }
+          .de-col {
+            display: flex; flex-direction: column; gap: var(--sp-3);
+            min-height: 0; overflow: hidden;
+          }
+          .de-col--center { gap: var(--sp-3); }
+          .de-tabs { flex-shrink: 0; }
+          .de-hull-list, .de-catalog {
+            flex: 1; min-height: 0; overflow-y: auto;
+            display: flex; flex-direction: column; gap: var(--sp-2);
+          }
+          .de-hull-card {
+            display: flex; flex-direction: column; gap: 6px;
+            text-align: left; cursor: pointer;
+          }
+          .de-hull-card[disabled] { cursor: not-allowed; }
+          .de-hull-top {
+            display: flex; align-items: center; justify-content: space-between;
+            gap: var(--sp-2);
+          }
+          .de-hull-name { font-weight: var(--fw-semibold); color: var(--ds-text); }
+          .de-hull-stats {
+            display: flex; gap: var(--sp-3);
+            font-size: var(--fs-caption); color: var(--ds-text-muted);
+          }
+          .de-lock { display: inline-flex; align-items: center; gap: 4px; align-self: flex-start; }
+          .de-empty { padding: var(--sp-4); text-align: center; }
+
+          .de-preview {
+            height: 220px;
+            background: var(--ds-surface-3);
+            border-radius: var(--r-lg);
+            overflow: hidden;
+            flex-shrink: 0;
+          }
+          .de-form-group { display: flex; flex-direction: column; gap: 6px; }
+
+          .de-installed {
+            display: flex; flex-direction: column; gap: var(--sp-2);
+            flex: 1; min-height: 0; overflow: hidden;
+          }
+          .de-installed-head { display: flex; align-items: center; justify-content: space-between; }
+          .de-module-list {
+            flex: 1; min-height: 0; overflow-y: auto;
+            display: flex; flex-direction: column; gap: var(--sp-2);
+          }
+          .de-mi {
+            display: grid;
+            grid-template-columns: auto 1fr auto auto auto auto;
+            align-items: center; gap: var(--sp-2);
+            padding: var(--sp-2) var(--sp-3);
+          }
+          .de-mi-name {
+            font-weight: var(--fw-medium); color: var(--ds-text);
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+          }
+
+          .de-volume { display: flex; flex-direction: column; gap: 6px; }
+          .de-volume-row { display: flex; align-items: center; justify-content: space-between; font-size: var(--fs-sm); }
+          .de-volume-over { color: var(--ds-danger); font-weight: var(--fw-semibold); }
+
+          .de-actions {
+            display: flex; justify-content: flex-end; gap: var(--sp-2);
+          }
+
+          .de-placeholder {
+            flex: 1; display: grid; place-items: center;
+            font-size: var(--fs-h3);
+          }
+
+          .de-sub-tabs {
+            display: flex; flex-wrap: wrap; gap: var(--sp-1);
+            flex-shrink: 0;
+          }
+          .de-sub-tab {
+            cursor: pointer; border: 0;
+          }
+
+          .de-catalog-mod {
+            display: grid;
+            grid-template-columns: auto 1fr auto;
+            align-items: center; gap: var(--sp-2);
+            text-align: left; cursor: pointer;
+          }
+          .de-catalog-mod[disabled] { cursor: not-allowed; }
+          .de-catalog-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+          .de-catalog-name {
+            display: inline-flex; align-items: center; gap: var(--sp-1);
+            font-weight: var(--fw-medium); color: var(--ds-text);
+            font-size: var(--fs-sm);
+          }
+          .de-tier { font-size: 10px; padding: 1px 5px; }
+          .de-catalog-stat { font-size: var(--fs-caption); }
+          .de-catalog-right { display: inline-flex; align-items: center; gap: var(--sp-1); }
+
+          .de-footer {
+            border-top: 1px solid var(--ds-border);
+            padding: var(--sp-3) var(--sp-5);
+            display: flex; flex-direction: column; gap: var(--sp-2);
+            background: var(--ds-surface-2);
+            flex-shrink: 0;
+          }
+          .de-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+            gap: var(--sp-3);
+          }
+          .de-costs {
+            display: flex; flex-wrap: wrap; gap: var(--sp-4);
+            font-size: var(--fs-sm); color: var(--ds-text);
+          }
+          .de-cost { display: inline-flex; align-items: center; gap: var(--sp-1); }
+        `}</style>
       </div>
     </div>,
     document.body,
   )
 }
 
-// --- Main ShipDesignPanel ---
+function Stat({
+  label,
+  value,
+  accent,
+}: {
+  label: string
+  value: number
+  accent?: 'orange' | 'info'
+}) {
+  const colorVar =
+    accent === 'orange'
+      ? 'var(--ds-orange-strong)'
+      : accent === 'info'
+        ? 'var(--ds-info)'
+        : 'var(--ds-text)'
+  return (
+    <div className="de-stat">
+      <span className="ds-caption">{label}</span>
+      <span className="ds-mono de-stat-value" style={{ color: colorVar }}>
+        {value}
+      </span>
+      <style>{`
+        .de-stat { display: flex; flex-direction: column; gap: 2px; align-items: flex-start; }
+        .de-stat-value { font-size: var(--fs-h3); font-weight: var(--fw-semibold); }
+      `}</style>
+    </div>
+  )
+}
+
+// Main ShipDesignPanel -----------------------------------------------------
 
 export default function ShipDesignPanel() {
   const { designs, hullTypes, moduleTypes, loading, error, create, remove } = useShipDesigns()
@@ -522,18 +735,26 @@ export default function ShipDesignPanel() {
   const [showEditor, setShowEditor] = useState(false)
 
   if (loading) {
-    return <div className="p2-panel-loading"><div className="loading-spinner" /><span>Loading Designs...</span></div>
+    return (
+      <div className="ds-panel sd-loading">
+        <div className="loading-spinner" />
+        <span>Loading Designs...</span>
+      </div>
+    )
   }
 
-  // Helper to get blueprint research level for a hull type
   function getHullBlueprintResearchLevel(hullTypeId: number): number {
-    const bp = myBlueprints.find(bp => bp.blueprint_type === 'hull' && bp.hull_type_id === hullTypeId && bp.is_activated)
+    const bp = myBlueprints.find(
+      bp => bp.blueprint_type === 'hull' && bp.hull_type_id === hullTypeId && bp.is_activated,
+    )
     return bp?.research_level ?? 0
   }
 
-  // Helper to get blueprint research level for a module type
   function getModuleBlueprintResearchLevel(moduleTypeId: number): number {
-    const bp = myBlueprints.find(bp => bp.blueprint_type === 'module' && bp.module_type_id === moduleTypeId && bp.is_activated)
+    const bp = myBlueprints.find(
+      bp =>
+        bp.blueprint_type === 'module' && bp.module_type_id === moduleTypeId && bp.is_activated,
+    )
     return bp?.research_level ?? 0
   }
 
@@ -542,37 +763,49 @@ export default function ShipDesignPanel() {
   }
 
   return (
-    <div className="p2-panel">
-      <div className="p2-panel-header">
-        <div className="p2-panel-icon design-icon">DS</div>
-        <div>
-          <div className="p2-panel-title">Ship Designs</div>
-          <div className="p2-panel-subtitle">{designs.length}/20 designs</div>
+    <div className="ds-panel sd-panel">
+      <header className="sd-header">
+        <div className="sd-header-icon">
+          <Cog size={22} strokeWidth={1.75} />
+        </div>
+        <div className="sd-header-text">
+          <h2 className="ds-h2">Ship Designs</h2>
+          <p className="ds-text-muted sd-subtitle">
+            <span className="ds-mono">{designs.length}</span>/20 designs
+          </p>
         </div>
         <button
-          className="p2-btn p2-btn-primary"
+          className="ds-btn ds-btn-secondary sd-new"
           onClick={() => setShowEditor(true)}
           disabled={designs.length >= 20}
         >
           New Design
         </button>
-      </div>
+      </header>
 
-      {error && <div className="p2-error-msg">{error}</div>}
+      {error && (
+        <div className="ds-badge ds-badge--danger sd-error" role="alert">
+          {error}
+        </div>
+      )}
 
-      <div className="p2-section">
-        {designs.length === 0 ? (
-          <div className="p2-empty-state">
-            No ship designs yet. Create your first design to start building ships.
-          </div>
-        ) : (
-          <div className="sd-list">
-            {designs.map(d => (
-              <DesignCard key={d.id} design={d} hullTypes={hullTypes} onDelete={() => remove(d.id)} />
-            ))}
-          </div>
-        )}
-      </div>
+      {designs.length === 0 ? (
+        <div className="ds-card sd-empty">
+          <Wrench size={32} strokeWidth={1.5} />
+          <p>No ship designs yet. Create your first design to start building ships.</p>
+        </div>
+      ) : (
+        <div className="sd-list">
+          {designs.map(d => (
+            <DesignCard
+              key={d.id}
+              design={d}
+              hullTypes={hullTypes}
+              onDelete={() => remove(d.id)}
+            />
+          ))}
+        </div>
+      )}
 
       {showEditor && (
         <DesignEditor
@@ -586,42 +819,116 @@ export default function ShipDesignPanel() {
           onClose={() => setShowEditor(false)}
         />
       )}
+
+      <style>{`
+        .sd-panel { display: flex; flex-direction: column; gap: var(--sp-4); max-width: 1100px; }
+        .sd-loading { display: flex; align-items: center; gap: var(--sp-3); }
+        .sd-header { display: flex; align-items: center; gap: var(--sp-3); }
+        .sd-header-icon {
+          width: 44px; height: 44px;
+          display: grid; place-items: center;
+          background: var(--ds-teal-tint);
+          color: var(--ds-teal-dark);
+          border-radius: var(--r-lg);
+        }
+        .sd-header-text { flex: 1; }
+        .sd-header-text h2 { margin: 0; }
+        .sd-subtitle { margin: 2px 0 0; font-size: var(--fs-sm); }
+        .sd-error { display: inline-flex; }
+        .sd-empty {
+          display: flex; flex-direction: column; align-items: center;
+          gap: var(--sp-2); padding: var(--sp-6);
+          color: var(--ds-text-muted);
+        }
+        .sd-empty p { margin: 0; }
+        .sd-list {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+          gap: var(--sp-3);
+        }
+      `}</style>
     </div>
   )
 }
 
-// --- Design Card (list view) ---
-
-function DesignCard({ design, hullTypes, onDelete }: {
+function DesignCard({
+  design,
+  hullTypes,
+  onDelete,
+}: {
   design: ShipDesign
   hullTypes: HullType[]
   onDelete: () => void
 }) {
   const hull = hullTypes.find(h => h.id === design.hull_type_id)
   const hullClass = design.hull_class || hull?.hull_class || 'frigate'
-  const classColor = HULL_CLASS_COLORS[hullClass] || '#888'
+  const tint = HULL_CLASS_TINT[hullClass] || 'var(--ds-text-muted)'
+  // ships_built is provided by the API but isn't on the type yet
+  const built = (design as ShipDesign & { ships_built?: number }).ships_built ?? 0
 
   return (
-    <div className="sd-card">
-      <div className="sd-card-header">
-        <div className="sd-card-class" style={{ color: classColor, borderColor: classColor }}>
+    <div className="ds-card sd-card">
+      <div className="sd-card-head">
+        <div className="sd-card-class" style={{ color: tint, borderColor: tint }}>
           {hullClass.charAt(0).toUpperCase()}
         </div>
         <div className="sd-card-info">
           <div className="sd-card-name">{design.name}</div>
-          <div className="sd-card-hull">{design.hull_name || hull?.display_name || 'Unknown Hull'}</div>
+          <div className="ds-text-muted sd-card-hull">
+            {design.hull_name || hull?.display_name || 'Unknown Hull'}
+          </div>
         </div>
-        {design.ships_built === 0 && (
-          <button className="p2-btn p2-btn-danger p2-btn-xs" onClick={onDelete}>Del</button>
+        {built === 0 && (
+          <button
+            className="ds-btn-icon ds-btn-icon--sm"
+            onClick={onDelete}
+            aria-label="Delete design"
+          >
+            <Trash2 size={14} strokeWidth={2} />
+          </button>
         )}
       </div>
       <div className="sd-card-stats">
-        <span className="sd-stat"><span className="sd-stat-label">SH</span> {design.total_shield}</span>
-        <span className="sd-stat"><span className="sd-stat-label">ST</span> {design.total_structure}</span>
-        <span className="sd-stat"><span className="sd-stat-label">ATK</span> {design.attack_power}</span>
-        <span className="sd-stat"><span className="sd-stat-label">VOL</span> {design.volume_used}</span>
-        <span className="sd-stat"><span className="sd-stat-label">Built</span> {design.ships_built}</span>
+        <Stat2 label="SH" value={design.total_shield} />
+        <Stat2 label="ST" value={design.total_structure} />
+        <Stat2 label="ATK" value={design.attack_power} />
+        <Stat2 label="VOL" value={design.volume_used} />
+        <Stat2 label="Built" value={built} />
       </div>
+
+      <style>{`
+        .sd-card { display: flex; flex-direction: column; gap: var(--sp-2); }
+        .sd-card-head { display: flex; align-items: center; gap: var(--sp-3); }
+        .sd-card-class {
+          width: 36px; height: 36px;
+          display: grid; place-items: center;
+          border-radius: var(--r-md);
+          border: 2px solid currentColor;
+          font-weight: var(--fw-bold); flex-shrink: 0;
+        }
+        .sd-card-info { flex: 1; min-width: 0; }
+        .sd-card-name {
+          font-weight: var(--fw-semibold); color: var(--ds-text);
+          white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .sd-card-hull { font-size: var(--fs-sm); }
+        .sd-card-stats {
+          display: flex; flex-wrap: wrap; gap: var(--sp-3);
+          font-size: var(--fs-sm);
+        }
+      `}</style>
     </div>
+  )
+}
+
+function Stat2({ label, value }: { label: string; value: number }) {
+  return (
+    <span className="sd-stat2">
+      <span className="ds-caption">{label}</span>
+      <span className="ds-mono">{value}</span>
+      <style>{`
+        .sd-stat2 { display: inline-flex; align-items: center; gap: 4px; color: var(--ds-text); }
+      `}</style>
+    </span>
   )
 }

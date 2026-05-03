@@ -1,9 +1,22 @@
-import { useGameContext, CATEGORY_COLORS, BUILDING_ABBREVIATIONS } from '../../contexts/GameContext.tsx'
+import { useGameContext } from '../../contexts/GameContext.tsx'
 import { useBuildings } from '../../hooks/useBuildings.ts'
 import { useCountdown, formatNumber, formatDuration } from '../../hooks/useCountdown.ts'
 import { useResources } from '../../hooks/useResources.ts'
 import { useEffect, useState } from 'react'
 import { cancelUpgrade } from '../../services/api.ts'
+import {
+  Building2,
+  Factory,
+  Hammer,
+  Home,
+  Rocket,
+  ShieldHalf,
+  Target,
+  X,
+  CircleCheck,
+  CircleX,
+  type LucideIcon,
+} from 'lucide-react'
 
 // GO2 cost formula: Cost(N) = BaseCost * CostMultiplier^(N-1)
 function calcUpgradeCost(bt: { base_cost_metal: number; base_cost_he3: number; base_cost_gold: number; base_time_seconds: number; cost_multiplier: number; time_multiplier: number }, targetLevel: number) {
@@ -27,6 +40,35 @@ const RESOURCE_LABEL: Record<string, string> = {
   metal_collector: 'Metal',
   he3_extractor: 'He3',
   residential_area: 'Gold',
+}
+
+// Map a building category to its design-system badge variant.
+const CATEGORY_BADGE: Record<string, string> = {
+  resource: 'ds-badge--success',
+  core: 'ds-badge--teal',
+  military: 'ds-badge--danger',
+  defense: 'ds-badge--orange',
+  space: 'ds-badge--orange',
+}
+
+// Map a category (or building type) to a lucide icon.
+function pickIcon(category: string, typeName: string): LucideIcon {
+  if (typeName === 'metal_collector' || typeName === 'he3_extractor') return Factory
+  if (typeName === 'residential_area') return Home
+  switch (category) {
+    case 'resource':
+      return Factory
+    case 'core':
+      return Hammer
+    case 'military':
+      return Target
+    case 'defense':
+      return ShieldHalf
+    case 'space':
+      return Rocket
+    default:
+      return Building2
+  }
 }
 
 export default function BuildingDetailPanel() {
@@ -66,24 +108,9 @@ export default function BuildingDetailPanel() {
   const isMaxLevel = building ? building.level >= building.max_level : false
   const isUpgrading = building?.is_upgrading ?? false
 
-  const color = building ? CATEGORY_COLORS[building.category] || '#888' : '#888'
-  const abbr = building ? BUILDING_ABBREVIATIONS[building.type_name] || '??' : ''
-
-  let buttonClass = 'bdp-upgrade-btn '
-  let buttonText = ''
-  if (isMaxLevel) {
-    buttonClass += 'max-level'
-    buttonText = 'MAX LEVEL'
-  } else if (isUpgrading) {
-    buttonClass += 'upgrading'
-    buttonText = `UPGRADING... ${countdown}`
-  } else if (canAfford) {
-    buttonClass += 'can-upgrade'
-    buttonText = `UPGRADE TO LV ${level + 1}`
-  } else {
-    buttonClass += 'disabled'
-    buttonText = `UPGRADE TO LV ${level + 1}`
-  }
+  const buttonText = isUpgrading
+    ? `UPGRADING... ${countdown}`
+    : `UPGRADE TO LV ${level + 1}`
 
   async function handleUpgrade() {
     if (!building || isMaxLevel || isUpgrading || !canAfford) return
@@ -106,28 +133,31 @@ export default function BuildingDetailPanel() {
   const hasProduction = bt && bt.base_production_per_hour > 0
   const resourceLabel = building ? RESOURCE_LABEL[building.type_name] || '' : ''
 
+  const Icon = building ? pickIcon(building.category, building.type_name) : Building2
+  const badgeClass = building ? CATEGORY_BADGE[building.category] || 'ds-badge--neutral' : 'ds-badge--neutral'
+
   return (
-    <div className={`building-detail-panel ${isOpen ? 'open' : ''}`}>
+    <div className={`building-detail-panel ds-panel--flush ${isOpen ? 'open' : ''}`}>
       {building && (
         <>
           <div className="bdp-header">
-            <button className="bdp-close" onClick={closeDetailPanel}>
-              X
-            </button>
-            <span className={`bdp-category-badge ${building.category}`}>
-              {building.category}
-            </span>
-
-            <div
-              className="bdp-icon"
-              style={{ background: color, color: '#000' }}
+            <button
+              className="bdp-close ds-btn-icon"
+              onClick={closeDetailPanel}
+              aria-label="Close"
             >
-              {abbr}
+              <X size={16} />
+            </button>
+
+            <div className="bdp-icon">
+              <Icon strokeWidth={1.75} />
             </div>
 
-            <div className="bdp-name">{building.display_name}</div>
-            <div className="bdp-level">
-              Level {building.level} / {building.max_level}
+            <span className={`ds-badge ${badgeClass}`}>{building.category}</span>
+
+            <h2 className="bdp-name ds-h2">{building.display_name}</h2>
+            <div className="bdp-level ds-text-muted">
+              Level <span className="ds-mono">{building.level}</span> · <span className="ds-mono">{building.level}/{building.max_level}</span>
             </div>
             <div className="bdp-level-bar">
               <div
@@ -142,13 +172,13 @@ export default function BuildingDetailPanel() {
             <div className="bdp-section">
               <div className="bdp-section-title">Production</div>
               <div className="bdp-production-current">
-                Current: {formatNumber(calcProduction(bt, building.level))} {resourceLabel}/hr
+                Current: <span className="ds-mono">{formatNumber(calcProduction(bt, building.level))}</span> {resourceLabel}/hr
               </div>
               {!isMaxLevel && (
                 <div className="bdp-production-next">
-                  Next Lv: {formatNumber(calcProduction(bt, building.level + 1))} /hr
+                  Next Lv: <span className="ds-mono">{formatNumber(calcProduction(bt, building.level + 1))}</span> /hr
                   {calcProduction(bt, building.level) > 0 && (
-                    <> (+{((calcProduction(bt, building.level + 1) / calcProduction(bt, building.level) - 1) * 100).toFixed(1)}%)</>
+                    <> (+<span className="ds-mono">{((calcProduction(bt, building.level + 1) / calcProduction(bt, building.level) - 1) * 100).toFixed(1)}</span>%)</>
                   )}
                 </div>
               )}
@@ -160,50 +190,40 @@ export default function BuildingDetailPanel() {
             <div className="bdp-section">
               <div className="bdp-section-title">Upgrade to Level {level + 1}</div>
 
-              <div className="bdp-cost-row">
-                <div className="bdp-cost-left">
-                  <span className="bdp-cost-icon metal" />
-                  <span className="bdp-cost-name">Metal</span>
-                </div>
-                <span className="bdp-cost-amount">{formatNumber(upgradeCost.metal)}</span>
-                <span className={`bdp-cost-status ${hasMetal ? 'ok' : 'insufficient'}`}>
-                  {hasMetal ? '\u2713' : '\u2717'}
-                </span>
-              </div>
-
-              <div className="bdp-cost-row">
-                <div className="bdp-cost-left">
-                  <span className="bdp-cost-icon he3" />
-                  <span className="bdp-cost-name">He3</span>
-                </div>
-                <span className="bdp-cost-amount">{formatNumber(upgradeCost.he3)}</span>
-                <span className={`bdp-cost-status ${hasHe3 ? 'ok' : 'insufficient'}`}>
-                  {hasHe3 ? '\u2713' : '\u2717'}
-                </span>
-              </div>
-
-              <div className="bdp-cost-row">
-                <div className="bdp-cost-left">
-                  <span className="bdp-cost-icon gold" />
-                  <span className="bdp-cost-name">Gold</span>
-                </div>
-                <span className="bdp-cost-amount">{formatNumber(upgradeCost.gold)}</span>
-                <span className={`bdp-cost-status ${hasGold ? 'ok' : 'insufficient'}`}>
-                  {hasGold ? '\u2713' : '\u2717'}
-                </span>
-              </div>
+              <CostRow
+                label="Metal"
+                amount={upgradeCost.metal}
+                ok={hasMetal}
+                dotClass="ds-resource-dot--metal"
+              />
+              <CostRow
+                label="He3"
+                amount={upgradeCost.he3}
+                ok={hasHe3}
+                dotClass="ds-resource-dot--he3"
+              />
+              <CostRow
+                label="Gold"
+                amount={upgradeCost.gold}
+                ok={hasGold}
+                dotClass="ds-resource-dot--gold"
+              />
 
               <div className="bdp-time-row">
-                <span>Time:</span>
-                <span className="bdp-time-value">{formatDuration(upgradeCost.time_seconds)}</span>
+                <span>Time</span>
+                <span className="bdp-time-value ds-mono">{formatDuration(upgradeCost.time_seconds)}</span>
               </div>
             </div>
           )}
 
           <div className="bdp-section">
-            {isUpgrading ? (
+            {isMaxLevel ? (
+              <span className="ds-badge ds-badge--orange ds-btn--block" style={{ justifyContent: 'center', padding: '10px 16px' }}>
+                MAX LEVEL
+              </span>
+            ) : isUpgrading ? (
               <button
-                className="bdp-upgrade-btn upgrading-cancel"
+                className="bdp-upgrade-btn ds-btn ds-btn--block upgrading-cancel"
                 onClick={handleCancel}
                 disabled={cancelling}
               >
@@ -211,9 +231,9 @@ export default function BuildingDetailPanel() {
               </button>
             ) : (
               <button
-                className={buttonClass}
+                className="bdp-upgrade-btn ds-btn-secondary ds-btn--block"
                 onClick={handleUpgrade}
-                disabled={isMaxLevel || !canAfford}
+                disabled={!canAfford}
               >
                 {buttonText}
               </button>
@@ -221,6 +241,31 @@ export default function BuildingDetailPanel() {
           </div>
         </>
       )}
+    </div>
+  )
+}
+
+function CostRow({
+  label,
+  amount,
+  ok,
+  dotClass,
+}: {
+  label: string
+  amount: number
+  ok: boolean
+  dotClass: string
+}) {
+  return (
+    <div className="bdp-cost-row">
+      <div className="bdp-cost-left">
+        <span className={`ds-resource-dot ${dotClass}`} />
+        <span className="bdp-cost-name">{label}</span>
+      </div>
+      <span className="bdp-cost-amount ds-mono">{formatNumber(amount)}</span>
+      <span className={`bdp-cost-status ${ok ? 'ok' : 'insufficient'}`} aria-label={ok ? 'sufficient' : 'insufficient'}>
+        {ok ? <CircleCheck size={16} /> : <CircleX size={16} />}
+      </span>
     </div>
   )
 }

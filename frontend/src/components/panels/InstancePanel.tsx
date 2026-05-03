@@ -1,9 +1,106 @@
-import { useState } from 'react'
+import { useState, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
+import { MapPin, Layers, Sword, Check, X } from 'lucide-react'
 import { useInstances } from '../../hooks/useInstances.ts'
 import { useFleets } from '../../hooks/useFleets.ts'
 import { formatNumber } from '../../hooks/useCountdown.ts'
 import type { Instance, InstanceDetail, InstanceAttemptResponse, Fleet } from '../../types'
+
+const styles: Record<string, CSSProperties> = {
+  panel: {
+    maxWidth: 720,
+    margin: '0 auto',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 'var(--sp-4)',
+  },
+  header: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 'var(--sp-3)',
+  },
+  headerIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 'var(--r-md)',
+    background: 'var(--ds-orange-tint)',
+    color: 'var(--ds-orange)',
+    display: 'inline-grid',
+    placeItems: 'center',
+  },
+  list: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 'var(--sp-2)',
+    maxHeight: 'calc(100vh - 240px)',
+    overflowY: 'auto',
+  },
+  listItem: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 'var(--sp-3)',
+  },
+  difficulty: {
+    width: 36,
+    height: 36,
+    borderRadius: 'var(--r-md)',
+    background: 'var(--ds-surface-3)',
+    color: 'var(--ds-text-muted)',
+    display: 'inline-grid',
+    placeItems: 'center',
+    fontWeight: 700,
+    flexShrink: 0,
+  },
+  rowBetween: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 'var(--sp-3)',
+  },
+  modalSection: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 'var(--sp-2)',
+    paddingBottom: 'var(--sp-4)',
+    borderBottom: '1px solid var(--ds-border)',
+    marginBottom: 'var(--sp-4)',
+  },
+  resultBanner: {
+    padding: 'var(--sp-5)',
+    borderRadius: 'var(--r-lg)',
+    textAlign: 'center',
+    fontSize: 'var(--fs-h1)',
+    fontWeight: 700,
+    letterSpacing: '0.06em',
+    textTransform: 'uppercase',
+    marginBottom: 'var(--sp-4)',
+  },
+  fleetList: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
+    gap: 'var(--sp-2)',
+  },
+  resourceRow: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 'var(--sp-2)',
+  },
+  resDot: {
+    width: 10,
+    height: 10,
+    borderRadius: '50%',
+    display: 'inline-block',
+  },
+}
+
+function classBadge(hullClass: string): string {
+  // hullClass: scout, frigate, destroyer, cruiser, battleship, dreadnought, etc.
+  const lower = hullClass.toLowerCase()
+  if (lower.includes('dreadnought') || lower.includes('battleship')) return 'ds-badge--danger'
+  if (lower.includes('cruiser') || lower.includes('destroyer')) return 'ds-badge--orange'
+  if (lower.includes('frigate')) return 'ds-badge--info'
+  return 'ds-badge--neutral'
+}
 
 interface InstanceDetailModalProps {
   instance: Instance
@@ -43,117 +140,176 @@ function InstanceDetailModal({
   }
 
   const stationedFleets = fleets.filter(f => f.status === 'stationed' && (f.stacks?.length || 0) > 0)
+  const isVictory = result?.result === 'attacker_win'
 
   return createPortal(
-    <div className="p2-modal-backdrop" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <div className="p2-modal p2-modal-md">
-        <div className="p2-modal-header">
-          <span className="p2-modal-title">{instance.name}</span>
-          <button className="p2-modal-close" onClick={onClose}>X</button>
+    <div className="ds-modal-backdrop" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
+      <div className="ds-modal" role="dialog" aria-modal="true">
+        <div className="ds-modal-header">
+          <h2 className="ds-modal-title" style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--sp-2)' }}>
+            <MapPin size={20} strokeWidth={1.75} aria-hidden="true" />
+            {instance.name}
+          </h2>
+          <button className="ds-btn-icon" onClick={onClose} aria-label="Close">
+            <X size={16} strokeWidth={2} aria-hidden="true" />
+          </button>
         </div>
-        <div className="p2-modal-body">
+        <div className="ds-modal-body">
           {result ? (
             /* Battle Result */
-            <div className="inst-result">
-              <div className={`inst-result-banner ${result.result === 'attacker_win' ? 'victory' : 'defeat'}`}>
-                {result.result === 'attacker_win' ? 'VICTORY' : 'DEFEAT'}
+            <div>
+              <div
+                style={{
+                  ...styles.resultBanner,
+                  background: isVictory ? 'var(--ds-success-tint)' : 'var(--ds-danger-tint)',
+                  color: isVictory ? '#15803D' : '#B91C1C',
+                  border: `2px solid ${isVictory ? 'var(--ds-success)' : 'var(--ds-danger)'}`,
+                }}
+              >
+                {isVictory ? 'Victory' : 'Defeat'}
               </div>
-              <div className="inst-result-stats">
-                <div className="inst-result-row">
-                  <span>Rounds:</span><span>{result.total_rounds}</span>
+              <div className="ds-card" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)' }}>
+                <div style={styles.rowBetween}>
+                  <span className="ds-text-muted">Rounds</span>
+                  <span className="ds-mono">{result.total_rounds}</span>
                 </div>
-                <div className="inst-result-row">
-                  <span>EXP Gained:</span><span className="inst-exp">+{formatNumber(result.exp_gained)}</span>
+                <div style={styles.rowBetween}>
+                  <span className="ds-text-muted">EXP Gained</span>
+                  <span className="ds-mono" style={{ color: 'var(--ds-teal-dark)', fontWeight: 600 }}>
+                    +{formatNumber(result.exp_gained)}
+                  </span>
                 </div>
                 {result.treasure_box && (
                   <>
-                    <div className="p2-section-title">Rewards</div>
-                    <div className="inst-result-row">
-                      <span className="res-dot metal" /> Metal: +{formatNumber(result.treasure_box.resources.metal)}
+                    <div className="ds-caption" style={{ marginTop: 'var(--sp-2)' }}>Rewards</div>
+                    <div style={styles.rowBetween}>
+                      <span style={styles.resourceRow}>
+                        <span style={{ ...styles.resDot, background: 'var(--ds-metal)' }} />
+                        Metal
+                      </span>
+                      <span className="ds-mono">+{formatNumber(result.treasure_box.resources.metal)}</span>
                     </div>
-                    <div className="inst-result-row">
-                      <span className="res-dot he3" /> He3: +{formatNumber(result.treasure_box.resources.he3)}
+                    <div style={styles.rowBetween}>
+                      <span style={styles.resourceRow}>
+                        <span style={{ ...styles.resDot, background: 'var(--ds-he3)' }} />
+                        He3
+                      </span>
+                      <span className="ds-mono">+{formatNumber(result.treasure_box.resources.he3)}</span>
                     </div>
-                    <div className="inst-result-row">
-                      <span className="res-dot gold" /> Gold: +{formatNumber(result.treasure_box.resources.gold)}
+                    <div style={styles.rowBetween}>
+                      <span style={styles.resourceRow}>
+                        <span style={{ ...styles.resDot, background: 'var(--ds-gold)' }} />
+                        Gold
+                      </span>
+                      <span className="ds-mono">+{formatNumber(result.treasure_box.resources.gold)}</span>
                     </div>
                     {result.treasure_box.blueprint_id && (
-                      <div className="inst-result-row inst-bp-drop">
-                        Blueprint Drop! ID: {result.treasure_box.blueprint_id}
+                      <div style={{ ...styles.rowBetween, color: 'var(--ds-orange-strong)' }}>
+                        <span>Blueprint Drop!</span>
+                        <span className="ds-mono">ID: {result.treasure_box.blueprint_id}</span>
                       </div>
                     )}
                   </>
                 )}
                 {Object.keys(result.losses.ships_destroyed).length > 0 && (
                   <>
-                    <div className="p2-section-title">Losses</div>
+                    <div className="ds-caption" style={{ marginTop: 'var(--sp-2)' }}>Losses</div>
                     {Object.entries(result.losses.ships_destroyed).map(([designId, count]) => (
-                      <div key={designId} className="inst-result-row inst-loss">
-                        <span>Design {designId.slice(0, 8)}...</span>
-                        <span>-{count} ships</span>
+                      <div key={designId} style={styles.rowBetween}>
+                        <span className="ds-text-muted">Design {designId.slice(0, 8)}...</span>
+                        <span className="ds-mono" style={{ color: 'var(--ds-danger)' }}>-{count} ships</span>
                       </div>
                     ))}
-                    <div className="inst-result-row inst-loss">
-                      <span>He3 Consumed:</span>
-                      <span>{formatNumber(result.losses.he3_consumed)}</span>
+                    <div style={styles.rowBetween}>
+                      <span className="ds-text-muted">He3 Consumed</span>
+                      <span className="ds-mono" style={{ color: 'var(--ds-danger)' }}>
+                        {formatNumber(result.losses.he3_consumed)}
+                      </span>
                     </div>
                   </>
                 )}
               </div>
-              <button className="p2-btn p2-btn-primary p2-btn-full" onClick={onClose}>Close</button>
+              <button
+                className="ds-btn ds-btn-secondary ds-btn--block"
+                style={{ marginTop: 'var(--sp-4)' }}
+                onClick={onClose}
+              >
+                Close
+              </button>
             </div>
           ) : (
             /* Pre-battle screen */
             <>
-              <div className="inst-info">
-                <div className="inst-info-row">
-                  <span>Level Requirement:</span>
-                  <span>{instance.required_level}</span>
+              <div style={styles.modalSection}>
+                <div style={styles.rowBetween}>
+                  <span className="ds-text-muted">Level Requirement</span>
+                  <span className="ds-mono">{instance.required_level}</span>
                 </div>
-                <div className="inst-info-row">
-                  <span>Max Fleets:</span>
-                  <span>{instance.max_fleets}</span>
+                <div style={styles.rowBetween}>
+                  <span className="ds-text-muted">Max Fleets</span>
+                  <span className="ds-mono">{instance.max_fleets}</span>
                 </div>
-                <div className="inst-info-row">
-                  <span>EXP Reward:</span>
-                  <span className="inst-exp">{formatNumber(instance.exp_reward)}</span>
+                <div style={styles.rowBetween}>
+                  <span className="ds-text-muted">EXP Reward</span>
+                  <span className="ds-mono" style={{ color: 'var(--ds-teal-dark)', fontWeight: 600 }}>
+                    {formatNumber(instance.exp_reward)}
+                  </span>
                 </div>
               </div>
 
               {loadingDetail ? (
-                <div className="p2-panel-loading"><div className="loading-spinner" /></div>
+                <div style={{ display: 'flex', justifyContent: 'center', padding: 'var(--sp-4)' }}>
+                  <div className="loading-spinner" />
+                </div>
               ) : detail && (
-                <div className="inst-enemies">
-                  <div className="p2-section-title">Enemy Forces</div>
+                <div style={styles.modalSection}>
+                  <div className="ds-caption">Enemy Forces</div>
                   {detail.enemy_fleets.map((ef, i) => (
-                    <div key={i} className="inst-enemy-row">
-                      <span className={`inst-enemy-class ${ef.hull_class}`}>{ef.hull_class}</span>
-                      <span>x{ef.ship_count}</span>
-                      <span className="inst-enemy-power">~{formatNumber(ef.power_estimate)} power</span>
+                    <div key={i} style={styles.rowBetween}>
+                      <span className={`ds-badge ${classBadge(ef.hull_class)}`}>{ef.hull_class}</span>
+                      <span className="ds-mono">x{ef.ship_count}</span>
+                      <span className="ds-text-muted ds-mono" style={{ fontSize: 'var(--fs-sm)' }}>
+                        ~{formatNumber(ef.power_estimate)} power
+                      </span>
                     </div>
                   ))}
                 </div>
               )}
 
-              <div className="inst-fleet-select">
-                <div className="p2-section-title">
+              <div style={{ marginBottom: 'var(--sp-4)' }}>
+                <div className="ds-caption" style={{ marginBottom: 'var(--sp-2)' }}>
                   Select Fleets ({selectedFleets.length}/{instance.max_fleets})
                 </div>
                 {stationedFleets.length === 0 ? (
-                  <div className="p2-empty-state">No stationed fleets available. Create a fleet first.</div>
+                  <div className="ds-text-muted" style={{ textAlign: 'center', padding: 'var(--sp-4)' }}>
+                    No stationed fleets available. Create a fleet first.
+                  </div>
                 ) : (
-                  <div className="inst-fleet-list">
+                  <div style={styles.fleetList}>
                     {stationedFleets.map(f => {
                       const isSelected = selectedFleets.includes(f.id)
                       const totalShips = f.stacks?.reduce((sum, s) => sum + s.ship_count, 0) || 0
                       return (
                         <button
                           key={f.id}
-                          className={`inst-fleet-btn ${isSelected ? 'selected' : ''}`}
+                          className="ds-list-item"
+                          aria-selected={isSelected}
+                          style={{
+                            textAlign: 'left',
+                            border: 'none',
+                            background: 'transparent',
+                            font: 'inherit',
+                            padding: 'var(--sp-3)',
+                            cursor: 'pointer',
+                            borderRadius: 'var(--r-lg)',
+                            ...(isSelected ? { borderColor: 'var(--ds-orange)', borderWidth: 2, borderStyle: 'solid' } : {}),
+                          }}
                           onClick={() => toggleFleet(f.id)}
                         >
-                          <span className="inst-fleet-name">{f.name}</span>
-                          <span className="inst-fleet-ships">{formatNumber(totalShips)} ships</span>
+                          <div style={{ fontWeight: 600 }}>{f.name}</div>
+                          <div className="ds-text-muted ds-mono" style={{ fontSize: 'var(--fs-sm)', marginTop: 4 }}>
+                            {formatNumber(totalShips)} ships
+                          </div>
                         </button>
                       )
                     })}
@@ -162,11 +318,12 @@ function InstanceDetailModal({
               </div>
 
               <button
-                className="p2-btn p2-btn-danger p2-btn-full"
+                className="ds-btn ds-btn-primary ds-btn--block"
                 onClick={handleAttack}
                 disabled={selectedFleets.length === 0 || attacking}
               >
-                {attacking ? 'Attacking...' : 'ATTACK'}
+                <Sword size={16} strokeWidth={2} aria-hidden="true" />
+                {attacking ? 'Attacking...' : 'Attack'}
               </button>
             </>
           )}
@@ -185,7 +342,12 @@ export default function InstancePanel() {
   const [loadingDetail, setLoadingDetail] = useState(false)
 
   if (loading) {
-    return <div className="p2-panel-loading"><div className="loading-spinner" /><span>Loading Instances...</span></div>
+    return (
+      <div className="ds-panel" style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-3)', justifyContent: 'center' }}>
+        <div className="loading-spinner" />
+        <span className="ds-text-muted">Loading Instances...</span>
+      </div>
+    )
   }
 
   async function handleSelect(inst: Instance) {
@@ -202,43 +364,65 @@ export default function InstancePanel() {
     }
   }
 
+  const completedCount = instances.filter(i => isCompleted(i.id)).length
+
   return (
-    <div className="p2-panel">
-      <div className="p2-panel-header">
-        <div className="p2-panel-icon inst-icon">IN</div>
+    <div className="ds-panel" style={styles.panel}>
+      <div style={styles.header}>
+        <span style={styles.headerIcon} aria-hidden="true">
+          <Layers size={22} strokeWidth={1.75} />
+        </span>
         <div>
-          <div className="p2-panel-title">Instances</div>
-          <div className="p2-panel-subtitle">
-            Normal Instances - {instances.filter(i => isCompleted(i.id)).length}/{instances.length} completed
+          <h2 className="ds-h2" style={{ margin: 0 }}>Instances</h2>
+          <div className="ds-text-muted" style={{ fontSize: 'var(--fs-sm)' }}>
+            Normal Instances - <span className="ds-mono">{completedCount}/{instances.length}</span> completed
           </div>
         </div>
       </div>
 
-      {error && <div className="p2-error-msg">{error}</div>}
+      {error && (
+        <div className="ds-badge ds-badge--danger" role="alert">{error}</div>
+      )}
 
-      <div className="inst-list">
+      <div style={styles.list}>
         {instances.length === 0 && (
-          <div className="p2-empty-state">No instances available.</div>
+          <div className="ds-text-muted" style={{ textAlign: 'center', padding: 'var(--sp-6)' }}>
+            No instances available.
+          </div>
         )}
         {instances.map(inst => {
           const completed = isCompleted(inst.id)
           return (
             <div
               key={inst.id}
-              className={`inst-card ${completed ? 'completed' : ''}`}
+              className="ds-list-item"
+              style={{
+                ...styles.listItem,
+                ...(completed ? { opacity: 0.7 } : {}),
+              }}
               onClick={() => handleSelect(inst)}
             >
-              <div className="inst-card-number">{inst.difficulty}</div>
-              <div className="inst-card-info">
-                <div className="inst-card-name">{inst.name}</div>
-                <div className="inst-card-req">
+              <div style={styles.difficulty}>{inst.difficulty}</div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 600 }}>{inst.name}</div>
+                <div className="ds-text-muted" style={{ fontSize: 'var(--fs-sm)', marginTop: 2 }}>
                   Lv {inst.required_level} | {inst.max_fleets} fleet{inst.max_fleets > 1 ? 's' : ''}
                 </div>
               </div>
-              <div className="inst-card-reward">
-                <span className="inst-exp">+{formatNumber(inst.exp_reward)} EXP</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-2)' }}>
+                <span className="ds-badge ds-badge--teal">
+                  +{formatNumber(inst.exp_reward)} EXP
+                </span>
+                {completed && (
+                  <span
+                    className="ds-badge ds-badge--success"
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                  >
+                    <Check size={12} strokeWidth={2} aria-hidden="true" />
+                    Done
+                  </span>
+                )}
               </div>
-              {completed && <div className="inst-card-check">Done</div>}
             </div>
           )
         })}
