@@ -1,9 +1,23 @@
 # Cryptomines Online - Game Design Document
 
-> **Version**: 3.3
-> **Last Updated**: 2026-02-06
+> **Version**: 3.4
+> **Last Updated**: 2026-05-02
 > **Status**: Draft
 > **Directive**: 1:1 faithful reproduction of Galaxy Online 2 mechanics. Only the game name and visual theme are original. All mechanics, naming, formulas, and systems must match GO2.
+
+> **⚠ Combat model rewritten in v3.4 (2026-05-02).** Earlier versions described
+> combat as an abstract fleet-vs-fleet 8-phase calculation with no spatial
+> battle map. **That was wrong.** GO2 combat is **tile-based tactical** on the
+> defender's 20×20 Space Base grid: ships move tiles per round, weapon ranges
+> are measured in tiles, defense buildings act as stationary units at their
+> build positions, and attackers spawn from a corner determined by the galaxy
+> attack vector. See §8.6 for the corrected spec, §3.12 for the new
+> `rounds_json` schema, and Appendix D for engine pseudocode.
+>
+> **Implementation status (2026-05-02):** the current backend
+> (`backend/internal/combat/combat_engine.go`) implements only the abstract
+> 8-phase model. The tile-based engine described here is **not yet built** —
+> this section is the design target for the rewrite.
 
 ---
 
@@ -207,7 +221,10 @@ Max commanders at Player Level 71+: **60**
 
 #### 2.2.9 Building Grid & Footprints
 
-Buildings are placed on a **20x20 isometric grid** (400 tiles). Each building type occupies a multi-tile footprint (cols x rows):
+Buildings are placed on a **20×20 isometric grid** (400 tiles). Each building
+type occupies a multi-tile footprint (cols × rows). **The Space Base 20×20 grid
+doubles as the battle map when the planet is attacked**, so building placement
+is itself a tactical decision (see §8.6.2):
 
 | Footprint | Buildings |
 |-----------|-----------|
@@ -763,18 +780,20 @@ Time reduction formula: identical to Technology Center (3% per level).
 | **Defense** | Damage reduction percentage |
 | **Installation Slots** | Module capacity (e.g., Frigates ~100, Cruisers ~140) |
 | **Agility** | Dodge chance, reduces enemy hit rate |
-| **Movement (MOV)** | Fleet travel speed |
+| **Movement (MOV)** | Tiles a fleet can traverse per round on the battle map (§8.6.3). Fleet MOV = MIN(stack MOV) across the fleet. NOT the same as galaxy travel time, which is a separate engine-driven calculation. |
 | **Storage** | Cargo capacity |
 
 [NEEDS RESEARCH: complete ship hull table with base stats for all hull types]
 
 #### 2.4.4 Fleet Composition
 
-- **Fleet Grid**: 3x3 grid = 9 stacks maximum
-- **Stack Size**: 3,000 ships per stack (max 27,000 ships per fleet)
-- **Rule**: One ship design per stack, do NOT mix weapon types within a fleet
+- **Phalanx (3×3 grid)**: 9 stacks maximum *inside a single fleet*. This is the
+  per-fleet exposure and attack-modifier layout — it is **not** the battle map.
+  See §8.6.5.
+- **Stack Size**: 3,000 ships per stack (max 27,000 ships per fleet).
+- **Rule**: One ship design per stack; do NOT mix weapon types within a fleet.
 
-**Grid Positions & Attack Power:**
+**Phalanx Positions & Attack Power:**
 
 ```
 +------+----------+----------+
@@ -786,9 +805,14 @@ Time reduction formula: identical to Technology Center (3% per level).
 +------+----------+----------+
 ```
 
-- **Glasshouse** (center-middle): Most protected position
-- **Shoulders**: Most vulnerable positions
-- **Fleet speed** = speed of the slowest ship
+- **Glasshouse** (center-middle): Most protected slot.
+- **Shoulders**: Most exposed slots.
+- **Fleet movement** = MIN(stack movement) — slowest ship sets fleet's
+  tiles-per-round budget on the battle map (see §8.6.3).
+- **Battle-map position**: a fleet occupies **one tile** on the 20×20 battle
+  map; the 9 phalanx stacks all share that tile. Movement, range, and AoE on
+  the battle map operate at the fleet level. Damage exposure within the fleet
+  uses the phalanx layout.
 
 #### 2.4.5 Fleet Formations
 
@@ -941,10 +965,15 @@ Tech-specific bonuses:
 
 #### 2.5.7 PvP Mechanics
 
-- Scout with single-ship fleet before major attacks
-- Winner receives **20% of loser's resources** (not warehouse contents)
-- Use "synchronize arrival" to coordinate fleet timing
-- Ships must be dismissed or truced when offline for protection
+- Scout with single-ship fleet before major attacks.
+- **Battle takes place on the defender's 20×20 Space Base grid** (see §8.6).
+  Defender's buildings + defending fleets vs attacker's incoming fleets.
+  Attacker enters from the corner closest to its galaxy approach vector.
+- Winner receives **20% of loser's resources** (not warehouse contents).
+- Use "synchronize arrival" to coordinate fleet timing.
+- Ships must be dismissed or truced when offline for protection.
+- Attacker who hits the round cap (max 99 rounds) without clearing the defense
+  **loses** by default — defenders only need to survive.
 
 ### 2.6 Commander System
 
@@ -1035,12 +1064,18 @@ Bonuses apply to: Resource production, Research speed, Shipbuilding speed
 
 **Defensive Structures (per planet):**
 
-| Structure | Count | HP Range (Lv1-10) | Attack Range |
-|-----------|-------|-------------------|--------------|
-| Meteor Stars | 63 | 40K - 20.48M | - |
-| Particle Cannons | 8 | - | 8-17 tiles, 10K-450K dmg |
-| Anti-Aircraft Guns | 12 | 16K - 8.19M | 30 tiles, 50K-500K dmg |
-| Thor's Cannons | 5 | - | 50K-1.35M dmg |
+| Structure | Count | HP Range (Lv1-10) | Attack Range | Battle Role |
+|-----------|-------|-------------------|--------------|-------------|
+| Meteor Stars | 63 | 40K - 20.48M | — (terrain) | **Block movement on the battle grid**; attackers must destroy or path around |
+| Particle Cannons | 8 | — | 8-17 tiles, 10K-450K dmg | Long-range single-target turret |
+| Anti-Aircraft Guns | 12 | 16K - 8.19M | up to 30 tiles, 50K-500K dmg | AoE: hits target tile + 8 neighbors (50% to neighbors) |
+| Thor's Cannons | 5 | — | TBD, 50K-1.35M dmg | Heavy bombardment |
+
+> **Placement matters.** During an attack, defense buildings act as stationary
+> combat units occupying their build-time tiles (per §8.6.12). Strong defensive
+> layouts: Meteor Stars channel attackers into kill zones; Thor's at the map
+> edge maximizes time spent in range; box formations force AAGuns' splash to
+> chain. See §8.6 for full battle resolution.
 
 **Fleet Capacity:**
 
@@ -1670,6 +1705,14 @@ CREATE INDEX idx_fleets_status ON fleets (status);
 CREATE INDEX idx_fleets_commander ON fleets (commander_id) WHERE commander_id IS NOT NULL;
 ```
 
+> **Battle-map position is NOT stored on `fleets`.** A fleet's tile position
+> on the 20×20 battle map is ephemeral state that lives only inside a battle
+> simulation (rounds_json snapshots, see §3.12). Persistent fleet location is
+> the galaxy coordinate (`position_x`, `position_y`) and `planet_id`. When a
+> battle starts, the engine assigns each attacker fleet a spawn tile based on
+> the entry corner (§8.6.2) and each defender fleet a spawn tile adjacent to
+> the Space Station.
+
 ### 3.12 Combat Reports
 
 ```sql
@@ -1695,6 +1738,49 @@ CREATE INDEX idx_combat_reports_attacker ON combat_reports (attacker_id);
 CREATE INDEX idx_combat_reports_defender ON combat_reports (defender_id);
 CREATE INDEX idx_combat_reports_created ON combat_reports (created_at DESC);
 CREATE INDEX idx_combat_reports_type ON combat_reports (combat_type);
+```
+
+**`rounds_json` schema (tile-based replay):**
+
+```jsonc
+{
+  "battle_map": {
+    "width": 20,
+    "height": 20,
+    "terrain": [{ "col": 5, "row": 7, "type": "meteor_star", "hp": 40000 }]
+  },
+  "initial_units": [
+    {
+      "unit_id": "atk_0",
+      "side": "attacker",
+      "kind": "fleet",
+      "fleet_id": "uuid",
+      "tile": { "col": 0, "row": 0 },
+      "phalanx": [/* 3x3 stacks snapshot */]
+    },
+    {
+      "unit_id": "def_b1",
+      "side": "defender",
+      "kind": "building",
+      "building_id": "uuid",
+      "type_name": "particle_cannon",
+      "tile": { "col": 10, "row": 10 },
+      "hp": 250000
+    }
+  ],
+  "rounds": [
+    {
+      "round": 1,
+      "actions": [
+        { "type": "move", "unit_id": "atk_0", "from": [0,0], "to": [3,3], "path": [[1,1],[2,2],[3,3]] },
+        { "type": "fire", "attacker": "atk_0", "target": "def_b1", "weapon": "missile", "damage": 12500, "casualties": 0, "crit": false },
+        { "type": "aoe",  "source": "def_b1", "center": [3,3], "tiles": [[2,2],[2,3],[2,4],[3,2],[3,4],[4,2],[4,3],[4,4]], "damage_pct": 0.5 },
+        { "type": "destroy", "unit_id": "def_b1" }
+      ]
+    }
+  ],
+  "end": { "winner": "attacker", "reason": "all_defenders_destroyed" }
+}
 ```
 
 ### 3.13 Instances (PvE Content)
@@ -3195,35 +3281,71 @@ Items marked [NEEDS RESEARCH] throughout this document that need investigation:
 | 11 | 2,218 | 23 | 16,919 |
 | 12 | 2,506 | 24 | 21,148 |
 
-## Appendix D: Combat Resolution Pseudocode
+## Appendix D: Combat Resolution Pseudocode (Tile-Based)
+
+> Authoritative spec lives in §8.6. Pseudocode below is the engine outline.
 
 ```
-FOR EACH ROUND (min 20, max 99 rounds):
-  FOR EACH ATTACKING STACK (ordered by commander speed):
-    1. Count attacks = weapon_modules * min(ships, effective_stack) * hit_chance
-    2. Defender PPC interceptors roll (55% per PPC module per attack)
-    3. Surviving attacks roll damage [weapon_min, weapon_max]
-    4. Apply critical hits (electron stat + tech bonuses)
-    5. Apply type advantage (+/-5% Frigate/Cruiser/Battleship triangle)
-    6. Apply weapon expertise modifier (S:+30%, A:+10%, B:0%, C:-10%, D:-30%)
-    7. Apply ship expertise modifier (S:+10%/-10%, A:+5%/-10%, etc.)
-    8. Non-EOS shields reduce damage (Heat Diffusion, Daedalus, Energy Armor)
-    9. Shield penetration check (tech-based %)
-    10. EOS Phase Shift: 30% chance to absorb double damage (Damage Mitigation tech)
-    11. Remaining damage applied to combined shield HP pool (3,000 ships * shield_per_ship)
-    12. Overflow -> ships_destroyed = floor(overflow / (structure * stability))
-    13. Scatter damage = weapon_dmg * scatter% -> hits adjacent stacks (NO defense)
+INITIALIZE BATTLE:
+  battle_map = defender.space_base_grid              // 20x20
+  terrain    = [Meteor Stars from defender's buildings]
+  units      = []
+  // Spawn defender buildings as stationary units at their build tiles
+  FOR EACH defense_building IN defender.buildings WHERE category='defense':
+    units += build_unit_from_building(defense_building)
+  // Spawn defending fleets adjacent to Space Station
+  FOR EACH fleet IN defender.defending_fleets:
+    units += build_unit_from_fleet(fleet, tile=adjacent_to_space_station())
+  // Spawn attacking fleets at the corner determined by attack vector
+  corner = pick_corner_from_galaxy_vector(attacker.home, defender.planet)
+  FOR EACH fleet IN attacker.fleets:
+    units += build_unit_from_fleet(fleet, tile=corner_offset(corner, i))
 
-  CHECK: All stacks on one side destroyed -> battle ends early
+  round_cap = MIN(99,
+                  20 + count(defender_fleets) + count(attacker_fleets)
+                     + count(defense_buildings))
+
+FOR round = 1..round_cap:
+  initiative = sort(units, by=commander_speed DESC)
+  FOR EACH unit IN initiative:
+    IF unit.dead: continue
+    // 1. MOVE (fleets only)
+    IF unit.kind == 'fleet':
+      destination = pick_destination(unit, units, terrain)   // see §8.6.10
+      path        = a_star(unit.tile, destination, blocked_by=terrain+enemy_units,
+                           cap=unit.movement_points)
+      record_action('move', unit, path)
+      unit.tile = path.last
+
+    // 2. ACQUIRE TARGET
+    target = apply_targeting_command(unit, in_range_enemies(unit, units))
+    IF target IS NULL: continue
+
+    // 3. FIRE — resolve 8 sub-phases (§8.6.9) per stack within unit
+    FOR EACH stack IN unit.phalanx_stacks_active:
+      IF weapon_on_cooldown(stack): continue
+      damage = run_8_subphases(stack, target)
+      apply_damage(target, damage)
+      record_action('fire', stack, target, damage)
+
+    // 4. AOE / SCATTER
+    IF weapon_has_aoe(stack):
+      apply_aoe(target.tile, stack, units)                   // 3x3 around target tile
+    apply_scatter_inside_target_phalanx(stack, target)       // §8.6.7 phase 8
+
+    // 5. TICK
+    tick_cooldowns_and_debuffs(unit)
+
+  IF one_side_fully_destroyed: break
 
 AFTER BATTLE:
-  PvP: Winner gets 20% of loser's uncollected resources
-  Instances: Treasure Box roll (10% blueprint chance)
-  Generate combat_report with full round-by-round data
-  Apply He3 consumption for ships used
-  Normal/Restricted Instances: destroyed ships are permanently lost
-  Trial/Constellation: no ship loss, only He3 consumed
-  League/Championship: no ship loss, no He3 consumed
+  PvP: Winner gets 20% of loser's uncollected resources.
+  Instances: Treasure Box roll (10% blueprint chance).
+  Generate combat_report with full tile-aware round_json (see §3.12).
+  Apply He3 consumption for ships used.
+  Normal/Restricted Instances: destroyed ships are permanently lost.
+  Trial/Constellation: no ship loss, only He3 consumed.
+  League/Championship: no ship loss, no He3 consumed.
 ```
 
 ---
@@ -3854,20 +3976,186 @@ Each fleet has one commander. Commander impacts:
 
 ---
 
-### 8.6 Combat System (8-Phase Resolution)
+### 8.6 Combat System (Tile-Based Tactical)
+
+> **Authoritative source:** This section is rewritten to match how Galaxy Online II
+> actually plays, per the GO2 Wiki (Combat Mechanics, Fleet Design, Defense
+> Strategies, Orbital Bases, Attacking Neighbors PvP, Anti-aircraft Gun, Ship
+> Design, Missile Weapons, Ship-Based Weapons) and contemporary GO2 strategy
+> guides. The previous "abstract 8-phase, no spatial map" model documented in
+> earlier drafts of this GDD was incorrect.
 
 #### 8.6.1 Combat Overview
 
-Combat occurs when fleets engage in PvP or PvE (instances). Each combat consists of multiple rounds, each resolved through 8 sequential phases.
+Combat is a **round-based tactical battle on a tile grid**. The battle map is
+the **same 20×20 grid** the defender uses to lay out their Space Base —
+defense buildings keep their build positions, and attacking fleets enter as
+units that spend Movement points each round to traverse tiles, fire on targets
+within their weapons' tile range, and resolve damage through the 8 sub-phases
+described in 8.6.4.
+
+The fight is **auto-resolved**: the player does not steer ships during the
+battle. Both sides watch the simulation play out (animated tactical replay,
+8.6.13) and receive a written battle report.
 
 | Property | Value |
 |----------|-------|
-| **Min Rounds** | 20 + number of fleets/buildings present |
-| **Max Rounds** | 99 |
-| **Resolution** | Per-stack, ordered by commander Speed |
-| **End Condition** | All stacks on one side destroyed OR max rounds reached |
+| **Battle Map** | 20×20 tile grid (the defender's Space Base layout) |
+| **Attacker Spawn** | One of the 4 corners, chosen by attack vector on the galaxy map |
+| **Defender Units** | Defense buildings (stationary) + defending fleets (mobile) |
+| **Resolution** | Round-based; within a round, stacks act in initiative order (Commander Speed) |
+| **Min Rounds** | 20 + #DefenderFleets + #AttackerFleets + #DefenseStructures |
+| **Max Rounds** | 99 (Scenario Instances cap at 30) |
+| **Win Condition** | All enemy stacks AND structures destroyed |
+| **Lose Condition (attacker)** | Round limit reached, or all attacker stacks wiped |
+| **Lose Condition (defender)** | All defense buildings AND defending fleets wiped |
 
-#### 8.6.2 Effective Stack
+> Note: an attacker who runs out of rounds before clearing the defense **loses**
+> — defenders only need to survive.
+
+#### 8.6.2 Battle Map & Spawn Rules
+
+**The battle map is the defender's 20×20 Space Base grid**, unchanged. Defense
+buildings stay where they were placed during base construction; their tile
+footprints become unit positions in combat.
+
+**Attacker spawn corner** — when an attacker dispatches fleets from the galaxy
+map toward a target planet, the attack vector (Δx, Δy from attacker's homeworld
+to target) determines which corner of the 20×20 the fleets enter from:
+
+| Δx sign | Δy sign | Spawn Corner |
+|---------|---------|--------------|
+| ≥ 0 | ≥ 0 | (0, 0) — top-left |
+| < 0 | ≥ 0 | (19, 0) — top-right |
+| ≥ 0 | < 0 | (0, 19) — bottom-left |
+| < 0 | < 0 | (19, 19) — bottom-right |
+
+Multiple attacker fleets spread across the entry edge starting from the corner
+tile. Defending fleets spawn on free tiles adjacent to the defender's Space
+Station building.
+
+**Tile occupancy rules:**
+- A tile may hold at most **one fleet stack OR one defense building footprint**.
+- Defense buildings keep their multi-tile footprint (per GDD §2.2.9).
+- **Meteor Stars block movement** entirely — they are terrain. Attackers must
+  destroy them or path around them.
+- Fleets pass through their own units; they cannot pass through enemy units.
+
+#### 8.6.3 Movement (Tile-Based)
+
+Each fleet has a **Movement** stat = MIN(stack.total_movement) across all
+stacks in the fleet (slowest ship sets pace).
+
+```
+At the start of each round, BEFORE firing:
+  movement_budget = fleet.movement_points (1–N depending on engines)
+
+  fleet attempts to move to the optimal tile for its targeting command
+  (closest enemy in range, kite distance, etc. — see 8.6.10 AI movement).
+
+  Movement is straight-line tile-by-tile (4-direction or 8-direction TBD;
+  GO2 appears to use 8-directional Chebyshev distance).
+
+  Cannot enter a tile occupied by enemy or by Meteor Star terrain.
+  Path is computed by A* with movement_budget as cap.
+```
+
+Movement bonuses come from engines (Super Transmission Engine +1, Anti-Matter
+Engine +2, etc.) and from the defender-only tech **Augment Propulsion**
+(+1–2 Movement when defending own planet).
+
+#### 8.6.4 Weapon Range (Measured in Tiles)
+
+Range is measured in **Chebyshev tile distance** on the battle map (NOT in 3×3
+fleet-grid rows, NOT abstract). A weapon may fire at a target stack iff:
+
+```
+min_range ≤ chebyshev(attacker.tile, target.tile) ≤ max_range
+AND weapon_cooldown_remaining == 0
+AND line_of_sight (no Meteor Star terrain blocks straight line)
+```
+
+Per-class ranges (base; tech research extends max range):
+
+| Weapon Class | Base Min–Max Range | Researched Max | Cooldown | He3 Cost |
+|--------------|--------------------|----------------|----------|----------|
+| Ballistic | 1–2 tiles | 1–4 | 0 rounds | Lowest |
+| Directional | 2–5 tiles | 2–6 | 1 round | Low |
+| Missile | 5–8 tiles | 5–10 | 3 rounds | High (2×) |
+| Ship-Based | 6–10 tiles | 6–15 | 4 rounds | Highest (4×) |
+| Planetary (defense) | 1–2 tiles | 1–2 | 1 round | Low |
+
+Defense building ranges (per GDD §2.7.3, in tiles):
+
+| Building | Range | Notes |
+|----------|-------|-------|
+| Particle Cannon | 8–17 tiles | Long-range energy turret |
+| Anti-Aircraft Gun | up to 30 tiles | AoE: hits target tile + 8 surrounding tiles |
+| Thor's Cannon | TBD | Heavy bombardment |
+| Meteor Star | 0 (terrain) | Blocks movement, has HP, no attack |
+
+**AoE / Splash patterns** (apply to anything fired by these weapons):
+
+```
+Anti-Aircraft Gun  →  3×3 around target tile (target tile + 8 neighbors).
+                       Damage to non-primary tiles = 50% of primary damage.
+
+Scatter (ship weapons w/ Scatter tech)
+                   →  Adjacent stacks within the SAME fleet's 3×3 phalanx
+                       (see §8.6.5 Phalanx). Bypasses shields and armor.
+                       Distinct from battle-map AoE.
+```
+
+#### 8.6.5 The 3×3 Phalanx (Per-Fleet Exposure Model)
+
+The 3×3 fleet grid documented in §8.5 is a **separate, smaller abstraction
+that lives on top of each fleet's battle-map tile** — it is NOT the battle map
+itself. While a fleet occupies a single tile on the 20×20 battle map, the
+ships inside that fleet are arranged in a 3×3 phalanx that determines:
+
+- **Attack power per stack** by row (row 0 = 100%, row 1 = 90%, row 2 = 75%).
+- **Exposure to incoming damage** (front rank takes the brunt; Glasshouse [1,1]
+  is the most protected slot).
+- **Scatter targets** for splash weapons that hit "adjacent stacks in the
+  enemy phalanx" (within 1 row/col Chebyshev distance inside the 3×3).
+
+Stacks **do not move within the 3×3** during combat. Formations (Phalanx,
+Diamond, Battle Line, etc., per §8.5.3) decide which of the 9 slots are
+populated and active for that fight.
+
+**Two coordinate systems coexist:**
+
+| System | Axis | Meaning |
+|--------|------|---------|
+| Battle map | 20×20 tiles | Where each fleet/building sits and how they path |
+| Phalanx | 3×3 within a fleet | Per-stack exposure, attack modifier, scatter targeting |
+
+#### 8.6.6 Initiative & Action Order
+
+Within each round, every stack and every defense building takes one turn. Turn
+order is sorted by **Commander Speed** descending (defense buildings have an
+implicit fixed Speed value, TBD per building type). On Speed ties, defender
+acts first.
+
+A unit's turn:
+
+1. **Move** (fleets only) — spend up to `movement_budget` tiles using A*.
+2. **Acquire target** — apply targeting command (§8.6.11) to find a target
+   within range.
+3. **Fire** — resolve the 8 damage sub-phases below (§8.6.7) against the target.
+4. **Apply AoE / Scatter** as applicable.
+5. **Tick cooldowns and debuffs.**
+
+Buildings cannot move; they only target and fire.
+
+#### 8.6.7 Damage Resolution Sub-Phases (Per Attacking Stack, Per Round)
+
+> The 8 sub-phases below describe how a single stack's volley resolves once it
+> has selected a target via §8.6.6. They are an internal implementation detail
+> of the combat engine — they do **not** replace the round/move/fire structure
+> above; they live inside step 3.
+
+#### 8.6.8 Effective Stack
 
 Effective Stack determines how many ships in a stack can attack per round.
 
@@ -3905,7 +4193,7 @@ CombatReadiness = AttackingShips / EffectiveStack * 100%
 | 14 | +8,100 |
 | 15 | +10,000 |
 
-#### 8.6.3 The 8 Phases (Per Round, Per Attacking Stack)
+#### 8.6.9 The 8 Damage Sub-Phases (Per Firing Stack)
 
 **Phase 1: Attacker Fires**
 ```
@@ -4038,12 +4326,90 @@ RemainingShips = max(0, ShipsInStack - ShipsDestroyed)
 ScatterDamage = WeaponDamage * ScatterPercent  // From tech research
 
 // Scatter bypasses ALL defenses (shields, structure bonuses, armor)
-FOR EACH adjacent stack on defender grid:
+// "Adjacent" here = within 1 row/col Chebyshev distance INSIDE the
+// defender's 3x3 phalanx (NOT the 20x20 battle map).
+FOR EACH adjacent stack inside target fleet's phalanx:
   AdjacentShipsDestroyed = floor(ScatterDamage / AdjacentShipStructure)
   AdjacentStack.ships -= AdjacentShipsDestroyed
 ```
 
-#### 8.6.4 Armor Type vs Damage Type Matrix
+#### 8.6.10 AI Movement (Auto-Resolved)
+
+Fleets are auto-piloted. Each round, before firing, a fleet's AI picks a
+destination tile by these rules (priority order):
+
+1. **Engagement range** — if no enemy is within `weapon.max_range`, move toward
+   the nearest enemy along the shortest tile path.
+2. **Kite distance** — if equipped weapon has a `min_range > 1` (Missile,
+   Ship-Based), prefer tiles where `chebyshev(self, nearest_enemy) ≥ min_range`
+   so the weapon can fire next round.
+3. **Targeting command preference** — apply the fleet's targeting command (8.6.11)
+   to choose which enemy to approach when multiple are equidistant.
+4. **Defensive pull** — defending fleets may not voluntarily leave the area
+   immediately around the Space Station (TBD: configurable defender behavior).
+
+Fleets always spend at least 1 movement point per round if any reachable tile
+improves their firing position.
+
+#### 8.6.11 Targeting Commands & Weapon-Class AI Bias
+
+The fleet's `targeting_command` (set in §8.5.5) selects which enemy to fire on
+when multiple are in range. **Additionally**, GO2 applies weapon-class AI biases
+that override the manual command for AI fleets in PvE and contribute to PvP
+target selection:
+
+| Weapon Class | Default AI Target Preference |
+|--------------|------------------------------|
+| Ballistic | Closest enemy stack |
+| Directional | Closest enemy stack |
+| Missile | Highest total-attack enemy fleet |
+| Ship-Based | Highest total-durability enemy fleet |
+| Planetary (defenses) | Closest enemy fleet |
+
+For player fleets in PvP, the manually-chosen `targeting_command` overrides
+these defaults.
+
+#### 8.6.12 Defense Buildings as Combat Units
+
+Defense buildings keep their tile footprint from base construction and act as
+stationary turrets during combat. Each is treated as a single combat stack
+with stats derived from its level:
+
+| Property | Source |
+|----------|--------|
+| Tile position | `buildings.grid_col, grid_row` (multi-tile per §2.2.9) |
+| HP | Building level → HP curve (per §2.7.3 RBP Defense table) |
+| Attack range | Tile values per §8.6.4 weapon table |
+| Damage | Building-level scaling (per §2.7.3) |
+| Speed (initiative) | Fixed per building type, TBD |
+| Movement | 0 (stationary) |
+| Faction | Defender |
+
+**Repair after combat:**
+
+| Mode | Building HP After Combat |
+|------|--------------------------|
+| PvP Defense (your base attacked) | Damage persists; buildings auto-regen on a cooldown OR repair via Spacedock-equivalent for buildings (TBD) |
+| RBP Conquest | On takeover, all defenses reset to Level 1 (per §2.7.4) |
+| Instance | N/A — instance enemies are loaded fresh each attempt |
+
+#### 8.6.13 Battle Replay Viewer
+
+Combat is auto-resolved on the server. The client receives the full round-by-
+round log (`combat_reports.rounds_json`) and plays it back as an **animated
+tactical replay** on the 20×20 grid:
+
+- Camera centered on the battle map.
+- Each round: animate movement of every unit to its new tile, then fire
+  animations (projectile or beam VFX between attacker and target tiles), then
+  damage numbers and casualties.
+- Controls: play / pause / scrub / 2× / 4× speed (already implemented in the
+  current `BattlePlayback` component, which only renders the textual log;
+  needs to be upgraded to render the spatial replay).
+- After playback ends, show a written **Battle Report** summary (ships sent,
+  ships destroyed, best-performing design, loot, He3 consumed).
+
+#### 8.6.14 Armor Type vs Damage Type Matrix
 
 | Damage Type | vs Chrome | vs Regen | vs Nano | vs Neutralizing | vs No Armor |
 |-------------|-----------|----------|---------|-----------------|-------------|
@@ -4057,24 +4423,26 @@ Regen: Weak vs Heat
 Nano: Strong vs Explosive, Weak vs Magnetic
 Neutralizing: Strong vs Magnetic, Weak vs Kinetic
 
-#### 8.6.5 Weapon Properties Summary
+#### 8.6.15 Weapon Properties Summary
 
-| Weapon Class | Range | Cooldown | Power | He3 Cost | Shield Pierce | Interceptable |
-|-------------|-------|----------|-------|----------|---------------|---------------|
-| Ballistic | 1-2 | 0 | Lowest | Lowest | Yes (with tech) | No |
-| Directional | 2-5 | 1 | Mid-Low | Low | Yes (with tech) | No |
-| Missile | 5-8 | 3 | Mid-High | High (2x) | No | Yes |
-| Ship-Based | 6-10 | 4 | Highest | Highest (4x) | No | Yes |
-| Planetary | 1-2 | 1 | N/A | Low | N/A | No |
+> Range column is in **tiles on the 20×20 battle map**, not 3×3 phalanx rows.
 
-#### 8.6.6 Combat Losses by Mode
+| Weapon Class | Range (tiles) | Cooldown | Power | He3 Cost | Shield Pierce | Interceptable |
+|-------------|----------------|----------|-------|----------|---------------|---------------|
+| Ballistic | 1–2 | 0 | Lowest | Lowest | Yes (with tech) | No |
+| Directional | 2–5 | 1 | Mid-Low | Low | Yes (with tech) | No |
+| Missile | 5–8 | 3 | Mid-High | High (2×) | No | Yes |
+| Ship-Based | 6–10 | 4 | Highest | Highest (4×) | No | Yes |
+| Planetary (defense) | 1–2 | 1 | N/A | Low | N/A | No |
+
+#### 8.6.16 Combat Losses by Mode
 
 | Mode | Ships Lost | He3 Lost | Repairable |
 |------|-----------|----------|------------|
 | Normal Instance | Yes | Yes | NO (permanent) |
 | PvP Attack | Yes | Yes | Yes (Spacedock) |
 
-#### 8.6.7 He3 Consumption
+#### 8.6.17 He3 Consumption
 
 ```
 He3Consumed = TotalRounds * SUM(
@@ -4091,7 +4459,16 @@ Ships must have enough He3 storage for the battle duration.
 
 #### 8.7.1 Overview
 
-30 Normal Instances providing progressive PvE challenges. All completable with Frigate/Cruiser/Battleship fleets (no Special Hulls or Flagships required).
+30 Normal Instances providing progressive PvE challenges. All completable with
+Frigate/Cruiser/Battleship fleets (no Special Hulls or Flagships required).
+
+**Battle model:** Same tile-based engine as PvP (§8.6). Each instance ships
+with a hand-authored 20×20 battle map containing the enemy fleet stacks
+already positioned, plus optional terrain (Meteor Stars). The player's fleets
+spawn at the configured entry edge. Resolution rules and round caps are
+identical to PvP, except instance attempts are **not** real-time on the galaxy
+map — the battle resolves immediately on submit, returning a full
+`combat_reports.rounds_json` for replay.
 
 | Property | Value |
 |----------|-------|
@@ -4100,6 +4477,8 @@ Ships must have enough He3 storage for the battle duration.
 | **Ship Loss** | Permanent (no Spacedock repair) |
 | **He3 Loss** | Yes |
 | **Rewards** | Treasure Box (resources + 10% blueprint chance) |
+| **Round Cap** | 99 (Scenario Instances cap at 30 — see §8.7.x scenarios) |
+| **Battle Map** | Hand-authored 20×20 grid per instance |
 
 #### 8.7.2 Instance List
 

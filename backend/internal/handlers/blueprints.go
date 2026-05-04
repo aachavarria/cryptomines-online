@@ -19,6 +19,7 @@ func ListBlueprints(w http.ResponseWriter, r *http.Request) {
 	rows, err := database.DB.Query(
 		`SELECT b.id, b.name,
 		        COALESCE(ht.display_name, mt.display_name, b.name) as display_name,
+		        b.blueprint_key,
 		        b.blueprint_type, b.hull_type_id, b.module_type_id,
 		        b.source, b.research_level, b.description,
 		        ht.hull_class, mt.category as module_category
@@ -39,7 +40,7 @@ func ListBlueprints(w http.ResponseWriter, r *http.Request) {
 		var b models.Blueprint
 		var hullClass, moduleCategory sql.NullString
 		err := rows.Scan(
-			&b.ID, &b.Name, &b.DisplayName, &b.BlueprintType, &b.HullTypeID, &b.ModuleTypeID,
+			&b.ID, &b.Name, &b.DisplayName, &b.BlueprintKey, &b.BlueprintType, &b.HullTypeID, &b.ModuleTypeID,
 			&b.Source, &b.ResearchLevel, &b.Description, &hullClass, &moduleCategory,
 		)
 		if err != nil {

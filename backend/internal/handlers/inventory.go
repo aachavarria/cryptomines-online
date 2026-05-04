@@ -75,6 +75,46 @@ func GetInventory(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(items)
 }
 
+// ItemTypeInfo is the public metadata for an item type, used by tooltips
+// and reward previews. Excludes player-scoped fields.
+type ItemTypeInfo struct {
+	ItemKey     string  `json:"item_key"`
+	DisplayName string  `json:"display_name"`
+	Category    string  `json:"category"`
+	Description string  `json:"description"`
+	IconName    *string `json:"icon_name"`
+}
+
+// ListItemTypes handles GET /api/item-types
+// Returns the static catalog of item types (display_name, description, etc).
+// Public — no auth required, used by quest reward tooltips and similar UI.
+func ListItemTypes(w http.ResponseWriter, _ *http.Request) {
+	rows, err := database.DB.Query(`
+		SELECT item_key, display_name, category, description, icon_name
+		FROM item_types
+		ORDER BY category, display_name
+	`)
+	if err != nil {
+		log.Printf("Failed to query item_types: %v", err)
+		http.Error(w, `{"error":"internal server error"}`, http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	items := []ItemTypeInfo{}
+	for rows.Next() {
+		var it ItemTypeInfo
+		if err := rows.Scan(&it.ItemKey, &it.DisplayName, &it.Category, &it.Description, &it.IconName); err != nil {
+			log.Printf("Failed to scan item_type row: %v", err)
+			continue
+		}
+		items = append(items, it)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(items)
+}
+
 // UseItem handles POST /api/inventory/{id}/use
 // Consumes item and applies effect based on category
 func UseItem(w http.ResponseWriter, r *http.Request) {

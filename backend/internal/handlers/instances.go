@@ -15,9 +15,21 @@ import (
 	"github.com/cryptomines-online/backend/internal/services"
 )
 
-type instanceWithBlueprints struct {
+// enemyFleetSummary is the parsed/aggregated view of enemy_fleets_json that
+// the InstanceDetail modal expects. The raw JSON groups entries per hull_type
+// + grid position; here we collapse to one row per hull_class and estimate
+// rough power so the player sees a digestible preview.
+type enemyFleetSummary struct {
+	HullClass     string `json:"hull_class"`
+	ShipCount     int    `json:"ship_count"`
+	PowerEstimate int    `json:"power_estimate"`
+}
+
+type instanceDetailResponse struct {
 	models.Instance
-	BlueprintIDs []int `json:"blueprint_ids"`
+	EnemyFleets   []enemyFleetSummary `json:"enemy_fleets"`
+	BlueprintPool []int               `json:"blueprint_pool"`
+	BlueprintIDs  []int               `json:"blueprint_ids"` // legacy alias
 }
 
 type attemptRequest struct {
@@ -130,8 +142,74 @@ func GetInstance(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	enemyFleets := summarizeEnemyFleets(inst.EnemyFleetsJSON)
+
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(instanceWithBlueprints{Instance: inst, BlueprintIDs: bpIDs})
+	json.NewEncoder(w).Encode(instanceDetailResponse{
+		Instance:      inst,
+		EnemyFleets:   enemyFleets,
+		BlueprintPool: bpIDs,
+		BlueprintIDs:  bpIDs,
+	})
+}
+
+// summarizeEnemyFleets parses enemy_fleets_json into a per-hull_class summary.
+// The raw shape is [{"hull_type": "weikes_i", "quantity": 55, "grid_row": 0,
+// "grid_col": 0}, ...]. We look up hull_class + tier from hull_types and
+// estimate power as quantity × tier × 100 (rough ballpark, good enough for a
+// pre-battle preview).
+func summarizeEnemyFleets(enemyFleetsJSON string) []enemyFleetSummary {
+	if enemyFleetsJSON == "" {
+		return []enemyFleetSummary{}
+	}
+	var raw []struct {
+		HullType string `json:"hull_type"`
+		Quantity int    `json:"quantity"`
+	}
+	if err := json.Unmarshal([]byte(enemyFleetsJSON), &raw); err != nil {
+		log.Printf("Failed to parse enemy_fleets_json: %v", err)
+		return []enemyFleetSummary{}
+	}
+	if len(raw) == 0 {
+		return []enemyFleetSummary{}
+	}
+
+	type agg struct {
+		count int
+		power int
+	}
+	byClass := map[string]*agg{}
+	for _, e := range raw {
+		var hullClass string
+		var tier int
+		err := database.DB.QueryRow(
+			`SELECT hull_class, tier FROM hull_types WHERE name = $1`, e.HullType,
+		).Scan(&hullClass, &tier)
+		if err != nil {
+			// Unknown hull — skip silently rather than crash the whole preview.
+			continue
+		}
+		a := byClass[hullClass]
+		if a == nil {
+			a = &agg{}
+			byClass[hullClass] = a
+		}
+		a.count += e.Quantity
+		a.power += e.Quantity * tier * 100
+	}
+
+	out := make([]enemyFleetSummary, 0, len(byClass))
+	// Preserve a stable order: frigate, cruiser, battleship.
+	for _, cls := range []string{"frigate", "cruiser", "battleship"} {
+		if a, ok := byClass[cls]; ok {
+			out = append(out, enemyFleetSummary{HullClass: cls, ShipCount: a.count, PowerEstimate: a.power})
+			delete(byClass, cls)
+		}
+	}
+	for cls, a := range byClass {
+		out = append(out, enemyFleetSummary{HullClass: cls, ShipCount: a.count, PowerEstimate: a.power})
+	}
+	return out
 }
 
 // AttemptInstance handles POST /api/instances/{id}/attempt

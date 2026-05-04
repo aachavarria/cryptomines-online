@@ -96,10 +96,12 @@ func claimQuest(t *testing.T, playerID, pqID string) (int, map[string]any) {
 	return rr.Code, body
 }
 
-// TestClaimQuest_BlueprintReward_Estrella reproduces the original bug
-// "Failed to find blueprint estrella: sql: no rows in result set" and verifies
-// the blueprint item is granted via player_inventory after the migration.
-func TestClaimQuest_BlueprintReward_Estrella(t *testing.T) {
+// TestClaimQuest_BlueprintReward_Q7 reproduces the original "Failed to find
+// blueprint X: sql: no rows in result set" bug class and verifies the
+// blueprint item is granted via player_inventory after the migration.
+// Q7 was realigned (migration 20260501000000) to award
+// ship_reinforcement_facility instead of estrella.
+func TestClaimQuest_BlueprintReward_Q7(t *testing.T) {
 	setupQuestTestDB(t)
 	playerID := "00000000-0000-0000-0000-000000000901"
 	defer cleanupQuestTestPlayer(t, playerID)
@@ -114,13 +116,13 @@ func TestClaimQuest_BlueprintReward_Estrella(t *testing.T) {
 	var qty int
 	err := database.DB.QueryRow(`
 		SELECT quantity FROM player_inventory
-		WHERE player_id = $1 AND item_key = 'blueprint_estrella'
+		WHERE player_id = $1 AND item_key = 'blueprint_ship_reinforcement_facility'
 	`, playerID).Scan(&qty)
 	if err != nil {
-		t.Fatalf("expected blueprint_estrella in inventory, got: %v", err)
+		t.Fatalf("expected blueprint_ship_reinforcement_facility in inventory, got: %v", err)
 	}
 	if qty != 1 {
-		t.Errorf("blueprint_estrella quantity: got %d, want 1", qty)
+		t.Errorf("blueprint_ship_reinforcement_facility quantity: got %d, want 1", qty)
 	}
 
 	var status string
@@ -136,7 +138,12 @@ func TestClaimQuest_BlueprintReward_Estrella(t *testing.T) {
 
 // TestClaimQuest_AllBlueprintRewards verifies every quest with a blueprint
 // reward references a blueprint_key that resolves and gets inserted into
-// player_inventory. Catches the entire class of bug, not just estrella.
+// player_inventory. Catches the entire class of bug, not just one quest.
+//
+// Quests with multi-blueprint rewards (Q10, Q17 after the realign migration)
+// are claimed once and all blueprint_keys are checked against the same
+// inventory row insertion — a quest can only be claimed once, so we group
+// keys by quest_key before looping.
 func TestClaimQuest_AllBlueprintRewards(t *testing.T) {
 	setupQuestTestDB(t)
 	playerID := "00000000-0000-0000-0000-000000000902"
@@ -155,38 +162,46 @@ func TestClaimQuest_AllBlueprintRewards(t *testing.T) {
 	}
 	defer rows.Close()
 
-	type pair struct{ Quest, Key string }
-	var entries []pair
+	questKeys := map[string][]string{}
+	var order []string
 	for rows.Next() {
-		var p pair
-		if err := rows.Scan(&p.Quest, &p.Key); err != nil {
+		var quest, key string
+		if err := rows.Scan(&quest, &key); err != nil {
 			t.Fatalf("scan: %v", err)
 		}
-		if p.Key != "" {
-			entries = append(entries, p)
+		if key == "" {
+			continue
 		}
+		if _, seen := questKeys[quest]; !seen {
+			order = append(order, quest)
+		}
+		questKeys[quest] = append(questKeys[quest], key)
 	}
-	if len(entries) == 0 {
+	if len(questKeys) == 0 {
 		t.Fatal("no quests with blueprint rewards found")
 	}
 
-	for _, e := range entries {
-		t.Run(e.Quest+"->"+e.Key, func(t *testing.T) {
-			pqID := markQuestCompleted(t, playerID, e.Quest)
+	for _, quest := range order {
+		keys := questKeys[quest]
+		t.Run(quest, func(t *testing.T) {
+			pqID := markQuestCompleted(t, playerID, quest)
 			code, _ := claimQuest(t, playerID, pqID)
 			if code != http.StatusOK {
-				t.Fatalf("claim %s: status=%d", e.Quest, code)
+				t.Fatalf("claim %s: status=%d", quest, code)
 			}
-			var qty int
-			err := database.DB.QueryRow(`
-				SELECT quantity FROM player_inventory
-				WHERE player_id = $1 AND item_key = $2
-			`, playerID, "blueprint_"+e.Key).Scan(&qty)
-			if err != nil {
-				t.Fatalf("blueprint_%s missing from inventory: %v", e.Key, err)
-			}
-			if qty < 1 {
-				t.Errorf("blueprint_%s qty: got %d, want >=1", e.Key, qty)
+			for _, key := range keys {
+				var qty int
+				err := database.DB.QueryRow(`
+					SELECT quantity FROM player_inventory
+					WHERE player_id = $1 AND item_key = $2
+				`, playerID, "blueprint_"+key).Scan(&qty)
+				if err != nil {
+					t.Errorf("blueprint_%s missing from inventory: %v", key, err)
+					continue
+				}
+				if qty < 1 {
+					t.Errorf("blueprint_%s qty: got %d, want >=1", key, qty)
+				}
 			}
 		})
 	}

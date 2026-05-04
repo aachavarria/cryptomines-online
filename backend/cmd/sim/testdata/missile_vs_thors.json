@@ -1,0 +1,58 @@
+{
+  "name": "missile-fleet-vs-thors-cannon",
+  "round_cap": 30,
+  "terrain": [
+    { "kind": "meteor_star", "col": 8, "row": 8, "hp": 40000 },
+    { "kind": "meteor_star", "col": 9, "row": 8, "hp": 40000 }
+  ],
+  "units": [
+    {
+      "id": "atk_missile",
+      "side": "attacker",
+      "kind": "fleet",
+      "tile": [0, 0],
+      "speed": 50,
+      "movement": 4,
+      "target_cmd": "max_durability",
+      "stacks": [
+        {
+          "grid_row": 0, "grid_col": 1,
+          "hull_class": "battleship",
+          "ship_count": 200,
+          "weapon_class": "missile", "weapon_name": "starlight_missile",
+          "damage_type": "explosive",
+          "min_range": 5, "max_range": 8, "cooldown": 3,
+          "base_damage_min": 1500, "base_damage_max": 2500,
+          "hit_chance": 0.85,
+          "shield_hp": 80000, "struct_hp": 200000,
+          "accuracy": 50, "dodge": 20
+        }
+      ]
+    },
+    {
+      "id": "def_thors",
+      "side": "defender",
+      "kind": "building",
+      "tile": [15, 15],
+      "footprint": [[15, 15], [16, 15], [15, 16], [16, 16]],
+      "speed": 10,
+      "movement": 0,
+      "target_cmd": "closest",
+      "stacks": [
+        {
+          "grid_row": 0, "grid_col": 0,
+          "hull_class": "building",
+          "ship_count": 1500000,
+          "weapon_class": "planetary", "weapon_name": "thors_cannon",
+          "damage_type": "heat",
+          "armor_type": "chrome",
+          "min_range": 1, "max_range": 25, "cooldown": 2,
+          "base_damage_min": 50000, "base_damage_max": 150000,
+          "hit_chance": 0.85,
+          "shield_hp": 100000, "struct_hp": 1500000,
+          "accuracy": 80, "dodge": 5
+        }
+      ]
+    }
+  ]
+}

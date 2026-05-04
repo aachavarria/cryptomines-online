@@ -37,6 +37,7 @@ func main() {
 	mux.HandleFunc("GET /api/hull-types", handlers.ListHullTypes)
 	mux.HandleFunc("GET /api/module-types", handlers.ListModuleTypes)
 	mux.HandleFunc("GET /api/blueprints", handlers.ListBlueprints)
+	mux.HandleFunc("GET /api/item-types", handlers.ListItemTypes)
 
 	// Protected routes (require JWT)
 	protected := http.NewServeMux()

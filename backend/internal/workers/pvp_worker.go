@@ -60,7 +60,11 @@ func resolveArrivedAttacks() {
 		}
 
 		log.Printf("[PvP Worker] Resolving attack %s: %s → %s", attackID, attackerID, defenderID)
-		resolveAttack(attackID, attackerID, defenderID, defenderPlanet, fleetIDs, travelSeconds)
+		if useTileEngine() {
+			resolveAttackTile(attackID, attackerID, defenderID, defenderPlanet, fleetIDs, travelSeconds)
+		} else {
+			resolveAttack(attackID, attackerID, defenderID, defenderPlanet, fleetIDs, travelSeconds)
+		}
 	}
 }
 

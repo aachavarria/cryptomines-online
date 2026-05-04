@@ -263,6 +263,19 @@ export async function getActiveBlueprintResearch(): Promise<ActiveBlueprintResea
   return data
 }
 
+export interface ItemTypeInfo {
+  item_key: string
+  display_name: string
+  category: string
+  description: string
+  icon_name: string | null
+}
+
+export async function listItemTypes(): Promise<ItemTypeInfo[]> {
+  const { data } = await api.get<ItemTypeInfo[]>('/item-types')
+  return data
+}
+
 // ============ Phase 2: Fleets ============
 
 export async function listFleets(): Promise<Fleet[]> {
@@ -512,8 +525,9 @@ export interface Commander {
   dodge: number
   speed: number
   electron: number
-  weapon_expertise?: string
-  ship_expertise?: string
+  // JSONB columns from backend: per-category grade ("S"|"A"|"B"|"C"|"D")
+  weapon_expertise?: Record<string, string>
+  ship_expertise?: Record<string, string>
   is_deployed: boolean
   created_at: string
   updated_at: string

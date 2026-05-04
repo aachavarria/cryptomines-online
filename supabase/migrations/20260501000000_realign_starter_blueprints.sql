@@ -26,10 +26,13 @@ SET reward_item_json = '[{"type":"blueprint","blueprint_key":"ship_reinforcement
 WHERE quest_key = 'main_07_he3_production';
 
 -- Quest 8 (Blueprints 2): retarget the "use_blueprint" requirement to
--- ship_reinforcement_facility (was estrella) and award Atomic Framework BP
+-- ship_reinforcement_facility (was estrella) and award Atomic Framework BP.
+-- Also rewrite the description: it still mentioned the old Estrella target,
+-- which would confuse players after the realign.
 UPDATE quest_types
 SET requirement_target = 'ship_reinforcement_facility',
-    reward_item_json   = '[{"type":"blueprint","blueprint_key":"atomic_framework"}]'
+    reward_item_json   = '[{"type":"blueprint","blueprint_key":"atomic_framework"}]',
+    description        = 'Equip your fleet with structural defenses. Use the Ship Reinforcement Facility blueprint on a ship design to reduce incoming damage in combat.'
 WHERE quest_key = 'main_08_blueprints_2';
 
 -- Quest 10 (Ship Factory): Typhoon -> Weikes hull + Rapid Fire weapon

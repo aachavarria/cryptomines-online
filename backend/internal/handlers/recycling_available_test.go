@@ -165,11 +165,13 @@ func TestListAvailableShips_ExcludesDeployedShips(t *testing.T) {
 		t.Fatalf("Failed to create ship design: %v", err)
 	}
 
-	// 5 ships of this design exist; 2 will be assigned to a fleet, 3 should
-	// remain available for recycling.
+	// 5 ships of this design were built; 2 are deployed to a fleet, so
+	// ships.quantity (the available pool, mutated by fleet add/remove) is 3.
+	// The fleet_stack is also written to mirror real state and ensure the
+	// available endpoint does NOT double-subtract.
 	if _, err := database.DB.Exec(`
 		INSERT INTO ships (player_id, ship_design_id, quantity, production_slot)
-		VALUES ($1, $2, 5, 1)
+		VALUES ($1, $2, 3, 1)
 	`, playerID, designID); err != nil {
 		t.Fatalf("ships: %v", err)
 	}

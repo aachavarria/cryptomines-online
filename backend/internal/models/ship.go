@@ -51,6 +51,7 @@ type Blueprint struct {
 	ID             int    `json:"id"`
 	Name           string `json:"name"`
 	DisplayName    string `json:"display_name"`
+	BlueprintKey   string `json:"blueprint_key"`
 	BlueprintType  string `json:"blueprint_type"`
 	HullTypeID     *int   `json:"hull_type_id"`
 	ModuleTypeID   *int   `json:"module_type_id"`

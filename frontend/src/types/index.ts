@@ -243,6 +243,7 @@ export interface Blueprint {
   id: number
   name: string
   display_name: string
+  blueprint_key: string
   blueprint_type: 'hull' | 'module'
   hull_type_id: number | null
   module_type_id: number | null
@@ -289,6 +290,12 @@ export interface Fleet {
   targeting_command: string
   commander_id: string | null
   status: 'stationed' | 'traveling' | 'combat'
+  planet_id: string | null
+  position_x: number | null
+  position_y: number | null
+  destination_x: number | null
+  destination_y: number | null
+  arrival_at: string | null
   stacks: FleetStack[]
   created_at: string
 }
@@ -306,6 +313,7 @@ export interface FleetStack {
 
 export interface CreateFleetRequest {
   name: string
+  planet_id?: string
   formation?: string
   targeting_command?: string
 }
@@ -403,7 +411,7 @@ export interface PlayerQuestWithType {
   reward_metal: number
   reward_he3: number
   reward_gold: number
-  reward_item_json: string | null
+  reward_item_json: unknown
 }
 
 export interface QuestsResponse {

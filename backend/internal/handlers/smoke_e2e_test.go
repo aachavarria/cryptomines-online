@@ -100,7 +100,7 @@ func TestSmokeE2E_FullPlayerJourney(t *testing.T) {
 
 	ensurePlayerQuests(playerID)
 
-	// ---- 3. claim main_07 (estrella blueprint reward) ----------------------
+	// ---- 3. claim main_07 (ship_reinforcement_facility blueprint reward) ----
 	var pqID string
 	if err := database.DB.QueryRow(`
 		UPDATE player_quests pq
@@ -117,9 +117,9 @@ func TestSmokeE2E_FullPlayerJourney(t *testing.T) {
 	}
 	var inventoryQty int
 	if err := database.DB.QueryRow(`
-		SELECT quantity FROM player_inventory WHERE player_id = $1 AND item_key = 'blueprint_estrella'
+		SELECT quantity FROM player_inventory WHERE player_id = $1 AND item_key = 'blueprint_ship_reinforcement_facility'
 	`, playerID).Scan(&inventoryQty); err != nil || inventoryQty < 1 {
-		t.Fatalf("blueprint_estrella missing after quest claim: qty=%d err=%v", inventoryQty, err)
+		t.Fatalf("blueprint_ship_reinforcement_facility missing after quest claim: qty=%d err=%v", inventoryQty, err)
 	}
 
 	// ---- 4. start a research (concurrent_construction has no prereq) -------

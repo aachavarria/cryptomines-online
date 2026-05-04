@@ -80,6 +80,10 @@ func RecruitCommander(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Promote any buildings whose construction has finished so a freshly-built
+	// Command Center counts toward the level check below.
+	applyCompletedUpgrades(planetID)
+
 	// Check Gold cost
 	if resources.Gold < RecruitmentCostGold {
 		errs.InsufficientResources(
@@ -104,15 +108,27 @@ func RecruitCommander(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check Command Center cooldown based on level
+	// Check Command Center cooldown based on level. Building must be fully
+	// constructed (level >= 1, not still upgrading from 0).
 	var ccLevel int
 	err = tx.QueryRow(`
-		SELECT COALESCE(b.level, 0) FROM buildings b
-		JOIN building_types bt ON b.building_type_id = bt.id
+		SELECT b.level FROM buildings b
+		JOIN building_types bt ON b.building_type = bt.id
 		WHERE b.planet_id = $1 AND bt.name = 'command_center'
+		ORDER BY b.level DESC
+		LIMIT 1
 	`, planetID).Scan(&ccLevel)
-	if err != nil || ccLevel == 0 {
+	if err == sql.ErrNoRows {
 		http.Error(w, `{"error":"command center not built"}`, http.StatusConflict)
+		return
+	}
+	if err != nil {
+		log.Printf("Failed to query command center level: %v", err)
+		http.Error(w, `{"error":"internal server error"}`, http.StatusInternalServerError)
+		return
+	}
+	if ccLevel < 1 {
+		http.Error(w, `{"error":"command center still under construction"}`, http.StatusConflict)
 		return
 	}
 
@@ -176,10 +192,11 @@ func RecruitCommander(w http.ResponseWriter, r *http.Request) {
 	var isDuplicate bool
 
 	if err == sql.ErrNoRows {
-		// New commander - insert into commanders table
+		// New commander - insert into commanders table. New recruits start at
+		// star rank 1; duplicates merged later promote rank up to 15.
 		err = tx.QueryRow(`
 			INSERT INTO commanders (player_id, name, rarity, star_rank, accuracy, dodge, speed, electron, is_deployed)
-			VALUES ($1, $2, $3, 0, $4, $5, $6, $7, false)
+			VALUES ($1, $2, $3, 1, $4, $5, $6, $7, false)
 			RETURNING id, player_id, name, rarity, star_rank, accuracy, dodge, speed, electron, is_deployed, created_at, updated_at
 		`, playerID, commanderType.Name, commanderType.Rarity,
 			commanderType.Accuracy, commanderType.Dodge, commanderType.Speed, commanderType.Electron).Scan(

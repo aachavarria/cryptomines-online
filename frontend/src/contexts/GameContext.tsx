@@ -107,6 +107,7 @@ export interface GameState {
   showContextMenu: boolean
   contextMenuScreenPos: { x: number; y: number } | null
   showDetailPanel: boolean
+  showCommandCenterPanel: boolean
   showConstructPanel: boolean
   placementMode: PlacementMode
   // Map building id -> grid position (persisted client-side for now)
@@ -130,6 +131,8 @@ type GameAction =
   | { type: 'SHOW_CONTEXT_MENU'; payload: boolean }
   | { type: 'OPEN_DETAIL_PANEL' }
   | { type: 'CLOSE_DETAIL_PANEL' }
+  | { type: 'OPEN_COMMAND_CENTER_PANEL' }
+  | { type: 'CLOSE_COMMAND_CENTER_PANEL' }
   | { type: 'SHOW_CONSTRUCT_PANEL'; payload: boolean }
   | { type: 'SET_PLACEMENT_MODE'; payload: PlacementMode }
   | { type: 'PLACE_BUILDING'; payload: { buildingId: string; position: GridPosition } }
@@ -152,6 +155,7 @@ const initialState: GameState = {
   showContextMenu: false,
   contextMenuScreenPos: null,
   showDetailPanel: false,
+  showCommandCenterPanel: false,
   showConstructPanel: false,
   placementMode: { active: false },
   buildingPositions: {},
@@ -191,6 +195,10 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       return { ...state, showDetailPanel: true, showContextMenu: false }
     case 'CLOSE_DETAIL_PANEL':
       return { ...state, showDetailPanel: false, selectedBuilding: null }
+    case 'OPEN_COMMAND_CENTER_PANEL':
+      return { ...state, showCommandCenterPanel: true, showContextMenu: false }
+    case 'CLOSE_COMMAND_CENTER_PANEL':
+      return { ...state, showCommandCenterPanel: false }
     case 'SHOW_CONSTRUCT_PANEL':
       return {
         ...state,
@@ -236,6 +244,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         selectedBuilding: null,
         showContextMenu: false,
         showDetailPanel: false,
+        showCommandCenterPanel: false,
         placementMode: state.placementMode.active ? { active: false } : state.placementMode,
       }
     default:
@@ -250,6 +259,8 @@ interface GameContextValue {
   deselectAll: () => void
   openDetailPanel: () => void
   closeDetailPanel: () => void
+  openCommandCenterPanel: () => void
+  closeCommandCenterPanel: () => void
   openConstructPanel: () => void
   closeConstructPanel: () => void
   enterPlacementMode: (buildingTypeName: string) => void
@@ -286,6 +297,14 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   const closeDetailPanel = useCallback(() => {
     dispatch({ type: 'CLOSE_DETAIL_PANEL' })
+  }, [])
+
+  const openCommandCenterPanel = useCallback(() => {
+    dispatch({ type: 'OPEN_COMMAND_CENTER_PANEL' })
+  }, [])
+
+  const closeCommandCenterPanel = useCallback(() => {
+    dispatch({ type: 'CLOSE_COMMAND_CENTER_PANEL' })
   }, [])
 
   const openConstructPanel = useCallback(() => {
@@ -341,6 +360,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
       deselectAll,
       openDetailPanel,
       closeDetailPanel,
+      openCommandCenterPanel,
+      closeCommandCenterPanel,
       openConstructPanel,
       closeConstructPanel,
       enterPlacementMode,
